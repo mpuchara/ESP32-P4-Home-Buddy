@@ -18,7 +18,27 @@ endif()
 add_executable(test_font test_font.c "${HB_FONT_SOURCE}"
   "${LVGL_SOURCE_DIR}/src/font/lv_font.c"
   "${LVGL_SOURCE_DIR}/src/font/lv_font_fmt_txt.c"
+  "${LVGL_SOURCE_DIR}/src/font/lv_font_montserrat_14.c"
   "${LVGL_SOURCE_DIR}/src/misc/lv_utils.c")
 target_include_directories(test_font PRIVATE "${LVGL_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_definitions(test_font PRIVATE LV_CONF_INCLUDE_SIMPLE LV_KCONFIG_IGNORE)
 add_test(NAME font_bitmaps COMMAND test_font)
+set(CJSON_SOURCE_DIR "$ENV{IDF_PATH}/components/json/cJSON" CACHE PATH "Pinned cJSON 1.7.18")
+add_executable(test_dashboard test_dashboard.c ../components/core/dashboard.c ../components/core/geometry.c
+ ../components/services/temperature.c "${CJSON_SOURCE_DIR}/cJSON.c")
+target_include_directories(test_dashboard PRIVATE ../components/core/include "${CJSON_SOURCE_DIR}")
+if(NOT MSVC)
+ target_link_libraries(test_dashboard PRIVATE m)
+endif()
+add_test(NAME dashboard COMMAND test_dashboard)
+file(GLOB_RECURSE LVGL_HOST_SOURCES "${LVGL_SOURCE_DIR}/src/*.c")
+add_library(lvgl_host STATIC ${LVGL_HOST_SOURCES})
+target_include_directories(lvgl_host PUBLIC "${LVGL_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(lvgl_host PUBLIC LV_CONF_INCLUDE_SIMPLE LV_KCONFIG_IGNORE)
+if(NOT MSVC)
+ target_link_libraries(lvgl_host PUBLIC m)
+endif()
+add_executable(test_navigation test_navigation.c ../components/ui/screen_lifecycle.c)
+target_include_directories(test_navigation PRIVATE ../components/ui)
+target_link_libraries(test_navigation PRIVATE lvgl_host)
+add_test(NAME navigation COMMAND test_navigation)

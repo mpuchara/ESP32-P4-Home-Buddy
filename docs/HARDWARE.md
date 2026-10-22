@@ -52,3 +52,12 @@ menu transitions. Then test C6 version, scan, association/DHCP, disconnect/recon
 A serial "panel initialized" message alone does not establish visible image quality.
 Camera capture, audio capture, AI inference, OTA and 72-hour soak are NOT VERIFIED
 ON HARDWARE until separately logged.
+
+## Iteration 2 evidence, 2026-10-22
+
+0.2.0-dev wifi profile built and was flashed/hash-verified on COM5. Startup reports
+LVGL ready and ESP-Hosted scan ESP_OK with 8 records. C6 version metadata still
+times out; legacy station scan works with untouched C6 flash. Host software checks
+do not establish physical JPEG colors, touch corners, brightness or live DHCP.
+Operator tests for the synthetic JPEG, greeting, corners/drag and provisioning
+have been requested. Preserve their pending status until an actual response.

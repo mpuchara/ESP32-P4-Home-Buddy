@@ -25,19 +25,30 @@ Use local microSD assets if required; pin hashes, licenses and model format/vers
 Never fetch a model from a server as a runtime requirement. Signed OTA, rollback,
 model compatibility and partition migration are not implemented.
 
-## PSRAM hypothesis: 32 MiB
+## PSRAM: measured 32 MiB, provisional simultaneous budget
 
 | Allocation | Bytes |
 |---|---:|
 | Two native RGB565 framebuffers | 1,536,000 |
 | One logical RGB565 LVGL framebuffer | 768,000 |
-| Planned two decoded display snapshots | 1,536,000 |
-| Planned capped JPEG staging | 2,097,152 |
+| Two display snapshots during replacement | 1,536,000 |
+| Capped JPEG staging | 2,097,152 |
 | Example two 640×480 RGB888 capture frames | 1,843,200 |
 | Example six seconds 16 kHz mono PCM | 192,000 |
 
-Only the first two framebuffer rows are implemented. LVGL's internal pool is
+The first four rows are implemented. Decoder also allocates aligned JPEG input
+(up to another 2 MiB) and padded raw RGB565 (up to 8 MiB), then frees both.
+UI queue holds at most four completed frames. Download-worker peak and coexistence
+with a synthetic test must be measured, not inferred from aggregate free bytes. LVGL's internal pool is
 128 KiB; task stacks, TLS, networking, JPEG workspace and model arenas are additional.
 Internal DMA-capable memory and largest contiguous blocks must be measured separately.
 Capture resolution and audio/model windows above are engineering estimates.
 Do not claim that remaining aggregate bytes guarantee simultaneous AI operation.
+
+## Iteration-2 boot measurement
+
+0.2.0-dev with Wi-Fi worker and no configured bridge: internal free 328135 bytes,
+largest block 245760, minimum 328135; PSRAM free 31244760 at uptime 3 seconds.
+Logical framebuffer is 768000 bytes. JPEG logs report aligned input/raw allocation,
+decode+cover time and free/largest blocks during a successful decode. These boot
+numbers are not a JPEG peak or leak/soak result.

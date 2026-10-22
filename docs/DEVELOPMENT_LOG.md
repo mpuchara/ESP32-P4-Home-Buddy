@@ -116,3 +116,66 @@ build/configuration/package jobs in CI run 39763775980:
 https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39763775980.
 The subsequent documentation-only receipt uses [skip ci]. The corrected display
 profile remains installed on COM5; no C6 changes were needed for these UI fixes.
+
+
+## Iteration 2: 0.2.0-dev, 2026-10-22
+
+Inspected existing open/unmerged PR #1 and preserved its branch and working BSP,
+font and coordinate transform. No change to HA_UBOX_bridge or C6 flash. Pinned
+ESP-Hosted documentation distinguishes legacy station RPCs from newer metadata.
+A P4-only probe got station start and scan ESP_OK despite the version RPC timeout;
+first probe found 2 networks. Installed C6 version remains UNKNOWN.
+
+Implemented PIN/NVS configuration workers, Wi-Fi selection/keyboard/password/DHCP/
+reconnect/RSSI, original cached UBox HTTP/ETag/backoff, bounded hardware JPEG to
+800x480 cover rendering, independent Warsaw SNTP clock, timestamped MQTT
+Celsius input with stale/unavailable rules and an asynchronous test greeting.
+Added offline synthetic JPEG and coordinate diagnostics, protected individual
+settings and per-service system diagnostics. NVS is not encrypted at rest; secure
+production storage remains incomplete. No biometric or simulated HA events.
+
+Local Windows host CTest 3/3 passed (geometry, actual LVGL font decoder, dashboard
+transfer/error/ETag/JPEG bounds/cover/time/actual cJSON temperature parser).
+Python project checks 3/3 passed, clang-format check and actionlint passed.
+Windows skips POSIX TZ transition assertions; Linux CI is required for those.
+These tests do not emulate ESP-IDF sockets, hardware JPEG, UI buffer lifetime,
+NVS power loss or a real broker/bridge. Those acceptance checks remain open.
+
+Wifi firmware built without application warnings, size 0x17c8c0 bytes at first
+iteration-2 flash, within the 6 MiB slot. Esptool 4.12 wrote P4 via COM5 and verified
+hashes. Boot log reports LVGL ready, then scan ESP_OK / 8 records; no startup panic.
+Internal free/largest/min 328135/245760/328135 and PSRAM free 31244760 at uptime 3 s.
+The physical operator has been asked to verify JPEG/greeting/corners/brightness
+and configure Wi-Fi on-device. Live DHCP/SNTP, UBox/ETag and MQTT acceptance are
+pending. No production release or merge was performed. CI receipt follows when
+iteration-2 jobs finish; baseline CI is not evidence for these new changes.
+
+
+### Operator feedback and navigation/font correction
+
+The operator tested the requested actions and explicitly reported missing keyboard/
+text glyphs plus a restart after initial PIN creation. No separate JPEG/corners/
+brightness success claim is inferred from that general response. Passive serial
+log captured Load access fault followed by reboot; NVS retained the newly saved
+PIN. Root cause: deleting the active LVGL page sets act_scr=NULL, then LVGL 8.3.11
+screen loading sends its unload event through that old NULL screen. Switch to the
+persistent saver before deleting a page. Added a regression using actual LVGL
+screen/textarea/keyboard/theme code: 100 PIN/form/return cycles and stable pool
+usage after the first cache allocation. It verifies the active-screen invariant.
+
+Expanded the existing uncompressed Noto subset with typographic dashes, bullet,
+ellipsis and minus. Use the already-enabled uncompressed Montserrat14 fallback
+for LVGL keyboard arrows/backspace/OK/newline. Font tests resolve the actual fallback
+font before checking its bitmap, matching LVGL's rendering behavior. CTest now
+passes 4/4 locally. This addresses missing glyphs without enabling compression.
+
+The operator explicitly changed the Wi-Fi requirement: direct scan/SSID/password,
+no administrator PIN. Implemented a narrowly scoped Wi-Fi-only save preserving
+UBox/MQTT settings and PIN. Protected UBox/MQTT remain as specified; Wi-Fi-before-
+PIN saves use zero hash/salt and do not create a hidden default PIN on restart.
+Wi-Fi dropdown now has a selection prompt, so the first real SSID can be selected,
+and refreshes in place after scans. Form arrival resets idle time. Numeric and
+UTF-8 byte limits reject truncation. Suppress the pinned upstream rpc_utils SSID
+warning. System diagnostics now preserve separate service states/IP/RSSI and
+accepted-image age; the synthetic frame has an explicit test marker. Serial capture
+sets DTR/RTS before opening so passive reads do not request a reset.

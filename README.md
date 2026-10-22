@@ -3,15 +3,10 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware, not a finished product.** The current iteration establishes
-ESP-IDF build configuration, serial diagnostics, an experimental ST7701S/PPA
-landscape LVGL port, GT911 touch, manual backlight control and optional C6
-Wi-Fi scanning. See [development log](docs/DEVELOPMENT_LOG.md) for actual results.
-
-The intended product combines a fullscreen cached UBox snapshot, clock, outdoor
-temperature, touchscreen configuration, local face and speaker identification,
-local brightness control, and MQTT Home Assistant events. Those features are
-roadmap items until explicitly recorded as tested.
+**Development firmware 0.2.0-dev, not a finished product.** Implements a fullscreen
+cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
+MQTT temperature, queued greeting overlays and direct Wi-Fi setup and PIN-protected UBox/MQTT settings.
+Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
 
 ## Hardware and status
 
@@ -62,12 +57,22 @@ No browser installer or OTA is provided yet.
 
 ## Current interface
 
-The bring-up screen shows unavailable snapshot/time/temperature, never fabricated
-values. Touch opens a Polish diagnostics menu with manual brightness and an
-optional Wi-Fi scan request. Thirty seconds without touch returns to the saver.
-Unimplemented household/recognition/HA/UBox sections are explicitly labeled.
-There is no first-run wizard, persistent Wi-Fi provisioning or administrator PIN yet;
-therefore enrollment, profile deletion and credential editing are not exposed.
+Tap the saver to open Wi-Fi, UBox, MQTT, brightness and diagnostic controls.
+Missing image/time/temperature remain unavailable. Test JPEG uses a committed
+synthetic image; Test greeting explicitly says Test UI. No biometric inference runs.
+Wi-Fi opens directly: choose a network and enter its password, as requested by
+the operator. UBox/MQTT edits require a self-chosen 6-12 digit PIN. Passwords/tokens are
+masked, saved in NVS, and excluded from diagnostics. **NVS is not encrypted at
+rest in this development build**; PIN controls touchscreen access, not physical
+flash extraction. Never provision production secrets on an untrusted unit.
+Thirty idle seconds return to the saver; critical saves are exempt.
+
+Wi-Fi scanning works on the connected C6 despite unavailable metadata RPC.
+Association/DHCP/reconnect, live UBox and MQTT need operator configuration and
+physical validation. No C6 firmware update was performed.
+Use the wifi profile for connectivity; the bringup profile remains offline.
+See [user guide](docs/USER_GUIDE.md), [UBox API](docs/UBOX_API.md) and
+[MQTT temperature example](docs/MQTT_API.md).
 
 ## Tests
 
@@ -81,6 +86,10 @@ python tools/check_project.py
 
 C tests execute the actual cover/crop and touch-coordinate code on the host,
 plus the committed font through the real LVGL decoder with font compression off.
+Dashboard tests exercise transfer bounds, ETag commit/rollback, JPEG header checks,
+RGB565 cover, strict temperature parsing, freshness and time. Linux CI runs DST
+boundaries; Windows CRT does not support that POSIX timezone rule.
+Supply CJSON_SOURCE_DIR pointing to cJSON 1.7.18 (IDF components/json/cJSON).
 Resolve firmware dependencies first, or supply LVGL_SOURCE_DIR to the test build.
 CI builds diagnostic, display and Wi-Fi profiles, validates partition/dependency
 configuration, runs host tests and checks whitespace. Manual release workflow

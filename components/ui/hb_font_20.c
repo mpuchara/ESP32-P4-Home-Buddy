@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 20 px
  * Bpp: 4
- * Opts: --size 20 --bpp 4 --format lvgl --no-compress --lv-include lvgl.h --font C:\Users\mpuch\.codex\tmp\home-buddy-notosans.ttf --range 0x20-0x7e,0xb0,0x104-0x107,0x118-0x119,0x141-0x144,0xd3,0xf3,0x15a-0x15b,0x179-0x17c --lv-font-name hb_font_20 --output components/ui/hb_font_20.c
+ * Opts: --size 20 --bpp 4 --format lvgl --no-compress --lv-include lvgl.h --font C:\Users\mpuch\.codex\tmp\home-buddy-notosans.ttf --range 0x20-0x7e,0xb0,0x104-0x107,0x118-0x119,0x141-0x144,0xd3,0xf3,0x15a-0x15b,0x179-0x17c,0x2013-0x2014,0x2022,0x2026,0x2212 --lv-fallback lv_font_montserrat_14 --lv-font-name hb_font_20 --output components/ui/hb_font_20.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -1247,7 +1247,29 @@ static LV_ATTRIBUTE_LARGE_CONST const uint8_t glyph_bitmap[] = {
     0x0, 0x0, 0x4f, 0x90, 0x0, 0x0, 0xe, 0xe0,
     0x0, 0x0, 0xa, 0xf4, 0x0, 0x0, 0x5, 0xf9,
     0x0, 0x0, 0x1, 0xef, 0x66, 0x66, 0x63, 0x3f,
-    0xff, 0xff, 0xff, 0xa0
+    0xff, 0xff, 0xff, 0xa0,
+
+    /* U+2013 "–" */
+    0x19, 0x99, 0x99, 0x99, 0x91, 0x3f, 0xff, 0xff,
+    0xff, 0xf3,
+
+    /* U+2014 "—" */
+    0x19, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99,
+    0x99, 0x91, 0x3f, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xf3,
+
+    /* U+2022 "•" */
+    0x9, 0xed, 0x34, 0xff, 0xfd, 0x6f, 0xff, 0xf4,
+    0xff, 0xfd, 0x9, 0xed, 0x30,
+
+    /* U+2026 "…" */
+    0x2a, 0x50, 0x0, 0x98, 0x0, 0x7, 0x90, 0x8f,
+    0xe0, 0x4, 0xff, 0x10, 0xf, 0xf5, 0x4f, 0x90,
+    0x1, 0xec, 0x0, 0xc, 0xe2,
+
+    /* U+2212 "−" */
+    0xff, 0xff, 0xff, 0xff, 0xf6, 0x77, 0x77, 0x77,
+    0x77, 0x73
 };
 
 
@@ -1370,7 +1392,12 @@ static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {
     {.bitmap_index = 7298, .adv_w = 183, .box_w = 11, .box_h = 19, .ofs_x = 0, .ofs_y = 0},
     {.bitmap_index = 7403, .adv_w = 150, .box_w = 9, .box_h = 15, .ofs_x = 0, .ofs_y = 0},
     {.bitmap_index = 7471, .adv_w = 183, .box_w = 11, .box_h = 19, .ofs_x = 0, .ofs_y = 0},
-    {.bitmap_index = 7576, .adv_w = 150, .box_w = 9, .box_h = 15, .ofs_x = 0, .ofs_y = 0}
+    {.bitmap_index = 7576, .adv_w = 150, .box_w = 9, .box_h = 15, .ofs_x = 0, .ofs_y = 0},
+    {.bitmap_index = 7644, .adv_w = 160, .box_w = 10, .box_h = 2, .ofs_x = 0, .ofs_y = 5},
+    {.bitmap_index = 7654, .adv_w = 320, .box_w = 20, .box_h = 2, .ofs_x = 0, .ofs_y = 5},
+    {.bitmap_index = 7674, .adv_w = 120, .box_w = 5, .box_h = 5, .ofs_x = 1, .ofs_y = 5},
+    {.bitmap_index = 7687, .adv_w = 253, .box_w = 14, .box_h = 3, .ofs_x = 1, .ofs_y = 0},
+    {.bitmap_index = 7708, .adv_w = 183, .box_w = 10, .box_h = 2, .ofs_x = 1, .ofs_y = 6}
 };
 
 /*---------------------
@@ -1380,7 +1407,7 @@ static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {
 static const uint16_t unicode_list_1[] = {
     0x0, 0x23, 0x43, 0x54, 0x55, 0x56, 0x57, 0x68,
     0x69, 0x91, 0x92, 0x93, 0x94, 0xaa, 0xab, 0xc9,
-    0xca, 0xcb, 0xcc
+    0xca, 0xcb, 0xcc, 0x1f63, 0x1f64, 0x1f72, 0x1f76, 0x2162
 };
 
 /*Collect the unicode lists and glyph_id offsets*/
@@ -1391,8 +1418,8 @@ static const lv_font_fmt_txt_cmap_t cmaps[] =
         .unicode_list = NULL, .glyph_id_ofs_list = NULL, .list_length = 0, .type = LV_FONT_FMT_TXT_CMAP_FORMAT0_TINY
     },
     {
-        .range_start = 176, .range_length = 205, .glyph_id_start = 96,
-        .unicode_list = unicode_list_1, .glyph_id_ofs_list = NULL, .list_length = 19, .type = LV_FONT_FMT_TXT_CMAP_SPARSE_TINY
+        .range_start = 176, .range_length = 8547, .glyph_id_start = 96,
+        .unicode_list = unicode_list_1, .glyph_id_ofs_list = NULL, .list_length = 24, .type = LV_FONT_FMT_TXT_CMAP_SPARSE_TINY
     }
 };
 
@@ -1426,6 +1453,7 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
 #endif
 };
 
+extern const lv_font_t lv_font_montserrat_14;
 
 
 /*-----------------
@@ -1451,7 +1479,7 @@ lv_font_t hb_font_20 = {
 #endif
     .dsc = &font_dsc,          /*The custom font data. Will be accessed by `get_glyph_bitmap/dsc` */
 #if LV_VERSION_CHECK(8, 2, 0) || LVGL_VERSION_MAJOR >= 9
-    .fallback = NULL,
+    .fallback = &lv_font_montserrat_14,
 #endif
     .user_data = NULL,
 };

@@ -9,6 +9,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "hb_board.h"
+#include "hb_config.h"
+#include "hb_services.h"
+#include "hb_ubox.h"
 #include "hb_ui.h"
 #include "hb_wifi.h"
 #include "nvs_flash.h"
@@ -35,31 +38,47 @@ void app_main(void)
         ESP_LOGE(TAG, "NVS unavailable: %s; preserved for recovery", esp_err_to_name(nvs));
     }
 #if CONFIG_HB_BOARD_PROFILE_CONFIRMED
+    esp_err_t config_err = nvs == ESP_OK ? hb_config_start() : nvs;
+    if (config_err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Configuration unavailable; protected setup disabled: %s",
+                 esp_err_to_name(config_err));
+    }
     esp_err_t err = hb_board_start();
     if (err == ESP_OK)
     {
         err = hb_ui_start();
     }
+    bool ui_ready = err == ESP_OK;
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "UI unavailable: %s; serial diagnostics remain active", esp_err_to_name(err));
     }
 #if CONFIG_HB_WIFI_DIAGNOSTICS
-    if (nvs == ESP_OK)
+    if (config_err == ESP_OK)
     {
         err = hb_wifi_start();
         if (err != ESP_OK)
             ESP_LOGE(TAG, "Wi-Fi diagnostics: %s", esp_err_to_name(err));
     }
 #endif
+    if (config_err == ESP_OK && ui_ready)
+    {
+        hb_services_start();
+        hb_ubox_start();
+    }
 #else
     ESP_LOGW(TAG, "Board profile unconfirmed; peripheral outputs disabled. See docs/HARDWARE.md");
 #endif
     for (;;)
     {
-        ESP_LOGI(TAG, "uptime=%" PRIi64 "s internal_free=%u psram_free=%u",
+        ESP_LOGI(TAG,
+                 "uptime=%" PRIi64
+                 "s internal_free=%u internal_largest=%u internal_min=%u psram_free=%u",
                  esp_timer_get_time() / 1000000,
                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                 (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
         vTaskDelay(pdMS_TO_TICKS(30000));
     }

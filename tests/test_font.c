@@ -23,7 +23,7 @@ static void check_glyph(uint32_t codepoint)
     CHECK(lv_font_get_glyph_dsc(&hb_font_20, &glyph, codepoint, 0));
     CHECK(!glyph.is_placeholder);
     CHECK(glyph.box_w > 0 && glyph.box_h > 0 && glyph.bpp == 4);
-    const uint8_t *bitmap = lv_font_get_glyph_bitmap(&hb_font_20, codepoint);
+    const uint8_t *bitmap = lv_font_get_glyph_bitmap(glyph.resolved_font, codepoint);
     CHECK(bitmap != NULL);
     size_t bytes = ((size_t)glyph.box_w * glyph.box_h * glyph.bpp + 7) / 8;
     bool ink = false;
@@ -41,6 +41,10 @@ int main(void)
                                0xd3,  0xf3,  0x15a, 0x15b, 0x179, 0x17a, 0x17b, 0x17c, 0xb0};
     for (size_t i = 0; i < sizeof(polish) / sizeof(polish[0]); ++i)
         check_glyph(polish[i]);
+    const uint32_t controls[] = {0x2013, 0x2014, 0x2022, 0x2026, 0x2212, 0xf00c,
+                                 0xf053, 0xf054, 0xf078, 0xf11c, 0xf55a, 0xf8a2};
+    for (size_t i = 0; i < sizeof(controls) / sizeof(controls[0]); ++i)
+        check_glyph(controls[i]);
     puts("font: real LVGL descriptors and visible bitmap data passed for ASCII and Polish");
     return 0;
 }

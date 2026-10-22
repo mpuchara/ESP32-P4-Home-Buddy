@@ -1,28 +1,45 @@
-# UBox snapshot contract
+# UBox original cached snapshot client
 
-Read-only assessment of mpuchara/HA_UBOX_bridge at commit
+Read-only contract assessed at mpuchara/HA_UBOX_bridge commit
 7f1f1656046b7200eab05dacdecbd2107af6a704, ubox_bridge/bridge.py,
-blob 36992a672b2ccd167ac995c2404d87372a7f16da.
-The bridge repository was not modified.
+blob 36992a672b2ccd167ac995c2404d87372a7f16da. That repository was not modified.
 
-The existing LAN interface uses port 8100 by default. GET /snapshot.jpg requires
-X-UBox-Token and returns the original cached JPEG. The handler reads the existing
-file; this route does not request a new LTE capture. Do not call capture, live or
-PTZ actions as part of polling.
+Configure host/IP, port (default 8100), token and poll interval (default 30 seconds,
+allowed 5..3600) in PIN-protected UBox settings. The client issues only:
 
-ETag is a quoted mtime_ns/size value. Send If-None-Match after accepting an image.
-Matching ETag returns 304 with no JPEG body. A missing/empty cached image returns
-503. Authentication failure is an error; do not retry in a tight loop.
-Do not use snapshot-cyd variants, URL query tokens or redirect credentials to
-another host.
+```http
+GET /snapshot.jpg HTTP/1.1
+X-UBox-Token: <device-configured secret>
+If-None-Match: <last accepted ETag, if present>
+```
 
-## Planned client (not implemented)
+It reads the bridge's existing original cached JPEG, not the older 320x240 route.
+It never requests a new LTE image or calls capture/live/PTZ. Token is a header,
+never a query parameter. Redirects are disabled, so credentials do not follow them.
+Current contract is LAN HTTP, not end-to-end encrypted; use only a trusted LAN.
+The local PIN does not encrypt network traffic or development NVS at rest.
 
-Default polling 30 seconds, configurable with bounds, timeouts and backoff.
-Accept bounded Content-Length or bounded streaming; reject oversized, partial
-or invalid JPEGs. Stage the new image without clearing the old one.
-Decode, preserve aspect ratio and center-crop using hb_cover before atomically
-publishing to LVGL. Commit ETag only after successful decoding/acceptance.
-On 304 keep image, ETag and original image-age timestamp. A successful poll is
-not the image capture time; use documented metadata when available.
-Keep the last good image on HTTP, Wi-Fi or decode failure.
+| Response | Implemented result |
+|---|---|
+| 200 | Bounded transfer, JPEG checks, hardware decode and cover, queued replacement |
+| 304 | Retain accepted image and ETag; no body decode or accepted-image-age reset |
+| 401 | Report token error; keep image; bounded backoff |
+| 503 | Report absent cache; keep image; bounded backoff |
+| Timeout, partial, oversize, invalid JPEG | Reject replacement, preserve image/ETag |
+| Redirect | Reject; do not follow or forward token |
+
+Two MiB JPEG cap, 8-second request timeout, 5/10/20/.../300-second error retry.
+JPEG baseline SOF0 8-bit <=2048 each dimension and <=4 MP; progressive JPEG is
+rejected. This is a documented bounded development limit, not a low-resolution
+endpoint. A 200 without ETag clears the previous ETag on acceptance. Changing
+host/port/token resets the cache validator. All downloaded data stays in RAM.
+ETag commits only after decode and UI queue acceptance; a full UI queue rejects
+and frees the new frame. The previous image stays visible until UI replacement.
+
+System diagnostics report elapsed time since this device ACCEPTED an image.
+This is not capture time or remote image age. The API's ETag is not interpreted as
+an authoritative measurement timestamp. A repeated 304 does not refresh this age.
+
+Host tests cover transfer/error policy, ETag rollback, bounds and cover. These
+are not socket-level HTTP or actual HA integration tests. Live 200/304/401/503,
+timeout/reconnect and repeated-image heap behavior still need network acceptance.

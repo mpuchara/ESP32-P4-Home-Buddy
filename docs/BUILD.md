@@ -73,3 +73,9 @@ configure/build first, or pass -D LVGL_SOURCE_DIR=/path/to/lvgl-8.3.11 to CMake.
 CI fetches LVGL commit 396f70508480f79725fc1354cd290cc83f69b2ef for these tests.
 Development formatting uses clang-format 19.1.7 and .clang-format; generated and
 vendored files are excluded. CI validates all three firmware profiles.
+
+Dashboard tests also require cJSON 1.7.18. With an installed IDF use:
+`cmake -S tests -B build-host -D CJSON_SOURCE_DIR=/path/to/esp-idf/components/json/cJSON`.
+Linux CI fetches cJSON commit 8f2beb57ddad1f94bed899790b00f46df893ccac and runs
+POSIX CET/CEST boundary tests. Those boundaries are explicitly skipped by Windows
+CRT, whose TZ parser does not support the embedded/newlib POSIX rule.

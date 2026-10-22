@@ -2,18 +2,17 @@
 
 P4 contains no Wi-Fi radio. The optional diagnostic uses ESP-Hosted SDIO on
 slot1, pins in HARDWARE.md. Host version is pinned to 2.12.2.
-The installed C6 firmware version must be read from the actual transport handshake.
-The diagnostic currently requires the exact 2.12.2 target pairing before allowing
-a scan. An installed version outside that initial target is reported and scanning
-is disabled; this does not mean an alternative pairing is inherently incompatible.
-The upstream report of factory 2.3.0 and success with 2.12.9 is not a measurement
-of this board and is not a guarantee that any 2.12 release pair is compatible.
+The installed C6 firmware version remains UNKNOWN: metadata RPC times out. The
+pinned host documentation lists legacy Wi-Fi RPCs before the firmware-version RPC.
+A controlled P4-only change allowed station start and scan despite unavailable
+metadata; this succeeded on the connected unit. No exact-version compatibility
+claim is made. Association, DHCP and reconnect remain separate acceptance gates.
 
 No Home Buddy code invokes coprocessor OTA. Scanning is explicitly enabled.
 A mismatch or missing transport should be reported and investigated; do not solve
 it by automatically downloading/flashing another C6 image.
 
-## Result on the connected unit, 2026-10-22
+## Initial result on the connected unit, 2026-10-22
 
 The Wi-Fi profile built and was temporarily flashed to P4. SDIO slot1 at 40 MHz
 initialized and detected ESP32-C6 with WLAN capability. The transport emitted
@@ -23,8 +22,14 @@ The package is 2.12.2; the diagnostic transport string is reproduced verbatim.
 is unavailable under this pairing. Scanning/association were not attempted.
 The display-only P4 image was restored after this test. C6 flash was untouched.
 
-The next network gate requires identifying/backing up the installed C6 firmware
-over direct UART and selecting a verified compatible image or host version.
+## Iteration-2 P4-only result
+
+The metadata-gated failure above was not proof that legacy Wi-Fi RPCs were broken.
+With the existing untouched C6 and host 2.12.2, P4 station start and scan return
+ESP_OK (probe found 2 networks; 0.2.0-dev boot found 8 records). SSIDs are omitted
+from logs. Metadata remains UNKNOWN; do not interpret 0.0.0 as an installed version.
+No C6 write/erase/OTA took place. Current P4 uses the wifi profile. A C6 update is
+not needed merely to fix unavailable metadata; live connection tests come next.
 
 ## Recovery-safe update planning
 

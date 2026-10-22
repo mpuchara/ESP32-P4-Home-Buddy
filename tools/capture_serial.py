@@ -12,7 +12,12 @@ parser.add_argument("--reset", action="store_true")
 args = parser.parse_args()
 if not 0 < args.seconds <= 60:
     parser.error("seconds must be in (0, 60]")
-with serial.Serial(args.port, 115200, timeout=0.1) as port:
+port = serial.Serial(port=None, baudrate=115200, timeout=0.1)
+# Set modem lines before opening; passive observation must not reset provisioning.
+port.dtr = False
+port.rts = False
+port.port = args.port
+with port:
     if args.reset:
         port.dtr = False
         port.rts = True

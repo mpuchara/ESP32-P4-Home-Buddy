@@ -39,3 +39,12 @@ not interchangeable with GUITION. The inspected
 [esp_cam_sensor table](https://github.com/espressif/esp-video-components/tree/master/esp_cam_sensor)
 does not list OV02C10. Exact sensor identification and a supported sensor driver
 are a critical path, not evidence that a similarly named OS02N10/OV5647 will work.
+
+## Iteration-2 font extension
+
+Same Noto Sans source/hash/license and lv_font_conv 1.5.3, still --no-compress.
+Additional range 0x2013-0x2014,0x2022,0x2026,0x2212; --lv-fallback
+lv_font_montserrat_14 provides the pinned LVGL keyboard/control symbols. Real
+bitmap tests cover those symbols plus Polish/ASCII. No new font license is added:
+Montserrat/control glyphs are already distributed by the pinned LVGL component.
+The complete reproducible command is in the generated hb_font_20.c header.
