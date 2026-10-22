@@ -15,10 +15,11 @@ roadmap items until explicitly recorded as tested.
 
 ## Hardware and status
 
-USB interrogation on 2026-10-22 identified ESP32-P4 **rev. 1.0**, **16 MB flash**.
+USB interrogation on 2026-10-22 identified ESP32-P4 **rev. 1.0**, **16 MB flash**;
+boot diagnostics confirmed **32 MB PSRAM** and a passing memory test.
 The upstream BSP targets JC4880P443C_I_W; compatibility with this exact _Y unit
-must be established per peripheral. Camera model, audio routing, C6 firmware,
-PSRAM capacity and physical display behavior require separate evidence.
+must be established per peripheral. Camera model, audio routing, C6 firmware
+and physical display behavior require separate evidence.
 Never use upstream hardware test claims as results for this unit.
 
 ## Build

@@ -30,12 +30,15 @@ jobs:
         env:
           PROFILE: ${{ matrix.profile }}
         run: |
+          cp dependencies.lock "$RUNNER_TEMP/dependencies-$PROFILE.lock"
           . /opt/esp/idf/export.sh
+          cd "$GITHUB_WORKSPACE"
           defaults=sdkconfig.defaults
           if [ "$PROFILE" != diagnostics ]; then defaults="$defaults;config/sdkconfig.$PROFILE"; fi
           idf.py -D "SDKCONFIG_DEFAULTS=$defaults" set-target esp32p4
           idf.py build
-          git diff --exit-code -- dependencies.lock
+          cd "$GITHUB_WORKSPACE"
+          cmp dependencies.lock "$RUNNER_TEMP/dependencies-$PROFILE.lock"
           python tools/check_effective_config.py build/config/sdkconfig.json "$PROFILE"
           python tools/package_firmware.py build "dist/$PROFILE"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

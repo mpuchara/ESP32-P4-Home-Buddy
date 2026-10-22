@@ -3,6 +3,9 @@
 P4 contains no Wi-Fi radio. The optional diagnostic uses ESP-Hosted SDIO on
 slot1, pins in HARDWARE.md. Host version is pinned to 2.12.2.
 The installed C6 firmware version must be read from the actual transport handshake.
+The diagnostic currently requires the exact 2.12.2 target pairing before allowing
+a scan. An installed version outside that initial target is reported and scanning
+is disabled; this does not mean an alternative pairing is inherently incompatible.
 The upstream report of factory 2.3.0 and success with 2.12.9 is not a measurement
 of this board and is not a guarantee that any 2.12 release pair is compatible.
 

@@ -40,7 +40,19 @@ time, weather, network connection or camera image is presented.
   Polish glyphs passed (3/3).
 * clang-format 19.1.7 application checks and actionlint 1.7.12 passed.
 * Diagnostic and first experimental display firmware builds passed. Final
-  component-disable configuration and optional Wi-Fi build are being checked.
+  display profile with ESP-Hosted disabled also compiled and flashed successfully
+  (0x8b070-byte app). Effective configuration checker passed.
+* Display-profile boot: DSI panel initialized, two 480×800 native buffers allocated,
+  PPA rotation registered, GPIO23 LEDC enabled, GT911 chip ID 911 read at 0x5D,
+  and LVGL 800×480 task started. Initial free memory: internal 429123 bytes,
+  PSRAM 31245164 bytes. Twelve-second capture contains no reset or display error.
+  This is initialization evidence; visual/touch acceptance remains separate.
+* GT911 driver warns "Unable to initialize the I2C address" with no INT line,
+  then reads chip ID/configuration successfully. Functional touch remains to test.
+* Local Git push had no noninteractive credentials. Published the same file tree
+  through the authorized GitHub connector, then reconciled the local branch to it;
+  no credentials were extracted. Draft PR: https://github.com/mpuchara/ESP32-P4-Home-Buddy/pull/1.
+* Optional Wi-Fi profile and remote CI are still in progress.
 
 ### Acceptance still open
 

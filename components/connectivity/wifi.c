@@ -35,7 +35,13 @@ static void worker(void *arg)
 }
 esp_err_t hb_wifi_start(void)
 {
-    esp_err_t err = esp_hosted_connect_to_slave();
+    esp_err_t err = esp_netif_init();
+    if (err != ESP_OK)
+        return err;
+    err = esp_event_loop_create_default();
+    if (err != ESP_OK)
+        return err;
+    err = esp_hosted_connect_to_slave();
     if (err != ESP_OK)
         return err;
     esp_hosted_coprocessor_fwver_t version = {0};
@@ -51,12 +57,6 @@ esp_err_t hb_wifi_start(void)
         ESP_LOGE("wifi", "Unverified C6/host pairing; scanning disabled; no coprocessor update");
         return ESP_ERR_NOT_SUPPORTED;
     }
-    err = esp_netif_init();
-    if (err != ESP_OK)
-        return err;
-    err = esp_event_loop_create_default();
-    if (err != ESP_OK)
-        return err;
     if (!esp_netif_create_default_wifi_sta())
         return ESP_ERR_NO_MEM;
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
