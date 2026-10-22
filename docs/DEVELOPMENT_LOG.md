@@ -65,8 +65,8 @@ time, weather, network connection or camera image is presented.
   https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39752014808
   (host checks and all three firmware build/configuration/package jobs).
   Verified implementation commit: 1b967073fceb8db5b143348d839a81fac8e5c84d.
-* Final documentation-only evidence update uses [skip ci]; firmware/workflows are
-  unchanged from that successful run. No production release or merge was made.
+* That documentation-only evidence update used [skip ci]; firmware/workflows were
+  unchanged at that point. No production release or merge was made.
 
 ### Acceptance still open
 
@@ -107,5 +107,12 @@ That follow-up exposed cramped text in the four menu tiles. Increased tile heigh
 from 70 to 112 pixels, provided a 52-pixel title area and a separate bottom-aligned
 status, reduced padding to fit the full status and moved the controls below.
 The actual font advances give "W przygotowaniu" a 162-pixel width, fitting the
-168-pixel content width. Complete visual confirmation of this layout and CI for
-the latest change remain pending at this entry.
+168-pixel content width. The operator then confirmed "Tak, kafle są czytelne":
+the corrected saver/menu text and separated tile labels are verified on the
+physical device. This does not establish slider operation or four-corner touch.
+The font fix passed all jobs in CI run 39763215780. The final layout implementation
+18d6dab752873a8236fa3ea2e34f7a9bf591f1c2 passed host tests plus all three firmware
+build/configuration/package jobs in CI run 39763775980:
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39763775980.
+The subsequent documentation-only receipt uses [skip ci]. The corrected display
+profile remains installed on COM5; no C6 changes were needed for these UI fixes.
