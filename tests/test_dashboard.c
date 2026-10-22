@@ -50,6 +50,17 @@ int main(void)
     memcpy(bad, jpg, sizeof(jpg));
     bad[3] = 194;
     CHECK(!hb_jpeg_bounds(bad, sizeof(bad), &w, &h));
+    uint32_t stride, rows;
+    uint8_t layout[] = {255, 216,  255, 192, 0,    17, 8, 4,    56, 7,   128, 3,
+                        1,   0x11, 0,   2,   0x11, 1,  3, 0x11, 1,  255, 217};
+    CHECK(hb_jpeg_layout(layout, sizeof(layout), &w, &h, &stride, &rows));
+    CHECK(w == 1920 && h == 1080 && stride == 1920 && rows == 1080); // YUV444, MCU8x8
+    layout[13] = 0x21;
+    CHECK(hb_jpeg_layout(layout, sizeof(layout), &w, &h, &stride, &rows) && rows == 1080); // 422
+    layout[13] = 0x22;
+    CHECK(hb_jpeg_layout(layout, sizeof(layout), &w, &h, &stride, &rows) && rows == 1088); // 420
+    layout[13] = 0;
+    CHECK(!hb_jpeg_layout(layout, sizeof(layout), &w, &h, &stride, &rows));
     bad[3] = 192;
     bad[9] = 0xff;
     CHECK(!hb_jpeg_bounds(bad, sizeof(bad), &w, &h));
