@@ -52,12 +52,27 @@ time, weather, network connection or camera image is presented.
 * Local Git push had no noninteractive credentials. Published the same file tree
   through the authorized GitHub connector, then reconciled the local branch to it;
   no credentials were extracted. Draft PR: https://github.com/mpuchara/ESP32-P4-Home-Buddy/pull/1.
-* Optional Wi-Fi profile and remote CI are still in progress.
+* Wi-Fi profile built locally (0xf1330 bytes), effective GPIO/profile check passed,
+  and all three profiles packaged with public-only outputs and license notices.
+* Physical C6 diagnostic: slot1 / 4-bit / 40 MHz SDIO initialized, ESP32-C6 and WLAN
+  identified. Version mismatch reported; firmware-version RPC timed out and the
+  app reported ESP_FAIL without rebooting the UI during the 30 s capture. Installed
+  version remains UNKNOWN (do not interpret the transport's 0.0.0 as a real version).
+  No scans/association or C6 writes occurred. Display-only P4 image restored.
+* Initial GitHub run compiled all three images and passed host checks, then failed
+  in post-build Git repository discovery. Replaced that lock guard with a direct
+  before/after byte comparison and explicit workspace paths. Full rerun passed:
+  https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39752014808
+  (host checks and all three firmware build/configuration/package jobs).
+  Verified implementation commit: 1b967073fceb8db5b143348d839a81fac8e5c84d.
+* Final documentation-only evidence update uses [skip ci]; firmware/workflows are
+  unchanged from that successful run. No production release or merge was made.
 
 ### Acceptance still open
 
 Visible display, four-corner touch, backlight behavior, cold-boot/repeated-menu
-stability and C6 handshake/scan are pending separate physical observations.
+stability remain pending physical observations. C6 transport is confirmed, but
+firmware identification/compatibility must be resolved before scan/association.
 Wi-Fi provisioning/association/DHCP are not implemented yet. Camera, microphone,
 face/speaker inference, profiles/PIN, UBox transport/JPEG display, NTP, temperature,
 MQTT, automatic brightness and OTA are not implemented.

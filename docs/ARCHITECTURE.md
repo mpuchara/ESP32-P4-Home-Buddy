@@ -31,6 +31,10 @@ must transfer a completed buffer to the UI; the previous image is freed only aft
 LVGL can no longer reference it. ETag becomes committed only with that image.
 Clock, temperature and greeting objects are independent of the source JPEG.
 Redrawing an overlay may composite the image, but must not decode/download it again.
+The time service must track synchronization separately from wall-clock value;
+before NTP show unavailable time. ESP-IDF uses a POSIX TZ rule for Europe/Warsaw
+(CET-1CEST,M3.5.0,M10.5.0/3), with daylight-saving boundary tests. Update the clock
+label at minute boundaries without reloading the JPEG.
 
 A single local camera owner shares frame references with face inference and
 ambient-light estimation. Audio PCM and VAD run independently; models consume

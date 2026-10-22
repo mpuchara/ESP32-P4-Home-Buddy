@@ -9,7 +9,7 @@ Assessment date: 2026-10-22. Physical USB identity: COM5, ESP32-P4 rev. 1.0,
 | ST7701S 480×800 DSI | Physical boot: DSI/PPA startup and LVGL ready | Visible image/orientation observation pending |
 | GT911 | Physical probe 0x5D, chip ID 911, configuration 250 | Detected; four-corner touch test pending |
 | 32 MB PSRAM | Physical boot: 32 MB at 80 MHz, SPI SRAM memory test OK | Capacity and startup test confirmed |
-| C6 SDIO | upstream pin map | Installed firmware and stable network test required |
+| C6 SDIO | Physical slot1 40 MHz init; ESP32-C6 detected | Link confirmed; firmware version RPC times out, network acceptance blocked |
 | OV02C10 camera | supplied assumption | Exact sensor not verified; not in inspected esp_cam_sensor supported table |
 | ES8311 / microphone | upstream pins and schematic sheets | Routing, codec identity and PCM capture not verified |
 | Ambient light sensor | no confirmed part / schematic evidence | Do not assume one exists |

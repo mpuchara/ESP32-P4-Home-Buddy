@@ -5,7 +5,7 @@ Physical acceptance cannot be inferred from successful compilation.
 
 | Phase | Deliverable | Current state |
 |---|---|---|
-| 0 | Research, dependency pins, architecture, budget, CI, skeleton | In progress; validation logged separately |
+| 0 | Research, dependency pins, architecture, budget, CI, skeleton | Initial research/foundation delivered; all CI jobs passed |
 | 1 | P4/PSRAM, 800×480 LVGL, touch, backlight, C6 networking | Experimental implementation; hardware acceptance pending |
 | 2 | Fullscreen cached UBox JPEG, cover crop, ETag, NTP/Warsaw clock, temperature layers | Geometry implemented/tested; transport/rendering pending |
 | 3 | PIN first-run setup, persistent configuration, complete Polish touchscreen settings | Pending |
@@ -18,7 +18,7 @@ Physical acceptance cannot be inferred from successful compilation.
 
 ## Next acceptance gates
 
-1. Build all profiles from a clean checkout with committed lockfile.
+1. All profiles build from a clean checkout with committed lockfile: CI passed.
 2. Physical display visible, correct orientation and four-corner touch.
 3. Backlight range and cold boot/menu transitions; no recurring display corruption.
 4. C6 actual firmware handshake, stable scan, then protected Wi-Fi provisioning and DHCP.
