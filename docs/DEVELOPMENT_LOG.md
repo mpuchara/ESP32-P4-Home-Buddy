@@ -419,3 +419,26 @@ OS boundaries: defaults/restart, both anchors, absent/short/oversized/invalid
 records preserved without writes, NVS errors without applying RAM settings,
 expiry/stale save, explicit restart and no per-tick flash writes. This does not
 claim physical NVS transaction rollback or real day/night calibration acceptance.
+
+0.3.1 local verification: CTest7/7 and project checks3/3 passed; clang-format,
+actionlint and diagnostics/bringup/wifi effective configuration checks passed.
+The new real-service suite also passed GCC -Wall -Wextra -Werror under Ubuntu.
+All three local profiles built: diagnostics0x378b0, bringup0x134330,
+wifi0x17dcb0bytes. Wi-Fi image was flashed/hash-verified on COM5 and booted as
+0.3.1-dev. Private originals/NVS were not erased; no C6 or bridge operation.
+
+Short post-flash sample: camera around30fps alongside accepted UBox304 responses.
+At73..103seconds PSRAM26,723,652bytes and largest23,592,960 stayed constant;
+DMA265,395 then265,183bytes. No CRC/panic appeared in this short sample; it is not
+an extended stability/leak result. Manual five-minute expiry/options behavior is
+awaiting operator confirmation; no anchors were manufactured or changed for tests.
+
+Public-only package: dist/iteration3-override-031 with SHA256SUMS. App SHA256:
+053e9d723d3f69c28bd4ef226012c530396d55449bef168d0dba35ffdf51fd5c.
+
+Final implementation48661d1ef313f62fb835db070410f12eb05c9eea passed all four jobs
+in CI39842183267: Linux host7suites and all three clean firmware/configuration/
+package jobs. https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39842183267
+Package hashes were rechecked. Documentation-only receipt follows with [skip ci].
+PR1 remains draft/unmerged; real two-anchor calibration, physical reboot persistence,
+cold-power and extended stability/72-hour acceptance are still pending.
