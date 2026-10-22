@@ -279,3 +279,17 @@ layout bug; it does not assert that all earlier network rejections had that caus
 
 CI run39804200456 passed all jobs(host plus diagnostics/bringup/wifi) at17f7206.
 The following layout/diagnostic change requires its own fresh CI receipt.
+
+
+### Original-resolution image bound
+
+A later short sample established a separate precise cause for repeated decode
+rejection: the original cached bridge image changed from640x360 to2304x1296.
+All679649bytes were received with HTTP200/complete=1 and a valid JPEG envelope;
+the old per-dimension2048guard rejected it before hardware decode. This roughly
+3MP source is within the existing4MP decoded-pixel budget. Increase only the
+per-dimension bound to4096, retaining the2MiB JPEG and4MP pixel limits. Add a
+2304x1296 layout regression and a4096x2048 rejection proving the pixel budget is
+still enforced. Host tests5/5passed, firmware built0x1754d0bytes. Device acceptance
+and final CI for this bound adjustment follow separately. No low-resolution UBox
+endpoint or capture call was introduced.

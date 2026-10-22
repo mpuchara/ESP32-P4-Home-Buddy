@@ -65,7 +65,7 @@ bool hb_jpeg_bounds(const uint8_t *d, size_t n, uint16_t *w, uint16_t *h)
                 return false;
             *h = (uint16_t)((d[p + 3] << 8) | d[p + 4]);
             *w = (uint16_t)((d[p + 5] << 8) | d[p + 6]);
-            return *w && *h && (uint32_t)*w * *h <= HB_PIXEL_LIMIT && *w <= 2048 && *h <= 2048;
+            return *w && *h && (uint32_t)*w * *h <= HB_PIXEL_LIMIT && *w <= 4096 && *h <= 4096;
         }
         if (marker >= 0xc1 && marker <= 0xcf && marker != 0xc4 && marker != 0xc8 && marker != 0xcc)
             return false;

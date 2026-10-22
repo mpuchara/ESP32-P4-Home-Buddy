@@ -61,6 +61,19 @@ int main(void)
     CHECK(hb_jpeg_layout(layout, sizeof(layout), &w, &h, &stride, &rows) && rows == 1088); // 420
     layout[13] = 0;
     CHECK(!hb_jpeg_layout(layout, sizeof(layout), &w, &h, &stride, &rows));
+    layout[7] = 5;
+    layout[8] = 16;
+    layout[9] = 9;
+    layout[10] = 0;
+    layout[13] = 0x22;
+    CHECK(hb_jpeg_layout(layout, sizeof(layout), &w, &h, &stride, &rows));
+    CHECK(w == 2304 && h == 1296 && stride == 2304 && rows == 1296);
+    layout[7] = 8;
+    layout[8] = 0;
+    layout[9] = 16;
+    layout[10] = 0;
+    CHECK(
+        !hb_jpeg_layout(layout, sizeof(layout), &w, &h, &stride, &rows)); // >4 MP remains rejected.
     bad[3] = 192;
     bad[9] = 0xff;
     CHECK(!hb_jpeg_bounds(bad, sizeof(bad), &w, &h));

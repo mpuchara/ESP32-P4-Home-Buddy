@@ -29,7 +29,7 @@ There is no administrator PIN; development NVS is not encrypted at rest.
 | Redirect | Reject; do not follow or forward token |
 
 Two MiB JPEG cap, 8-second per-call timeout, 20-second total download deadline, 5/10/20/.../300-second error retry.
-JPEG baseline SOF0 8-bit <=2048 each dimension and <=4 MP; progressive JPEG is
+JPEG baseline SOF0 8-bit <=4096 each dimension and <=4 MP; progressive JPEG is
 rejected. This is a documented bounded development limit, not a low-resolution
 endpoint. A 200 without ETag clears the previous ETag on acceptance. Changing
 host/port/token resets the cache validator. All downloaded data stays in RAM.
