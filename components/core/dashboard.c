@@ -73,6 +73,48 @@ bool hb_jpeg_bounds(const uint8_t *d, size_t n, uint16_t *w, uint16_t *h)
     }
     return false;
 }
+bool hb_jpeg_layout(const uint8_t *d, size_t n, uint16_t *w, uint16_t *h, uint32_t *stride,
+                    uint32_t *rows)
+{
+    if (!stride || !rows || !hb_jpeg_bounds(d, n, w, h))
+        return false;
+    size_t p = 2;
+    while (p + 4 <= n)
+    {
+        if (d[p++] != 255)
+            return false;
+        while (p < n && d[p] == 255)
+            ++p;
+        if (p >= n)
+            return false;
+        unsigned marker = d[p++];
+        if (marker == 1 || (marker >= 0xd0 && marker <= 0xd7))
+            continue;
+        if (p + 2 > n)
+            return false;
+        size_t len = ((size_t)d[p] << 8) | d[p + 1];
+        if (len < 2 || len > n - p)
+            return false;
+        if (marker == 0xc0)
+        {
+            if (len < 11)
+                return false;
+            unsigned components = d[p + 7];
+            if (!components || components > 3 || len < 8 + 3 * components)
+                return false;
+            unsigned hx = d[p + 9] >> 4, vy = d[p + 9] & 15;
+            if (!hx || hx > 2 || !vy || vy > 2)
+                return false;
+            // Match pinned IDF's process_h/process_v, which use the first component's MCU.
+            unsigned mx = hx * 8, my = vy * 8;
+            *stride = ((*w + mx - 1) / mx) * mx;
+            *rows = ((*h + my - 1) / my) * my;
+            return true;
+        }
+        p += len;
+    }
+    return false;
+}
 bool hb_scale_cover(const uint16_t *src, uint32_t sw, uint32_t sh, uint32_t stride, uint16_t *dst)
 {
     hb_cover_t c;

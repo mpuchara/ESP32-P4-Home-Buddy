@@ -79,3 +79,8 @@ image. During later network traffic, SDIO returned0x109(ESP_ERR_INVALID_CRC) at
 is being reduced to20MHz using the supported Kconfig option, with unchanged pins
 and untouched C6 flash. This mitigation still requires verification and is not
 proof of long-term transport stability.
+
+The20MHz restart sample subsequently verified actual clock, saved Wi-Fi/DHCP,
+Open-Meteo TLS/accepted current response, and a real640x360 JPEG HTTP200accepted
+with matching101730-byte transfer. No C6 write was performed. Clock mitigation is
+not a guarantee against recurrence; long-term transport testing remains open.

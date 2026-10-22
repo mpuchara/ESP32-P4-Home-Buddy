@@ -253,3 +253,29 @@ with an effective-config CI assertion; this is an attempted host-side signal/
 transport mitigation, not a proven root cause or a C6 firmware update. Fresh
 build/flash/boot evidence will follow. Private location and credentials are not
 copied to these public logs/docs. No merge or production release.
+
+
+###20MHz restart verification and JPEG layout regression
+
+The final Wi-Fi build0x1751a0bytes passed effective-config validation and was
+flashed/hash-verified on COM5. Esptool HardReset with USB handling captured a full
+boot: actual SDIO20MHz, station retries then DHCP, certificate validated, Open-Meteo
+HTTP200/complete and accepted=1/same_location=1. Saved weather settings restored
+without re-entering locality. A subsequent sample decoded a real640x360 bridge
+JPEG in125ms and accepted HTTP200 with expected/received101730 and complete=1.
+Internal free273339/largest196608 and PSRAM free27800540/largest27787264 during
+that decode; raw471040, aligned input101730, output768000 bytes. This is a short
+restart sample, not long-term transport/reconnect/soak proof. Earlier transient
+200rejections did not advance ETag or publish partial frames.
+
+Added bounded per-stage HTTP diagnostics(expected/received/completion/decode error)
+without URLs/tokens/image contents, and rejected-header dimension/envelope details.
+Pinned jpeg_parse_sof_marker.c aligns process_h/process_v to the first component's
+sampling factors:8x8 for444,16x8 for422,16x16 for420. The earlier unconditional16
+padding could reject a valid non-16-aligned decoded size or use a wrong stride.
+Use an actual SOF/MCU layout helper; regressions cover1920x1080 all three variants
+and invalid sampling. Host tests5/5still pass. This fixes a verified source-code
+layout bug; it does not assert that all earlier network rejections had that cause.
+
+CI run39804200456 passed all jobs(host plus diagnostics/bringup/wifi) at17f7206.
+The following layout/diagnostic change requires its own fresh CI receipt.

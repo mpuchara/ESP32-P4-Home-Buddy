@@ -25,8 +25,8 @@ LVGL 8.3.11 and the existing BSP. No biometric or camera/audio capture runs.
   ETag advances only after decoder success and UI queue acceptance; 304 preserves
   the image and accepted-image age. No capture, PTZ or private JPEG persistence.
 * screensaver: baseline 8-bit JPEG only, source <=2048x2048, <=4 MP. IDF hardware
-  JPEG engine uses aligned input/output; raw RGB565 is padded to 16-pixel MCU
-  dimensions. CPU nearest-neighbor cover scale creates a separate 800x480 frame.
+  JPEG engine uses aligned input/output; raw RGB565 follows8/16-pixel MCU dimensions from the first
+  component sampling factors. CPU nearest-neighbor cover scale creates a separate 800x480 frame.
   It preserves aspect ratio, crops centrally and never stretches to force fit.
 * services: explicit-validity SNTP plus one bounded Open-Meteo worker. Geocoding
   returns up to5locations for manual selection; chosen coordinates persist in a

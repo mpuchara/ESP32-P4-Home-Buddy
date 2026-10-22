@@ -9,10 +9,17 @@
 #include <string.h>
 esp_err_t hb_image_decode(const uint8_t *data, size_t n, uint16_t **pixels)
 {
-    uint16_t w, h;
+    uint16_t w = 0, h = 0;
+    uint32_t stride, rows;
     *pixels = NULL;
-    if (!hb_jpeg_bounds(data, n, &w, &h))
+    if (!hb_jpeg_layout(data, n, &w, &h, &stride, &rows))
+    {
+        ESP_LOGW("image", "Rejected JPEG header bytes=%u dimensions=%ux%u envelope=%d", (unsigned)n,
+                 w, h,
+                 data && n >= 4 && data[0] == 255 && data[1] == 216 && data[n - 2] == 255 &&
+                     data[n - 1] == 217);
         return ESP_ERR_INVALID_ARG;
+    }
     jpeg_decoder_handle_t decoder = NULL;
     jpeg_decode_engine_cfg_t engine = {.timeout_ms = 1000};
     esp_err_t e = jpeg_new_decoder_engine(&engine, &decoder);
@@ -22,7 +29,6 @@ esp_err_t hb_image_decode(const uint8_t *data, size_t n, uint16_t **pixels)
     jpeg_decode_memory_alloc_cfg_t in = {.buffer_direction = JPEG_DEC_ALLOC_INPUT_BUFFER};
     jpeg_decode_memory_alloc_cfg_t out = {.buffer_direction = JPEG_DEC_ALLOC_OUTPUT_BUFFER};
     uint8_t *input = jpeg_alloc_decoder_mem(n, &in, &insz);
-    uint32_t stride = (w + 15u) & ~15u, rows = (h + 15u) & ~15u;
     uint16_t *raw = jpeg_alloc_decoder_mem((size_t)stride * rows * 2, &out, &outsz);
     uint16_t *frame = heap_caps_malloc(800 * 480 * 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!input || !raw || !frame)

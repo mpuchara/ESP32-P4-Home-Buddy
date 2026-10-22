@@ -1,4 +1,4 @@
-# Open-Meteo temperature,0.2.1-dev
+# Open-Meteo temperature, 0.2.1-dev
 
 The operator replaced MQTT temperature with Open-Meteo and manual locality entry.
 MQTT client/UI/subscription and its old payload parser were removed. No broker is
@@ -27,16 +27,16 @@ Current endpoint uses the selected coordinates, Celsius and UTC Unix seconds:
 https://api.open-meteo.com/v1/forecast?latitude=<lat>&longitude=<lon>&current=temperature_2m&temperature_unit=celsius&timeformat=unixtime&timezone=GMT&forecast_days=1
 ```
 
-Poll every600seconds; errors back off5..300seconds. Require synchronized wall time,
-finite numeric Celsius within-80..80, integer Unix timestamp, exact Celsius unit,
-no future timestamp and age<=3600seconds. Preserve the old value only until its
+Poll every 600 seconds; errors back off 5..300 seconds. Require synchronized wall time,
+finite numeric Celsius within -80..80, integer Unix timestamp, exact Celsius unit,
+no future timestamp and age <= 3600 seconds. Preserve the old value only until its
 original timestamp expires; show unavailable thereafter. Selecting another location
 clears the previous locality's temperature. A download finishing after a location
 change cannot publish the old location's value.
 
 TLS validates the hostname/certificate using the IDF CA bundle. Redirects are
-rejected. Responses cap at8192bytes, nesting at8, timeouts8seconds per call and
-20seconds total. Search/HTTP/parsing are off the LVGL task. A single pending search
+rejected. Responses cap at 8192 bytes, nesting at 8, timeouts 8 seconds per call and
+20 seconds total. Search/HTTP/parsing are off the LVGL task. A single pending search
 is bounded and replaceable. Search-result commands copy bounded data with explicit
 heap ownership; stale/page-closed results are freed without UI access.
 
@@ -45,7 +45,7 @@ from a household sensor. Attribution Open-Meteo.com is shown in settings. Use th
 service under its applicable licensing/usage terms; this integration uses the
 public personal/development endpoints and has no commercial customer-key flow.
 
-Sources inspected2026-10-22:
+Sources inspected 2026-10-22:
 [Weather API](https://open-meteo.com/en/docs),
 [Geocoding API](https://open-meteo.com/en/docs/geocoding-api).
 
@@ -53,7 +53,7 @@ Sources inspected2026-10-22:
 
 Host tests execute actual cJSON parsing for locations, UTF-8 query encoding,
 coordinates, missing/null/wrong-unit/string/invalid/stale/future data and depth.
-Public Warsaw API responses(1087/319bytes) were downloaded with certificate
+Public Warsaw API responses (1087/319 bytes) were downloaded with certificate
 verification and parsed by the same C functions. Warsaw is a contract probe,
 not a default or the operator's configured location. The operator subsequently confirmed device search, selection, saving and a
 temperature displayed on the saver. Long outage/staleness/fault/soak acceptance

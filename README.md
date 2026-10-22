@@ -57,7 +57,7 @@ No browser installer or OTA is provided yet.
 
 ## Current interface
 
-Tap the saver to open Wi-Fi, UBox, MQTT, brightness and diagnostic controls.
+Tap the saver to open Wi-Fi, UBox, weather, brightness and diagnostic controls.
 Missing image/time/temperature remain unavailable. Test JPEG uses a committed
 synthetic image; Test greeting explicitly says Test UI. No biometric inference runs.
 All settings open directly, without an administrator PIN, at the operator's
@@ -69,12 +69,12 @@ hidden PIN gate remains.
 Thirty idle seconds return to the saver; critical saves are exempt.
 
 Wi-Fi scanning works on the connected C6 despite unavailable metadata RPC.
-Association/DHCP and correct local clock are operator-verified. Reconnect,
-UBox images/conditional304 and device Open-Meteo search/temperature are verified.
+Association/DHCP, correct local clock, UBox images/conditional304 and device
+Open-Meteo search/temperature are operator-verified.
 Reconnect/fault/soak acceptance remains incomplete. No C6 firmware update was performed.
 Use the wifi profile for connectivity; the bringup profile remains offline.
 See [user guide](docs/USER_GUIDE.md), [UBox API](docs/UBOX_API.md) and
-[Open-Meteo temperature example](docs/MQTT_API.md).
+[Open-Meteo setup](docs/WEATHER_API.md).
 
 ## Tests
 

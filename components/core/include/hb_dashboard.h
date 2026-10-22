@@ -22,6 +22,8 @@ bool hb_transfer_begin(hb_transfer_t *t, int status, int64_t length);
 bool hb_transfer_append(hb_transfer_t *t, size_t length);
 bool hb_transfer_complete(const hb_transfer_t *t);
 bool hb_jpeg_bounds(const uint8_t *data, size_t n, uint16_t *w, uint16_t *h);
+bool hb_jpeg_layout(const uint8_t *data, size_t n, uint16_t *w, uint16_t *h, uint32_t *stride,
+                    uint32_t *rows);
 bool hb_scale_cover(const uint16_t *src, uint32_t sw, uint32_t sh, uint32_t stride, uint16_t *dst);
 uint32_t hb_retry_seconds(unsigned failures, uint32_t normal);
 bool hb_timestamp(const char *text, int64_t *epoch);
