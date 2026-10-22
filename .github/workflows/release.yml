@@ -1,0 +1,33 @@
+name: Draft development release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Development tag (example v0.1.0-dev.1)'
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+  release:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: firmware
+          pattern: firmware-*
+      - name: Create draft prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-dev\.[0-9]+$ ]]
+          for dir in firmware/*; do (cd "$dir" && sha256sum -c SHA256SUMS); done
+          zip -r firmware.zip firmware
+          gh release create "$TAG" firmware.zip --target "$GITHUB_SHA" --draft --prerelease --title "$TAG" --notes "Development firmware. Physical acceptance and 72-hour stability are not certified. See docs/DEVELOPMENT_LOG.md for verified results."
