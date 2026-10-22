@@ -24,6 +24,8 @@ for name in files:
 for source_name, name in [
     ("LICENSE", "licenses/Apache-2.0.txt"),
     ("components/board/vendor/LICENSE", "licenses/ultramcu-MIT.txt"),
+    ("components/camera/vendor/LICENSE", "licenses/GUITION-camera-Apache-2.0.txt"),
+    ("components/camera/vendor/SOURCE.md", "licenses/GUITION-camera-source.md"),
     ("assets/fonts/OFL-NotoSans.txt", "licenses/NotoSans-OFL.txt"),
     ("dependencies.lock", "dependencies.lock"),
 ]:
