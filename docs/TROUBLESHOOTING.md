@@ -15,4 +15,18 @@
   Do not blindly flash C6 as a connectivity fix.
 * NVS corruption: preserve original flash, diagnose and recover explicitly. Firmware
   deliberately does not automatically erase NVS.
-* No camera/audio/AI/OTA: those services are not implemented yet.
+* Camera unavailable: inspect SCCB ID, frame/error counters and PSRAM/DMA largest block.
+  Do not alter touch reset, C6 reset or MIPI power pins speculatively. Bounded retries
+  leave manual brightness/UBox usable. Audio/AI/OTA are not implemented yet.
+
+* Slow/stale local preview: capture FPS is not visible FPS. IDF5.5.1 output-DMA/cache length
+  adapter and preview timings are documented in LOCAL_CAMERA.md; do not change
+  global RGB565/JPEG/DSI byte order to fix only the local camera.
+* Green/pale local preview: use the accepted RAW10->RAW8 pipeline with the pinned
+  CSI adapter. Shared frames remain native GBRG; black subtraction, thumbnail-only
+  white balance/gamma and CCW90 orientation are explicit stages. Do not apply the
+  UBox JPEG byte-order setting to Bayer data. Preview is not calibrated color.
+
+* AUTO disabled: calibrate two valid points at least0.5 relative stops apart.
+  Rejected/old samples cannot calibrate. A camera fault holds last safe brightness;
+  use MANUAL at any time. Calibration NVS is separate, never erase Wi-Fi/weather.

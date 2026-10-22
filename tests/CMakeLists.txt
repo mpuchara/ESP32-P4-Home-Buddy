@@ -51,7 +51,7 @@ if(NOT MSVC)
 endif()
 add_test(NAME weather COMMAND test_weather)
 add_executable(test_brightness test_brightness.c ../components/core/brightness.c
- ../components/camera/frame_pool.c ../components/camera/light_meter.c ../components/camera/camera_preview.c)
+ ../components/camera/frame_pool.c ../components/camera/light_meter.c ../components/camera/camera_preview.c ../components/camera/raw_frame.c)
 target_include_directories(test_brightness PRIVATE ../components/core/include ../components/camera/include)
 if(MSVC)
  target_compile_options(test_brightness PRIVATE /W4 /WX)

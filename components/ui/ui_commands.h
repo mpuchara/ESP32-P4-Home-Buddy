@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+#include "hb_brightness.h"
 #include "hb_config.h"
 typedef enum
 {
@@ -26,6 +27,8 @@ typedef struct
 {
     bool wifi;
     bool weather;
+    bool brightness;
+    hb_brightness_config brightness_value;
     hb_weather_config_t weather_value;
     hb_config_t value;
 } config_job;

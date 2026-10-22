@@ -1,9 +1,9 @@
-# Development firmware 0.2.1-dev user guide
+# Development firmware 0.3.0-dev user guide
 
 Tap the saver to open settings. All pages open directly, without administrator
 PIN, as requested. Thirty idle seconds return to the saver; pending saves are
 exempt. Touch diagnostics remain open until Return. Brightness has a 26/255 floor
-and resets to the default on reboot.
+and has a separate persistent configuration; see BRIGHTNESS.md.
 
 1. Wi-Fi: Scan, choose SSID, enter the network password and Save. The network
    password stays masked. Wi-Fi obtains DHCP IP; System shows IP/RSSI.
@@ -28,3 +28,12 @@ Wi-Fi, UBox image, corrected image colors, touch, greeting, brightness and local
 clock were physically confirmed by the operator. Weather search/selection/temperature display was also confirmed. Reconnect/cold-boot/fault/soak acceptance is separate.
 NVS is not encrypted at rest; private flash backups may contain credentials. No
 factory-reset, enrollment, local capture, biometric inference or OTA is exposed.
+
+7. Kamera lokalna: turn preview on/off explicitly. It uses only the onboard camera;
+   The portrait thumbnail rotates the fixed module mounting90degrees left. Test
+   kolorów shows a synthetic sensor pattern and suspends light measurement.
+   Wygaszacz UBox returns to the saved remote image. Capture FPS and visible preview
+   FPS are different. No camera images are saved or uploaded.
+8. Wyświetlacz: AUTO/MANUAL/TYMCZASOWO, day/night calibration, fallback and response
+   settings. [Detailed workflow](BRIGHTNESS.md). Missing calibration uses fallback;
+   missing camera data after calibration holds the last safe level.

@@ -1,8 +1,8 @@
-# Architecture, iteration 2
+# Architecture, iteration 3
 
 The default profile keeps outputs disabled; bringup enables board/UI and wifi also
 enables the ESP-Hosted station worker. Dependencies remain locked to IDF 5.5.1,
-LVGL 8.3.11 and the existing BSP. No biometric or camera/audio capture runs.
+LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from LVGL/networking. No biometric inference or audio capture runs.
 
 * board: native DSI 480x800 RGB565 ping-pong and PPA rotation 270 degrees from
   logical 800x480. GT911 mapping remains x=physical_y, y=479-physical_x.
@@ -15,7 +15,7 @@ LVGL 8.3.11 and the existing BSP. No biometric or camera/audio capture runs.
   directly without a PIN, as explicitly requested by the operator. Existing
   schema-1 records load without losing network/bridge/broker settings; the old
   48-byte PIN field is reserved, ignored on read and zeroed on the next save.
-  Credentials are masked in UI but NVS encryption remains incomplete.
+  Wi-Fi passwords are masked; UBox token editing is intentionally visible. NVS encryption remains incomplete.
 * connectivity: ESP-Hosted 2.12.2 SDIO, legacy station APIs, bounded scan and
   disconnect requests, eight-result SSID list, DHCP events/RSSI and retries at
   5..30 seconds. Metadata RPC failure reports UNKNOWN rather than inventing a C6
@@ -69,3 +69,12 @@ rgb_order is RGB. LVGL LV_COLOR_16_SWAP=0 uses native little-endian words. Selec
 BGR for the decoder's native RGB565 byte order and explicit BT.601 conversion.
 This corrects the byte layout, not a global red/blue panel swap; UI colors/mapping
 remain unchanged. The operator confirmed corrected real-camera colors.
+
+## Local camera and brightness
+
+One camera task owns SCCB/CSI/ISP, three leased RAW8 GBRG frames and one discard buffer.
+No FIFO of stale frames; preview and local light consume latest only. Preview closes
+without disturbing UBox. A separate 100ms brightness worker owns existing PWM;
+calibration/modes persist only on explicit config-worker saves in hb_display,
+independent from existing main/weather records. See LOCAL_CAMERA.md and BRIGHTNESS.md
+for metadata, memory, failure boundaries and acceptance limits.

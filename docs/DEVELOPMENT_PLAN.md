@@ -9,7 +9,7 @@ Physical acceptance cannot be inferred from successful compilation.
 | 1 | P4/PSRAM, 800×480 LVGL, touch, backlight, C6 networking | Display/touch/brightness/station/DHCP verified; cold boot/reconnect pending |
 | 2 | Fullscreen cached UBox JPEG, cover crop, ETag, NTP/Warsaw clock, Open-Meteo temperature layers | Implemented; JPEG/clock verified, Real UBox/colors/304 and device weather verified; outage/soak pending |
 | 3 | Direct setup, persistent configuration, complete Polish touchscreen settings | All settings without PIN per operator request; Wi-Fi provisioning verified; encryption pending |
-| 4 | Exact camera driver, frame capture, illumination metric, two-anchor calibration | Pending sensor identification |
+| 4 | Exact camera driver, frame capture, illumination metric, two-anchor calibration | OV02C10 ID and ~30fps capture verified; RAW8 colors/detail/upright operator-confirmed; real calibration and stability pending |
 | 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | Pending |
 | 6 | ES8311/PCM/VAD, local speaker embeddings and on-device enrollment | Pending |
 | 7 | Temporal fusion, greetings, independent cooldowns, MQTT Discovery/events/HA examples | Pending |
@@ -33,3 +33,13 @@ metadata or a confirmed dedicated sensor, never the remote UBox image.
 Face/voice enrollment must remain on-device, authenticated and offline-capable.
 The full product is incomplete until every definition-of-done workflow and the
 physical 72-hour test have passed.
+
+## Iteration 3 acceptance overrides
+
+Continue reviewed06f8a11 on the existing draft PR1, never merge/release implicitly.
+Camera and brightness software now exist; colors/detail/upright are operator-confirmed. Validate visible preview pace,
+actual day/night anchors, manual/temporary/auto, settings restore, camera timeout
+recovery and repeated LVGL cycles. Preserve naturally available2304x1296 and
+cold-power/long-WiFi/72h soak as pending until observed. Source/build/host results
+do not substitute for those checks. Face enrollment/HA events follow camera/light;
+speaker work follows face. No C6 writes or bridge modifications.

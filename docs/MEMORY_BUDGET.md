@@ -60,3 +60,30 @@ largest237568; PSRAM free28575716, largest28311552; aligned input51743, padded
 raw1843200, output768000 bytes. After cleanup the idle PSRAM sample was30474708
 with the displayed frame retained. This is one synthetic decode sample, not an
 HTTP two-MiB peak or a repeated-swap leak/fragmentation test.
+
+## Iteration 3 initial RGB565 experiment (superseded)
+
+Three stable1288x728 RGB565 slots plus one IDF discard buffer total7,501,312 bytes;
+explicit diagnostic preview adds165,888 bytes, released on close. Real boot with
+CSI active: PSRAM23,743,048, largest23,592,960. After640x360 UBox decode and retained
+saver:22,972,996 free. During that simultaneous decode:20,317,260 free,
+largest19,922,944; decode+cover140ms. Internal DMA after network+capture:265,631 free;
+steady pre-JPEG sample268,903, largest229,376. These are short-run samples, not
+full4MP peak, full-resolution2304x1296 acceptance or leak/72h proof.
+The earlier illustrative640x480 capture row is superseded by these actual buffers.
+Future face weights/arenas and audio still require independent measured admission.
+
+## Iteration 3 accepted RAW8 route
+
+Three1288x728 RAW8 slots plus one discard use3,750,656bytes. Upright180x318
+RGB565 preview adds114,480bytes and is released on close. After initial RAW8
+startup, free PSRAM27,493,704, largest27,262,976 and internal DMA271,271bytes
+were observed before UBox decode. These short samples do not establish a
+2304x1296 JPEG peak, AI/audio capacity, fragmentation behavior or72-hour stability.
+The retained buffers remain bounded through recovery; uncertain driver cleanup
+quarantines camera allocations until reboot.
+
+Final upright short sample at158..178seconds: PSRAM26,723,652bytes and largest
+22,544,384 unchanged between samples; DMA265,431 then265,219bytes. Preview toggle
+allocation/release and full-resolution JPEG peak are not inferred from these
+idle samples. No AI/audio admission is implied.

@@ -9,6 +9,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "hb_board.h"
+#include "hb_brightness_service.h"
+#include "hb_camera.h"
 #include "hb_config.h"
 #include "hb_services.h"
 #include "hb_ubox.h"
@@ -47,9 +49,19 @@ void app_main(void)
     esp_err_t err = hb_board_start();
     if (err == ESP_OK)
     {
+        uint16_t sensor_id;
+        esp_err_t camera_err = hb_camera_probe(&sensor_id);
+        ESP_LOGI(TAG, "Local camera read-only probe: %s; ID=0x%04x", esp_err_to_name(camera_err),
+                 sensor_id);
+    }
+    if (err == ESP_OK)
+    {
+        hb_brightness_start(nvs == ESP_OK);
         err = hb_ui_start();
     }
     bool ui_ready = err == ESP_OK;
+    if (ui_ready)
+        hb_camera_start();
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "UI unavailable: %s; serial diagnostics remain active", esp_err_to_name(err));
@@ -73,13 +85,16 @@ void app_main(void)
     for (;;)
     {
         ESP_LOGI(TAG,
-                 "uptime=%" PRIi64
-                 "s internal_free=%u internal_largest=%u internal_min=%u psram_free=%u",
+                 "uptime=%" PRIi64 "s internal_free=%u internal_largest=%u internal_min=%u "
+                 "psram_free=%u psram_largest=%u dma_free=%u dma_largest=%u",
                  esp_timer_get_time() / 1000000,
                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
                  (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
-                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM),
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA),
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
         vTaskDelay(pdMS_TO_TICKS(30000));
     }
 }

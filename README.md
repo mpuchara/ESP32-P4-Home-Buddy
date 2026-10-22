@@ -3,17 +3,17 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.2.1-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.3.0-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
-Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
+Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
 
 ## Hardware and status
 
 USB interrogation on 2026-10-22 identified ESP32-P4 **rev. 1.0**, **16 MB flash**;
 boot diagnostics confirmed **32 MB PSRAM** and a passing memory test.
 The upstream BSP targets JC4880P443C_I_W; compatibility with this exact _Y unit
-must be established per peripheral. Camera model, audio routing, C6 firmware
+must be established per peripheral. Camera ID is physically confirmed as OV02C10 (0x5602 at SCCB0x36). Audio routing, C6 firmware
 and physical display behavior require separate evidence.
 Never use upstream hardware test claims as results for this unit.
 
@@ -103,6 +103,8 @@ One task owns LVGL; network operations use a bounded worker queue.
 PPA rotates 800×480 logical RGB565 to the 480×800 native DSI framebuffers.
 The future identity pipeline runs entirely on P4; HA provides no inference.
 
+* [Local camera and face AI foundation](docs/LOCAL_CAMERA.md)
+* [Brightness calibration](docs/BRIGHTNESS.md)
 * [Architecture](docs/ARCHITECTURE.md)
 * [Hardware and pinout](docs/HARDWARE.md)
 * [Dependencies and licenses](docs/DEPENDENCIES.md)

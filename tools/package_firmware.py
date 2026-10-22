@@ -26,6 +26,7 @@ for source_name, name in [
     ("components/board/vendor/LICENSE", "licenses/ultramcu-MIT.txt"),
     ("components/camera/vendor/LICENSE", "licenses/GUITION-camera-Apache-2.0.txt"),
     ("components/camera/vendor/SOURCE.md", "licenses/GUITION-camera-source.md"),
+    ("components/esp_driver_cam/SOURCE.md", "licenses/IDF-CSI-adapter-source.md"),
     ("assets/fonts/OFL-NotoSans.txt", "licenses/NotoSans-OFL.txt"),
     ("dependencies.lock", "dependencies.lock"),
 ]:

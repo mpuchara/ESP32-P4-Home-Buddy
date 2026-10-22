@@ -37,8 +37,8 @@ ESP-DL human-face detection/recognition models are candidates for P4; ESP-WHO
 examples help with alignment and databases, but their board/audio/camera BSP is
 not interchangeable with GUITION. The inspected
 [esp_cam_sensor table](https://github.com/espressif/esp-video-components/tree/master/esp_cam_sensor)
-does not list OV02C10. Exact sensor identification and a supported sensor driver
-are a critical path, not evidence that a similarly named OS02N10/OV5647 will work.
+does not list OV02C10. Iteration3 now identifies the physical OV02C10 and uses an attributed SDK mode
+table with native IDF capture. Similar names OS02N10/OV5647 are not substitutes.
 
 ## Iteration-2 font extension
 
@@ -48,3 +48,17 @@ lv_font_montserrat_14 provides the pinned LVGL keyboard/control symbols. Real
 bitmap tests cover those symbols plus Polish/ASCII. No new font license is added:
 Montserrat/control glyphs are already distributed by the pinned LVGL component.
 The complete reproducible command is in the generated hb_font_20.c header.
+
+## Iteration 3 camera
+
+IDF-native esp_driver_cam/esp_driver_isp and the existing shared I2C bus; no new
+registry/ESPHome runtime dependency or lockfile change. Selected GUITION SDK
+Apache-2.0 mode table and its LICENSE/SOURCE receipt are in components/camera/vendor.
+Sullb/profi-max/esp-video-components were inspected with provenance recorded there.
+OV02C10 is now physically identified; similar-name drivers are not substituted.
+ESP-DL/ESP-WHO research is in LOCAL_CAMERA.md. No AI dependency/model is linked.
+
+The native CSI adapter requires the exact pinned IDF source hash and applies only
+output DMA length/cache invalidation corrections in the build directory. It adds
+no registry dependency or external runtime; source/Apache receipt is distributed
+with packages. See components/esp_driver_cam/SOURCE.md.

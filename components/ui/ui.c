@@ -6,9 +6,13 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "hb_brightness_service.h"
+#include "hb_camera.h"
+#include "hb_camera_preview.h"
 #include "hb_dashboard.h"
 #include "hb_geometry.h"
 #include "hb_image.h"
+#include "hb_raw_frame.h"
 #include "hb_services.h"
 #include "hb_ui.h"
 #include "hb_wifi.h"
@@ -60,11 +64,23 @@ static void show_form(void);
 static void scan(lv_event_t *e);
 static void close_page(void);
 static void update(lv_timer_t *timer);
+static lv_obj_t *camera_info, *camera_photo, *brightness_info, *pwm_info;
+static lv_img_dsc_t camera_image;
+static uint16_t *preview_pixels;
+static bool preview_enabled;
+static uint32_t preview_tick, preview_sequence;
+static uint32_t preview_count, preview_started, camera_info_tick;
+static uint32_t present_us;
+static hb_brightness_config brightness_editor;
+static int calibration;
+static float calibration_metric;
 
 static void flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *data)
 {
     (void)area;
+    int64_t started = esp_timer_get_time();
     board_p4_present_rotated((const uint16_t *)data, 800, 480);
+    present_us = (uint32_t)(esp_timer_get_time() - started);
     lv_disp_flush_ready(drv);
 }
 static void read_touch(lv_indev_drv_t *drv, lv_indev_data_t *data)
@@ -144,6 +160,22 @@ static void close_menu(lv_event_t *event)
 }
 static void close_page(void)
 {
+    hb_camera_test_pattern(false);
+    camera_info = NULL;
+    brightness_info = NULL;
+    pwm_info = NULL;
+    preview_enabled = false;
+    if (preview_pixels)
+    {
+        lv_img_cache_invalidate_src(&camera_image);
+        // Delete the image widget before releasing its descriptor storage.
+        if (camera_photo)
+            lv_obj_del(camera_photo);
+        free(preview_pixels);
+        preview_pixels = NULL;
+        memset(&camera_image, 0, sizeof(camera_image));
+    }
+    camera_photo = NULL;
     diagnostic = false;
     touch_label = NULL;
     network_info = NULL;
@@ -167,7 +199,10 @@ static void close_page(void)
 }
 static void brightness(lv_event_t *e)
 {
-    board_p4_set_brightness((uint8_t)lv_slider_get_value(lv_event_get_target(e)));
+    brightness_editor.manual_pwm = (uint32_t)lv_slider_get_value(lv_event_get_target(e));
+    if (brightness_editor.mode == HB_BRIGHT_AUTO || calibration)
+        brightness_editor.mode = HB_BRIGHT_MANUAL;
+    hb_brightness_apply(&brightness_editor);
 }
 static void focus(lv_event_t *e)
 {
@@ -474,9 +509,10 @@ static void config_worker(void *arg)
         xQueueReceive(jobs, &job, portMAX_DELAY);
         esp_err_t err;
         command result = {0};
-        err = job.weather ? hb_config_weather_save(&job.weather_value)
-              : job.wifi  ? hb_config_save_wifi(job.value.ssid, job.value.wifi_password)
-                          : hb_config_save(&job.value);
+        err = job.brightness ? hb_brightness_save(&job.brightness_value)
+              : job.weather  ? hb_config_weather_save(&job.weather_value)
+              : job.wifi     ? hb_config_save_wifi(job.value.ssid, job.value.wifi_password)
+                             : hb_config_save(&job.value);
         result.type = CMD_SAVED;
         if (err)
         {
@@ -485,6 +521,250 @@ static void config_worker(void *arg)
         }
         xQueueSend(commands, &result, portMAX_DELAY);
         memset(&job, 0, sizeof(job));
+    }
+}
+static void preview_toggle(lv_event_t *e)
+{
+    (void)e;
+    preview_enabled = !preview_enabled;
+    if (preview_enabled)
+    {
+        preview_count = 0;
+        preview_started = lv_tick_get();
+    }
+    if (!preview_enabled && camera_photo)
+        lv_obj_add_flag(camera_photo, LV_OBJ_FLAG_HIDDEN);
+}
+static void pattern_toggle(lv_event_t *e)
+{
+    (void)e;
+    hb_camera_status camera;
+    hb_camera_get_status(&camera);
+    hb_camera_test_pattern(!camera.test_pattern);
+    preview_enabled = true;
+    preview_count = 0;
+    preview_started = lv_tick_get();
+}
+static void local_camera(lv_event_t *e)
+{
+    (void)e;
+    page_base("Kamera lokalna: diagnostyka");
+    preview_tick = 0;
+    preview_sequence = 0;
+    preview_count = 0;
+    preview_started = lv_tick_get();
+    camera_info_tick = 0;
+    button(page, "Podgląd wł. / wył.", 24, 70, 250, preview_toggle, NULL);
+    button(page, "Test kolorów", 290, 70, 220, pattern_toggle, NULL);
+    button(page, "Wygaszacz UBox", 500, 405, 270, close_menu, NULL);
+    preview_pixels = heap_caps_malloc(180 * 318 * 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (preview_pixels)
+    {
+        memset(preview_pixels, 0, 180 * 318 * 2);
+        camera_image = (lv_img_dsc_t){.header = {.cf = LV_IMG_CF_TRUE_COLOR, .w = 180, .h = 318},
+                                      .data_size = 180 * 318 * 2,
+                                      .data = (const uint8_t *)preview_pixels};
+        camera_photo = lv_img_create(page);
+        lv_obj_set_pos(camera_photo, 120, 125);
+        lv_img_set_src(camera_photo, &camera_image);
+        lv_obj_add_flag(camera_photo, LV_OBJ_FLAG_HIDDEN);
+    }
+    camera_info = label(page, "Oczekiwanie na kamerę", LV_ALIGN_TOP_LEFT, 430, 130);
+    lv_obj_set_width(camera_info, 345);
+    label(page, "Obraz lokalny. Bez zapisu i wysyłania.", LV_ALIGN_TOP_LEFT, 24, 450);
+    lv_scr_load(page);
+}
+static void brightness_mode(lv_event_t *e)
+{
+    calibration = 0;
+    brightness_editor.mode = (uint32_t)(uintptr_t)lv_event_get_user_data(e);
+    hb_brightness_apply(&brightness_editor);
+}
+static void calibrate(lv_event_t *e)
+{
+    hb_camera_status camera;
+    hb_camera_get_status(&camera);
+    uint64_t now = (uint64_t)esp_timer_get_time() / 1000;
+    if (!camera.running || !camera.light.valid || camera.light_ms > now ||
+        now - camera.light_ms > (uint64_t)brightness_editor.sample_seconds * 3000)
+    {
+        form_error("Brak aktualnego pomiaru światła. Kalibracja niedostępna.");
+        return;
+    }
+    calibration = (int)(intptr_t)lv_event_get_user_data(e);
+    calibration_metric = camera.light.metric;
+    brightness_editor.mode = HB_BRIGHT_MANUAL;
+    hb_brightness_apply(&brightness_editor);
+    form_error("Pomiar pobrany. Ustaw suwak i wybierz Zapisz.");
+}
+static void save_brightness(lv_event_t *e)
+{
+    (void)e;
+    if (critical)
+        return;
+    if (calibration)
+    {
+        hb_light_anchor anchor = {
+            .metric = calibration_metric, .pwm = brightness_editor.manual_pwm, .valid = 1};
+        if (calibration == 1)
+            brightness_editor.day = anchor;
+        else
+            brightness_editor.night = anchor;
+    }
+    config_job job = {.brightness = true, .brightness_value = brightness_editor};
+    if (xQueueSend(jobs, &job, 0) == pdTRUE)
+    {
+        critical = true;
+        form_error("Zapisywanie kalibracji i ustawień...");
+    }
+    else
+        form_error("Zapis zajęty. Spróbuj ponownie.");
+}
+static void brightness_options(lv_event_t *e)
+{
+    unsigned option = lv_dropdown_get_selected(lv_event_get_target(e));
+    if (lv_event_get_user_data(e))
+        brightness_editor.transition_seconds = 20 + option * 10;
+    else
+    {
+        static const uint32_t seconds[] = {1, 5, 10, 30, 60};
+        if (option < 5)
+            brightness_editor.sample_seconds = seconds[option];
+    }
+    hb_brightness_apply(&brightness_editor);
+}
+static void fallback_changed(lv_event_t *e)
+{
+    brightness_editor.fallback_pwm = (uint32_t)lv_slider_get_value(lv_event_get_target(e));
+    hb_brightness_apply(&brightness_editor);
+}
+static void brightness_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Wyświetlacz: Jasność");
+    hb_brightness_get(&brightness_editor, NULL);
+    calibration = 0;
+    button(page, "AUTO", 24, 70, 160, brightness_mode, (void *)HB_BRIGHT_AUTO);
+    button(page, "MANUAL", 200, 70, 160, brightness_mode, (void *)HB_BRIGHT_MANUAL);
+    button(page, "TYMCZASOWO 5 min", 376, 70, 270, brightness_mode, (void *)HB_BRIGHT_OVERRIDE);
+    lv_obj_t *slider = lv_slider_create(page);
+    lv_obj_set_pos(slider, 24, 150);
+    lv_obj_set_size(slider, 620, 22);
+    lv_slider_set_range(slider, 26, 255);
+    lv_slider_set_value(slider, brightness_editor.manual_pwm, LV_ANIM_OFF);
+    lv_obj_add_event_cb(slider, brightness, LV_EVENT_VALUE_CHANGED, NULL);
+    pwm_info = label(page, "PWM", LV_ALIGN_TOP_LEFT, 670, 140);
+    brightness_info = label(page, "", LV_ALIGN_TOP_LEFT, 24, 192);
+    lv_obj_set_width(brightness_info, 750);
+    button(page, "Kalibruj dzień", 24, 250, 220, calibrate, (void *)1);
+    button(page, "Kalibruj noc", 262, 250, 220, calibrate, (void *)2);
+    button(page, "Zapisz", 500, 250, 270, save_brightness, NULL);
+    label(page, "Pomiar", LV_ALIGN_TOP_LEFT, 24, 355);
+    lv_obj_t *interval = lv_dropdown_create(page);
+    lv_obj_set_pos(interval, 115, 345);
+    lv_obj_set_width(interval, 140);
+    lv_dropdown_set_options(interval, "1 s\n5 s\n10 s\n30 s\n60 s");
+    unsigned index = brightness_editor.sample_seconds == 1    ? 0
+                     : brightness_editor.sample_seconds == 5  ? 1
+                     : brightness_editor.sample_seconds == 10 ? 2
+                     : brightness_editor.sample_seconds == 30 ? 3
+                                                              : 4;
+    lv_dropdown_set_selected(interval, index);
+    lv_obj_add_event_cb(interval, brightness_options, LV_EVENT_VALUE_CHANGED, NULL);
+    label(page, "Przejście", LV_ALIGN_TOP_LEFT, 300, 355);
+    lv_obj_t *response = lv_dropdown_create(page);
+    lv_obj_set_pos(response, 420, 345);
+    lv_obj_set_width(response, 140);
+    lv_dropdown_set_options(response, "20 s\n30 s\n40 s\n50 s\n60 s");
+    lv_dropdown_set_selected(response, (brightness_editor.transition_seconds - 20) / 10);
+    lv_obj_add_event_cb(response, brightness_options, LV_EVENT_VALUE_CHANGED, (void *)1);
+    label(page, "Awaryjna jasność", LV_ALIGN_TOP_LEFT, 24, 420);
+    lv_obj_t *fallback = lv_slider_create(page);
+    lv_obj_set_pos(fallback, 285, 430);
+    lv_obj_set_size(fallback, 420, 22);
+    lv_slider_set_range(fallback, 26, 255);
+    lv_slider_set_value(fallback, brightness_editor.fallback_pwm, LV_ANIM_OFF);
+    lv_obj_add_event_cb(fallback, fallback_changed, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_scr_load(page);
+}
+static void camera_brightness_update(void)
+{
+    if (!camera_info && !brightness_info)
+        return;
+    if ((uint32_t)(lv_tick_get() - preview_tick) < 100)
+        return;
+    preview_tick = lv_tick_get();
+    hb_camera_status camera;
+    hb_camera_get_status(&camera);
+    if (camera_info)
+    {
+        if ((uint32_t)(lv_tick_get() - camera_info_tick) >= 1000)
+        {
+            camera_info_tick = lv_tick_get();
+            char text[640];
+            snprintf(text, sizeof(text),
+                     "ID: 0x%04x  %s\n%u x %u RAW8\nFPS: %.1f  Klatki: %u\nBłędy: %u  Pominięte: "
+                     "%u\nEkspozycja: ~%.0f us\nGain: %.2f / %.2f\nŚwiatło: %s %.3f\nPodgląd: %.1f "
+                     "FPS\nPSRAM: %u B\n%s",
+                     camera.sensor_id,
+                     camera.test_pattern ? "TEST"
+                     : camera.running    ? "OK"
+                                         : "brak",
+                     camera.width, camera.height, (double)camera.fps, (unsigned)camera.frames,
+                     (unsigned)camera.errors, (unsigned)camera.dropped, (double)camera.exposure_us,
+                     (double)camera.analogue_gain, (double)camera.digital_gain,
+                     camera.light.valid ? "OK" : "brak", (double)camera.light.metric,
+                     (double)((float)preview_count * 1000 / (lv_tick_get() - preview_started + 1)),
+                     (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                     esp_err_to_name(camera.error));
+            lv_label_set_text(camera_info, text);
+        }
+        if (preview_enabled && preview_pixels)
+        {
+            hb_camera_frame frame = {0};
+            if (hb_camera_acquire(&frame))
+            {
+                if (frame.sequence != preview_sequence)
+                {
+                    int64_t started = esp_timer_get_time();
+                    hb_raw_thumbnail_upright(frame.pixels, frame.width, frame.height,
+                                             preview_pixels, 180, 318);
+                    if (!camera.test_pattern)
+                        hb_camera_make_preview(preview_pixels, 180, 318, preview_pixels, 180, 318);
+                    preview_sequence = frame.sequence;
+                    preview_count++;
+                    if (preview_count % 50 == 0)
+                        ESP_LOGI("preview",
+                                 "updates=%u fps=%.1f conversion_us=%u last_present_us=%u",
+                                 (unsigned)preview_count,
+                                 (double)((float)preview_count * 1000 /
+                                          (lv_tick_get() - preview_started + 1)),
+                                 (unsigned)(esp_timer_get_time() - started), (unsigned)present_us);
+                    lv_img_cache_invalidate_src(&camera_image);
+                    lv_obj_clear_flag(camera_photo, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_invalidate(camera_photo);
+                }
+                hb_camera_release(&frame);
+            }
+        }
+    }
+    if (brightness_info)
+    {
+        uint8_t pwm;
+        hb_brightness_config current;
+        hb_brightness_get(&current, &pwm);
+        lv_label_set_text_fmt(pwm_info, "%u / 255", pwm);
+        char text[400];
+        snprintf(text, sizeof(text), "%s | Światło: %s %.3f\nKalibracja: %s | Dzień: %s | Noc: %s",
+                 current.mode == HB_BRIGHT_AUTO     ? "AUTO"
+                 : current.mode == HB_BRIGHT_MANUAL ? "MANUAL"
+                                                    : "TYMCZASOWO",
+                 camera.light.valid ? "OK" : "brak", (double)camera.light.metric,
+                 hb_brightness_calibrated(&brightness_editor) ? "OK"
+                                                              : "niepełna / zbyt bliskie punkty",
+                 brightness_editor.day.valid ? "zapisany" : "brak",
+                 brightness_editor.night.valid ? "zapisany" : "brak");
+        lv_label_set_text(brightness_info, text);
     }
 }
 bool hb_ui_publish_image(uint16_t *frame)
@@ -536,6 +816,7 @@ void hb_ui_temperature(bool available, double value, int64_t timestamp, uint32_t
 static void update(lv_timer_t *timer)
 {
     (void)timer;
+    camera_brightness_update();
     command c;
     while (xQueueReceive(commands, &c, 0) == pdTRUE)
     {
@@ -639,7 +920,7 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.2.1-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware 0.3.0-dev\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
                  service_state[0], service_state[1], service_state[2],
@@ -710,13 +991,8 @@ static void screens(void)
     button(menu, "Test JPEG", 24, 136, 230, test_image, NULL);
     button(menu, "Test powitania", 282, 136, 230, test_greeting, NULL);
     button(menu, "Test dotyku", 540, 136, 230, touch_test, NULL);
-    label(menu, "Podświetlenie", LV_ALIGN_TOP_LEFT, 24, 218);
-    lv_obj_t *slider = lv_slider_create(menu);
-    lv_obj_set_size(slider, 440, 22);
-    lv_obj_set_pos(slider, 285, 232);
-    lv_slider_set_range(slider, 26, 255);
-    lv_slider_set_value(slider, 128, LV_ANIM_OFF);
-    lv_obj_add_event_cb(slider, brightness, LV_EVENT_VALUE_CHANGED, NULL);
+    button(menu, "Wyświetlacz", 24, 204, 230, brightness_page, NULL);
+    button(menu, "Kamera lokalna", 282, 204, 230, local_camera, NULL);
     button(menu, "Skanuj Wi-Fi", 24, 290, 230, scan, NULL);
     button(menu, "System", 282, 290, 230, system_test, NULL);
     button(menu, "Powrót", 620, 410, 150, close_menu, NULL);

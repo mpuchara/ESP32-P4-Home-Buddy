@@ -6,11 +6,11 @@ Assessment date: 2026-10-22. Physical USB identity: COM5, ESP32-P4 rev. 1.0,
 | Peripheral | Evidence | Status for this unit |
 |---|---|---|
 | P4 / flash | esptool 4.12.0 read on COM5 | Rev 1.0 / 16 MB confirmed |
-| ST7701S 480×800 DSI | Physical boot and operator observation of saver/menu text | Visible UI confirmed; complete image/orientation/cold-boot acceptance pending |
-| GT911 | Physical probe 0x5D, chip ID 911, configuration 250; operator opens menu by touch | Basic touch navigation confirmed; four-corner test pending |
+| ST7701S 480×800 DSI | Physical boot and operator observation of saver/menu text | UI, UBox colors and orientation confirmed; cold-power test pending |
+| GT911 | Physical probe 0x5D, chip ID 911, configuration 250; operator opens menu by touch | Operator confirmed touch diagnostic and navigation |
 | 32 MB PSRAM | Physical boot: 32 MB at 80 MHz, SPI SRAM memory test OK | Capacity and startup test confirmed |
-| C6 SDIO | Physical slot1 40 MHz init; ESP32-C6 detected | Link confirmed; firmware version RPC times out, network acceptance blocked |
-| OV02C10 camera | supplied assumption | Exact sensor not verified; not in inspected esp_cam_sensor supported table |
+| C6 SDIO | Physical slot1 20 MHz and station/DHCP | Working station; C6 version RPC times out, firmware untouched |
+| OV02C10 camera | SCCB0x36 ID0x5602 and native capture | RAW8 colors/detail and upright preview operator-confirmed |
 | ES8311 / microphone | upstream pins and schematic sheets | Routing, codec identity and PCM capture not verified |
 | Ambient light sensor | no confirmed part / schematic evidence | Do not assume one exists |
 | microSD | upstream VO4 supply description | Not mounted by Home Buddy |
@@ -91,3 +91,13 @@ verified-TLS weather and complete UBox640x360/304 responses were observed. The
 new2304x1296 bound/layout is host-tested; no new frame of that size arrived in the
 final short sample. Full-resolution hardware acceptance and long-term stability
 remain open; no LTE capture was initiated merely to obtain test evidence.
+
+## Iteration 3 physical camera identification
+
+On2026-10-22 COM5 returned OV02C10 ID0x5602 at SCCB0x36 through existing I2C0
+SDA7/SCL8, without reset/power writes. Native CSI/ISP subsequently produced
+1288x728 RAW8 GBRG at about30fps. The initial RGB565 preview was rejected for
+green/pale/noisy images. Operator accepted RAW8 colors/detail; native module head
+points right, so portrait preview now rotates CCW90. Operator confirmed upright head in landscape device orientation. No model/inference or actual day/night calibration is accepted yet.
+No separate ALS was identified in inspected documentation/BSP; no arbitrary
+ALS driver is enabled. See LOCAL_CAMERA.md for source wiring and limits.

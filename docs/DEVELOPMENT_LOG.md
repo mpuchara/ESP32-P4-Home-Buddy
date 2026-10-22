@@ -332,3 +332,53 @@ connection/error recovery and stale-weather tests, repeated replacement heap/
 fragmentation checks, cold power-on and the planned72-hour physical soak. Secure
 production storage/provisioning remains a later task; do not infer it from masked
 Wi-Fi fields or direct setup. The operator-requested UBox token edit is visible.
+
+## Iteration 3 in progress, 2026-10-22
+
+Baseline/PR inspected: clean06f8a11, PR1 open/draft/unmerged. Original private P4
+backup SHA256 rechecked unchanged. No C6 write or bridge modification.
+Read-only SCCB identified0x5602 at0x36. GUITION schematic/source/per-file Apache
+license audit recorded in camera/vendor/SOURCE.md; no ESPHome runtime imported.
+Native CSI one400Mbps lane /1288x728 RAW10 -> ISP RGB565 measured29.9..30.1fps.
+Three leased slots + discard coexist with retained UBox, weather TLS and DHCP.
+Host six tests and Python three checks passed at the first UI implementation.
+Operator reports green/pale and~1fps preview, so image quality is explicitly NOT
+accepted. Correcting pinned-driver cache length, preview pace and preview-only
+white balance/display gamma. Brightness controls and schema1 separate persistence
+implemented; actual day/night/override/reboot acceptance pending. See LOCAL_CAMERA
+and BRIGHTNESS for algorithms, relative-metric limitations and face-model research.
+
+## Iteration 3 RAW8 and upright preview receipt, 2026-10-22
+
+The initial RGB565 image path was rejected by the operator. Native RAW10->RAW8
+GBRG, black-target subtraction and thumbnail-only white balance/gamma were then
+operator-confirmed for usable colors and detail. Head initially pointed right;
+CCW90 portrait preview now has operator confirmation of upright orientation with
+the device in landscape. Synthetic four-quadrant regression verifies the mapping
+and unchanged source Bayer storage. Frame API declares rotation_ccw=90 for future
+AI preprocessing; no actual inference or recognition accuracy is claimed.
+
+Pinned CSI source has two build-local DMA/cache corrections with exact source
+hash admission. Native RAW10->RAW8 requires output-bit transfer count to avoid an
+overrun. ISP constructor/uncertain cleanup failures quarantine bounded allocations
+until reboot rather than repeatedly claiming/leaking driver resources.
+
+Final local host checks: six CTest suites, three project checks, formatting and
+whitespace passed. Raw linear light uses unquantized channels and rejects clipping
+or near-total black; black-level-only data remains invalid. The connected short
+sample still reported luma0/invalid at nominal32ms and8x gain. Thus actual local
+illumination measurement, day/night calibration and AUTO behavior are NOT accepted
+from the preview confirmation. Manual operation remains available; no false anchor
+is written. Real calibration, NVS reboot restore, five-minute temporary expiry,
+changing-light stability and fault injection remain on-device acceptance work.
+
+Upright firmware built0x17db60bytes and was written/hash-verified on COM5. Capture
+measured about30fps. At158..178seconds PSRAM stayed26,723,652bytes, largest22,544,384;
+internal DMA265,431 then265,219bytes. These are short samples, not a leak/72-hour
+soak. Earlier RGB preview measured7fps; the final portrait rate still needs a fresh
+active-preview sample and is not equated to30fps capture. Boot temporarily logged
+network host-unreachable; no uninterrupted connectivity claim is made.
+
+No C6 firmware write, bridge modification, forced LTE snapshot, model download,
+biometric enrollment, production release or PR merge occurred. Naturally available
+2304x1296 UBox acceptance, cold-power boot and planned72-hour soak remain pending.

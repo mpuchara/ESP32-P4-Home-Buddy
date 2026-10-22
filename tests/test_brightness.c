@@ -3,6 +3,7 @@
 #include "hb_camera_preview.h"
 #include "hb_frame_pool.h"
 #include "hb_light_meter.h"
+#include "hb_raw_frame.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -159,12 +160,50 @@ static void preview(void)
     CHECK(source[0] == 0x3be7); // leased source remains linear and untouched
     CHECK(!hb_camera_make_preview(NULL, 64, 64, output, 32, 32));
 }
+static void raw_frame(void)
+{
+    uint8_t source[64 * 64];
+    uint16_t output[32 * 32];
+    for (unsigned y = 0; y < 64; y++)
+        for (unsigned x = 0; x < 64; x++)
+            source[y * 64 + x] = (y & 1) && !(x & 1) ? 255 : 0;
+    CHECK(hb_raw_thumbnail(source, 64, 64, output, 32, 32));
+    CHECK(output[0] == 0xf800 && output[1023] == 0xf800);
+    memset(source, 128, sizeof(source));
+    CHECK(hb_raw_thumbnail(source, 64, 64, output, 32, 32));
+    hb_light_reading a = hb_raw_light(source, 64, 64, 1000, 1, 1, true);
+    hb_light_reading b = hb_raw_light(source, 64, 64, 2000, 1, 1, true);
+    CHECK(a.valid && b.valid && fabsf(a.metric - b.metric - 1) < 0.001f);
+    // Four colored quadrants establish CCW rotation without relying on symmetric gray frames.
+    for (unsigned y = 0; y < 64; y++)
+        for (unsigned x = 0; x < 64; x++)
+        {
+            unsigned q = (y >= 32) * 2 + (x >= 32);
+            bool red = (y & 1) && !(x & 1), blue = !(y & 1) && (x & 1);
+            source[y * 64 + x] = q == 0   ? (red ? 255 : 16)
+                                 : q == 1 ? (blue ? 255 : 16)
+                                 : q == 2 ? 255
+                                          : 16;
+        }
+    CHECK(hb_raw_thumbnail_upright(source, 64, 64, output, 32, 32));
+    CHECK(output[0] == 0x001f); // native top right -> upright top left
+    CHECK(output[31] == 0);     // native bottom right -> upright top right
+    CHECK(output[31 * 32] == 0xf800);
+    CHECK(output[1023] == 0xffff);
+    CHECK(source[0] == 16 && source[64] == 255); // source Bayer phase untouched
+    memset(source, 22, sizeof(source));
+    CHECK(hb_raw_light(source, 64, 64, 1000, 1, 1, true).valid); // dim signal survives
+    memset(source, 16, sizeof(source));
+    CHECK(!hb_raw_light(source, 64, 64, 1000, 1, 1, true).valid); // black target alone
+    CHECK(!hb_raw_thumbnail(source, 63, 64, output, 32, 32));
+}
 int main(void)
 {
     controller();
     leases();
     meter();
     preview();
+    raw_frame();
     puts("brightness, bounded frame leases, robust exposure-compensated meter: OK");
     return 0;
 }

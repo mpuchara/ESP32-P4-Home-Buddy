@@ -9,6 +9,7 @@ expected = {
     "IDF_TARGET": "esp32p4",
     "ESPTOOLPY_FLASHSIZE": "16MB",
     "LV_COLOR_DEPTH": 16,
+    "LV_FONT_MONTSERRAT_48": True,
     "ESP_HOSTED_ENABLED": profile == "wifi",
     "HB_BOARD_PROFILE_CONFIRMED": profile != "diagnostics",
     "HB_WIFI_DIAGNOSTICS": profile == "wifi",

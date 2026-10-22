@@ -9,16 +9,20 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "hb_camera.h"
+#include "hb_raw_frame.h"
 #include "vendor/ov02c10_mode.h"
 #include <math.h>
 #include <stdatomic.h>
 #include <string.h>
+#ifndef HB_CAMERA_DMA_OUTPUT_BITS
+#error "Local RAW8 capture requires the audited project CSI DMA output-length adapter"
+#endif
 #define WIDTH 1288
 #define HEIGHT 728
-#define FRAME_BYTES (WIDTH * HEIGHT * 2)
+#define FRAME_BYTES (WIDTH * HEIGHT)
 static portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;
 static hb_frame_pool pool;
-static uint16_t *storage[HB_CAMERA_SLOTS];
+static uint8_t *storage[HB_CAMERA_SLOTS];
 static uint64_t frame_time[HB_CAMERA_SLOTS];
 static uint32_t frame_seq[HB_CAMERA_SLOTS];
 static hb_camera_status status;
@@ -26,8 +30,14 @@ static esp_cam_ctlr_handle_t controller;
 static isp_proc_handle_t isp;
 static i2c_master_dev_handle_t sensor;
 static bool controller_enabled, controller_started, isp_enabled;
+static bool isp_quarantined;
 static atomic_uint sample_seconds = 5;
 static atomic_bool started;
+static atomic_bool requested_pattern;
+void hb_camera_test_pattern(bool enabled)
+{
+    atomic_store(&requested_pattern, enabled);
+}
 static esp_err_t write_reg(uint16_t address, uint8_t value)
 {
     uint8_t bytes[] = {(uint8_t)(address >> 8), (uint8_t)address, value};
@@ -92,6 +102,7 @@ bool hb_camera_acquire(hb_camera_frame *f)
         f->pixels = storage[i];
         f->width = WIDTH;
         f->height = HEIGHT;
+        f->rotation_ccw = 90;
         f->sequence = frame_seq[i];
         f->timestamp_ms = frame_time[i];
     }
@@ -152,6 +163,11 @@ static esp_err_t initialize(void)
     }
     if (e != ESP_OK)
         return e;
+    // Source driver's stream operation overrides the table's gated-clock setting
+    // when CSI line-sync packets are disabled. Match that operation explicitly.
+    e = write_reg(0x4800, 0x00);
+    if (e != ESP_OK)
+        return e;
     // Mode table advertises one 400 Mbit/s RAW10 lane and 24 MHz module oscillator.
     // DSI already owns LDO3=2.5 V. Never reacquire/reconfigure that shared rail.
     const esp_cam_ctlr_csi_config_t csi = {.ctlr_id = 0,
@@ -160,7 +176,7 @@ static esp_err_t initialize(void)
                                            .data_lane_num = 1,
                                            .lane_bit_rate_mbps = 400,
                                            .input_data_color_type = CAM_CTLR_COLOR_RAW10,
-                                           .output_data_color_type = CAM_CTLR_COLOR_RGB565,
+                                           .output_data_color_type = CAM_CTLR_COLOR_RAW8,
                                            .queue_items = 1};
     e = esp_cam_new_csi_ctlr(&csi, &controller);
     if (e != ESP_OK)
@@ -182,16 +198,23 @@ static esp_err_t initialize(void)
     if (e != ESP_OK)
         return e;
     controller_enabled = true;
-    esp_isp_processor_cfg_t config = {.clk_hz = 80000000,
+    esp_isp_processor_cfg_t config = {.clk_src = ISP_CLK_SRC_PLL160,
+                                      .clk_hz = 160000000,
                                       .input_data_source = ISP_INPUT_DATA_SOURCE_CSI,
                                       .input_data_color_type = ISP_COLOR_RAW10,
-                                      .output_data_color_type = ISP_COLOR_RGB565,
+                                      .output_data_color_type = ISP_COLOR_RAW8,
                                       .h_res = WIDTH,
                                       .v_res = HEIGHT,
                                       .bayer_order = COLOR_RAW_ELEMENT_ORDER_GBRG};
     e = esp_isp_new_processor(&config, &isp);
     if (e != ESP_OK)
+    {
+        // IDF5.5.1 constructor frees its object on failure without releasing every
+        // global claim. No public handle exists to undo that partial construction.
+        // Quarantine instead of repeatedly initializing/leaking this peripheral.
+        isp_quarantined = true;
         return e;
+    }
     e = esp_isp_enable(isp);
     if (e != ESP_OK)
         return e;
@@ -208,7 +231,7 @@ static esp_err_t initialize(void)
     status.width = WIDTH;
     status.height = HEIGHT;
     portEXIT_CRITICAL(&lock);
-    ESP_LOGI("camera", "CSI RAW10 1288x728 1 lane 400Mbps -> ISP RGB565; pool=%u + discard=%u",
+    ESP_LOGI("camera", "CSI RAW10 1288x728 1 lane 400Mbps -> ISP RAW8 GBRG; pool=%u + discard=%u",
              (unsigned)(HB_CAMERA_SLOTS * FRAME_BYTES), (unsigned)FRAME_BYTES);
     return ESP_OK;
 }
@@ -220,18 +243,18 @@ static void stop_driver(void)
     portEXIT_CRITICAL(&lock);
     if (sensor)
         write_reg(0x0100, 0);
-    if (controller_started)
-        esp_cam_ctlr_stop(controller);
-    if (controller_enabled)
-        esp_cam_ctlr_disable(controller);
-    if (isp_enabled)
-        esp_isp_disable(isp);
-    if (isp)
-        esp_isp_del_processor(isp);
-    if (controller)
-        esp_cam_ctlr_del(controller);
-    if (sensor)
-        i2c_master_bus_rm_device(sensor);
+    if ((controller_started && esp_cam_ctlr_stop(controller) != ESP_OK) ||
+        (controller_enabled && esp_cam_ctlr_disable(controller) != ESP_OK) ||
+        (isp_enabled && esp_isp_disable(isp) != ESP_OK) ||
+        (isp && esp_isp_del_processor(isp) != ESP_OK) ||
+        (controller && esp_cam_ctlr_del(controller) != ESP_OK) ||
+        (sensor && i2c_master_bus_rm_device(sensor) != ESP_OK))
+    {
+        // Unknown driver/DMA lifetime: retain all storage and stop retries.
+        isp_quarantined = true;
+        ESP_LOGE("camera", "Driver cleanup failed; retaining bounded resources until reboot");
+        return;
+    }
     controller = NULL;
     isp = NULL;
     sensor = NULL;
@@ -248,12 +271,15 @@ static void worker(void *arg)
 {
     (void)arg;
     unsigned backoff = 5;
+    bool startup_pattern = true;
     for (;;)
     {
         esp_err_t e = initialize();
         uint64_t started = (uint64_t)esp_timer_get_time() / 1000, last_frame = started,
                  last_light = 0;
         uint64_t last_control = 0, changed = started;
+        bool pattern = false;
+        bool pattern_reported = false;
         uint32_t base_sequence;
         portENTER_CRITICAL(&lock);
         base_sequence = status.frames;
@@ -263,6 +289,24 @@ static void worker(void *arg)
         while (e == ESP_OK)
         {
             uint64_t now = (uint64_t)esp_timer_get_time() / 1000;
+            bool request = startup_pattern || atomic_load(&requested_pattern);
+            if (request != pattern)
+            {
+                uint8_t original;
+                e = read_regs(0x4503, &original, 1);
+                if (e == ESP_OK)
+                    e = write_reg(0x4503, request ? (uint8_t)((original & 0x7c) | 0x80)
+                                                  : (uint8_t)(original & 0x7f));
+                if (e != ESP_OK)
+                    break;
+                pattern = request;
+                pattern_reported = false;
+                changed = now;
+                portENTER_CRITICAL(&lock);
+                status.test_pattern = pattern;
+                status.light.valid = false;
+                portEXIT_CRITICAL(&lock);
+            }
             hb_camera_frame frame = {0};
             if (hb_camera_acquire(&frame))
             {
@@ -271,7 +315,26 @@ static void worker(void *arg)
                     last_frame = now;
                     sequence = frame.sequence;
                 }
-                if (now - last_control >= 500 && frame.timestamp_ms >= changed + 200)
+                if (pattern && !pattern_reported && frame.timestamp_ms >= changed + 200)
+                {
+                    // Numeric synthetic-pattern diagnostics only; never log a room frame.
+                    for (unsigned bar = 0; bar < 8; bar++)
+                    {
+                        const uint8_t *raw = frame.pixels + (HEIGHT / 2) * WIDTH +
+                                             (((2 * bar + 1) * WIDTH / 16) & ~1U);
+                        uint16_t p = (uint16_t)(((raw[WIDTH] >> 3) << 11) |
+                                                ((((unsigned)raw[0] + raw[WIDTH + 1]) / 8) << 5) |
+                                                (raw[1] >> 3));
+                        ESP_LOGI("camera_pattern",
+                                 "bar=%u R=%u G=%u B=%u swapR=%u swapG=%u swapB=%u", bar,
+                                 (p >> 11) & 31, (p >> 5) & 63, p & 31,
+                                 ((p << 8 | p >> 8) >> 11) & 31, ((p << 8 | p >> 8) >> 5) & 63,
+                                 (p << 8 | p >> 8) & 31);
+                    }
+                    pattern_reported = true;
+                    startup_pattern = false;
+                }
+                if (!pattern && now - last_control >= 500 && frame.timestamp_ms >= changed + 200)
                 {
                     uint8_t exposure[2], gain[2], digital[3], timing[4];
                     bool meta = read_regs(0x3501, exposure, 2) == ESP_OK &&
@@ -288,7 +351,7 @@ static void worker(void *arg)
                              65536.0f;
                     }
                     hb_light_reading light =
-                        hb_light_measure(frame.pixels, WIDTH, HEIGHT, exp, ag, dg, meta);
+                        hb_raw_light(frame.pixels, WIDTH, HEIGHT, exp, ag, dg, meta);
                     bool publish =
                         now - last_light >= (uint64_t)atomic_load(&sample_seconds) * 1000;
                     portENTER_CRITICAL(&lock);
@@ -306,12 +369,14 @@ static void worker(void *arg)
                     {
                         last_light = now;
                         ESP_LOGI("camera",
-                                 "frames=%u fps=%.1f light_valid=%d metric=%.3f exposure_us=%.1f "
+                                 "frames=%u fps=%.1f light_valid=%d metric=%.3f luma=%.1f "
+                                 "rejected=%.2f exposure_us=%.1f "
                                  "gain=%.2f/%.2f psram=%u largest=%u dma=%u",
                                  (unsigned)sequence,
                                  (double)((float)(sequence - base_sequence) * 1000 /
                                           (now - started + 1)),
-                                 light.valid, (double)light.metric, (double)exp, (double)ag,
+                                 light.valid, (double)light.metric, (double)light.luminance,
+                                 (double)light.rejected_fraction, (double)exp, (double)ag,
                                  (double)dg, (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
                                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM),
                                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL |
@@ -365,6 +430,12 @@ static void worker(void *arg)
         portEXIT_CRITICAL(&lock);
         ESP_LOGW("camera", "capture unavailable: %s; retry in %us", esp_err_to_name(e), backoff);
         stop_driver();
+        if (isp_quarantined)
+        {
+            ESP_LOGE("camera", "Driver lifetime uncertain; camera quarantined until reboot; "
+                               "dashboard/manual brightness remain available");
+            vTaskDelete(NULL);
+        }
         vTaskDelay(pdMS_TO_TICKS(backoff * 1000));
         if (backoff < 300)
             backoff = backoff > 150 ? 300 : backoff * 2;

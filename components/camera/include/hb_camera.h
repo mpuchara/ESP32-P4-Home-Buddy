@@ -9,8 +9,10 @@
 esp_err_t hb_camera_probe(uint16_t *sensor_id);
 typedef struct
 {
-    const uint16_t *pixels;
+    // RAW8 Bayer GBRG, tightly packed; immutable while leased.
+    const uint8_t *pixels;
     unsigned width, height;
+    unsigned rotation_ccw; // 90 degrees: canonical upright dimensions are height x width.
     uint32_t sequence;
     uint64_t timestamp_ms;
     hb_frame_lease lease;
@@ -25,9 +27,11 @@ typedef struct
     hb_light_reading light;
     esp_err_t error;
     bool running;
+    bool test_pattern;
 } hb_camera_status;
 esp_err_t hb_camera_start(void);
 void hb_camera_get_status(hb_camera_status *status);
 bool hb_camera_acquire(hb_camera_frame *frame);
 void hb_camera_release(hb_camera_frame *frame);
 void hb_camera_set_sample_seconds(uint32_t seconds);
+void hb_camera_test_pattern(bool enabled);

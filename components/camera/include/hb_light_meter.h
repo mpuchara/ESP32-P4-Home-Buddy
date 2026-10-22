@@ -12,3 +12,5 @@ typedef struct
 hb_light_reading hb_light_measure(const uint16_t *rgb, unsigned width, unsigned height,
                                   float exposure_us, float analogue_gain, float digital_gain,
                                   bool metadata_valid);
+hb_light_reading hb_light_histogram(const unsigned histogram[256], float exposure_us,
+                                    float analogue_gain, float digital_gain, bool metadata_valid);
