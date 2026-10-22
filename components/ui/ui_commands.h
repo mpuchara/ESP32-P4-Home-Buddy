@@ -7,7 +7,6 @@ typedef enum
     CMD_GREETING,
     CMD_DIAGNOSTIC,
     CMD_TEMPERATURE,
-    CMD_FORM,
     CMD_SAVED,
     CMD_CONFIG_ERROR
 } command_type;
@@ -23,8 +22,6 @@ typedef struct
 } command;
 typedef struct
 {
-    bool save;
     bool wifi;
-    char pin[13];
     hb_config_t value;
 } config_job;

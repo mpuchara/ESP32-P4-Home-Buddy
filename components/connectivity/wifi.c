@@ -53,6 +53,7 @@ static void worker(void *arg)
         hb_config_get(&c);
         if (strcmp(c.ssid, previous.ssid) || strcmp(c.wifi_password, previous.wifi_password))
         {
+            atomic_store(&connected, false);
             esp_wifi_disconnect();
             previous = c;
             manual_disconnect = false;

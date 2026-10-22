@@ -29,11 +29,12 @@ static esp_timer_handle_t tick;
 static lv_color_t *pixels;
 static lv_obj_t *saver, *menu, *status, *photo, *empty, *clock_label, *temp_label, *bubble,
     *greeting;
-static lv_obj_t *page, *keyboard, *field[8], *pin_field, *pin_repeat, *touch_label;
+static lv_obj_t *page, *keyboard, *field[8], *touch_label;
 static QueueHandle_t commands, jobs;
 static uint32_t last_touch;
 static bool in_menu, critical, diagnostic;
 static atomic_bool test_busy;
+static atomic_bool image_is_test;
 static char network_state[128] = "Wi-Fi: oczekiwanie";
 static lv_obj_t *network_info;
 static lv_obj_t *network_list;
@@ -153,16 +154,10 @@ static void close_page(void)
         for (unsigned i = 0; i < 8; ++i)
             if (field[i])
                 lv_textarea_set_text(field[i], "");
-        if (pin_field)
-            lv_textarea_set_text(pin_field, "");
-        if (pin_repeat)
-            lv_textarea_set_text(pin_repeat, "");
         hb_screen_delete(page, saver);
         page = NULL;
     }
     memset(field, 0, sizeof(field));
-    pin_field = NULL;
-    pin_repeat = NULL;
     keyboard = NULL;
     memset(&editor, 0, sizeof(editor));
 }
@@ -214,63 +209,15 @@ static void form_error(const char *text)
     else
         lv_label_set_text(status, text);
 }
-static void submit_pin(lv_event_t *e)
-{
-    (void)e;
-    if (critical)
-        return;
-    config_job job = {0};
-    const char *p = lv_textarea_get_text(pin_field);
-    if (strlen(p) < 6 || strlen(p) > 12 ||
-        (pin_repeat && strcmp(p, lv_textarea_get_text(pin_repeat))))
-    {
-        form_error("PIN: 6–12 cyfr; potwierdzenia muszą się zgadzać.");
-        return;
-    }
-    strcpy(job.pin, p);
-    if (xQueueSend(jobs, &job, 0) == pdTRUE)
-        critical = true;
-    memset(&job, 0, sizeof(job));
-}
 static void settings(lv_event_t *e)
 {
     if (!hb_config_ready())
     {
-        hb_ui_diagnostic("Konfiguracja", "Błąd NVS; dane zachowane");
+        hb_ui_diagnostic("Konfiguracja", "Blad NVS; dane zachowane");
         return;
     }
     section = (int)(intptr_t)lv_event_get_user_data(e);
-    if (section == 0)
-    {
-        show_form();
-        return;
-    }
-    page_base("Konfiguracja chroniona PIN");
-    bool first = !hb_config_has_pin();
-    label(page, first ? "Ustaw własny PIN (6–12 cyfr)" : "Podaj PIN administratora",
-          LV_ALIGN_TOP_LEFT, 24, 76);
-    pin_field = lv_textarea_create(page);
-    lv_obj_set_pos(pin_field, 24, 112);
-    lv_obj_set_size(pin_field, 330, 48);
-    lv_textarea_set_one_line(pin_field, true);
-    lv_textarea_set_max_length(pin_field, 12);
-    lv_textarea_set_password_mode(pin_field, true);
-    lv_textarea_set_accepted_chars(pin_field, "0123456789");
-    lv_obj_add_event_cb(pin_field, focus, LV_EVENT_FOCUSED, NULL);
-    if (first)
-    {
-        pin_repeat = lv_textarea_create(page);
-        lv_obj_set_pos(pin_repeat, 400, 112);
-        lv_obj_set_size(pin_repeat, 330, 48);
-        lv_textarea_set_one_line(pin_repeat, true);
-        lv_textarea_set_max_length(pin_repeat, 12);
-        lv_textarea_set_password_mode(pin_repeat, true);
-        lv_textarea_set_accepted_chars(pin_repeat, "0123456789");
-        lv_textarea_set_placeholder_text(pin_repeat, "Powtórz PIN");
-        lv_obj_add_event_cb(pin_repeat, focus, LV_EVENT_FOCUSED, NULL);
-    }
-    button(page, "Otwórz", 24, 205, 180, submit_pin, NULL);
-    lv_scr_load(page);
+    show_form();
 }
 static bool number_field(unsigned index, unsigned low, unsigned high, uint32_t *out)
 {
@@ -294,7 +241,7 @@ static void save(lv_event_t *e)
     (void)e;
     if (critical)
         return;
-    config_job job = {.save = true, .wifi = section == 0};
+    config_job job = {.wifi = section == 0};
     job.value = editor;
     const size_t capacities[3][5] = {
         {33, 65, 0, 0, 0}, {128, 128, 6, 5, 0}, {160, 65, 128, 128, 6}};
@@ -489,31 +436,13 @@ static void config_worker(void *arg)
         xQueueReceive(jobs, &job, portMAX_DELAY);
         esp_err_t err;
         command result = {0};
-        if (job.save)
-        {
-            err = job.wifi ? hb_config_save_wifi(job.value.ssid, job.value.wifi_password)
-                           : hb_config_save(&job.value, NULL);
-            result.type = CMD_SAVED;
-        }
-        else
-        {
-            if (!hb_config_has_pin())
-            {
-                hb_config_t c;
-                hb_config_get(&c);
-                err = hb_config_save(&c, job.pin);
-            }
-            else
-                err = ESP_OK;
-            if (!err)
-                err = hb_config_unlock(job.pin);
-            result.type = CMD_FORM;
-        }
+        err = job.wifi ? hb_config_save_wifi(job.value.ssid, job.value.wifi_password)
+                       : hb_config_save(&job.value);
+        result.type = CMD_SAVED;
         if (err)
         {
             result.type = CMD_CONFIG_ERROR;
-            strlcpy(result.text, "Błąd PIN / konfiguracji. Po 5 próbach odczekaj minutę.",
-                    sizeof(result.text));
+            strlcpy(result.text, "Błąd zapisu konfiguracji.", sizeof(result.text));
         }
         xQueueSend(commands, &result, portMAX_DELAY);
         memset(&job, 0, sizeof(job));
@@ -523,6 +452,10 @@ bool hb_ui_publish_image(uint16_t *frame)
 {
     command c = {.type = CMD_IMAGE, .pixels = frame};
     return commands && xQueueSend(commands, &c, 0) == pdTRUE;
+}
+bool hb_ui_image_is_test(void)
+{
+    return atomic_load(&image_is_test);
 }
 bool hb_ui_show_greeting(const char *name)
 {
@@ -564,6 +497,7 @@ static void update(lv_timer_t *timer)
             lv_img_cache_invalidate_src(&image);
             lv_img_set_src(photo, &image);
             image_since = lv_tick_get();
+            atomic_store(&image_is_test, c.available);
             if (c.available)
                 lv_obj_clear_flag(test_banner, LV_OBJ_FLAG_HIDDEN);
             else
@@ -583,12 +517,6 @@ static void update(lv_timer_t *timer)
             outdoor = c.temperature;
             measured = c.timestamp;
             freshness = c.max_age;
-        }
-        else if (c.type == CMD_FORM)
-        {
-            critical = false;
-            last_touch = lv_tick_get();
-            show_form();
         }
         else if (c.type == CMD_SAVED)
         {

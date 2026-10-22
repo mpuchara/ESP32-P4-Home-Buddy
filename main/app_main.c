@@ -41,7 +41,7 @@ void app_main(void)
     esp_err_t config_err = nvs == ESP_OK ? hb_config_start() : nvs;
     if (config_err != ESP_OK)
     {
-        ESP_LOGE(TAG, "Configuration unavailable; protected setup disabled: %s",
+        ESP_LOGE(TAG, "Configuration unavailable; settings disabled: %s",
                  esp_err_to_name(config_err));
     }
     esp_err_t err = hb_board_start();

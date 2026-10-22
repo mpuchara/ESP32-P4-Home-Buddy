@@ -13,9 +13,7 @@ typedef struct
 } hb_config_t;
 esp_err_t hb_config_start(void);
 void hb_config_get(hb_config_t *out);
-bool hb_config_has_pin(void);
 bool hb_config_ready(void);
-esp_err_t hb_config_unlock(const char *pin);
-esp_err_t hb_config_save(const hb_config_t *value, const char *first_pin);
-// Operator-requested exception: change only Wi-Fi fields, preserving protected settings/PIN.
+esp_err_t hb_config_save(const hb_config_t *value);
+// A Wi-Fi-only update preserves other independently edited settings.
 esp_err_t hb_config_save_wifi(const char *ssid, const char *password);

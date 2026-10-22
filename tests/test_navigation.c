@@ -36,13 +36,13 @@ int main(void)
     lv_mem_monitor(&before);
     for (unsigned i = 0; i < 100; ++i)
     {
-        lv_obj_t *pin = lv_obj_create(NULL);
-        lv_obj_t *input = lv_textarea_create(pin);
-        lv_obj_t *keyboard = lv_keyboard_create(pin);
+        lv_obj_t *settings = lv_obj_create(NULL);
+        lv_obj_t *input = lv_textarea_create(settings);
+        lv_obj_t *keyboard = lv_keyboard_create(settings);
         lv_keyboard_set_textarea(keyboard, input);
-        lv_textarea_set_text(input, "123456");
-        lv_scr_load(pin);
-        hb_screen_delete(pin, saver);
+        lv_textarea_set_text(input, "sample password");
+        lv_scr_load(settings);
+        hb_screen_delete(settings, saver);
         CHECK(lv_scr_act() == saver);
         lv_obj_t *form = lv_obj_create(NULL);
         lv_label_set_text(lv_label_create(form), "SSID");
@@ -56,7 +56,7 @@ int main(void)
     }
     lv_mem_monitor(&after);
     CHECK(after.free_size >= before.free_size);
-    puts("navigation: 100 real LVGL PIN/form/return transitions; no active-screen gap or pool "
+    puts("navigation: 100 real LVGL settings/form/return transitions; no active-screen gap or pool "
          "growth");
     return 0;
 }

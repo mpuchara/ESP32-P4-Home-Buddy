@@ -179,3 +179,30 @@ UTF-8 byte limits reject truncation. Suppress the pinned upstream rpc_utils SSID
 warning. System diagnostics now preserve separate service states/IP/RSSI and
 accepted-image age; the synthetic frame has an explicit test marker. Serial capture
 sets DTR/RTS before opening so passive reads do not request a reset.
+
+
+### Physical acceptance and final operator override
+
+The operator confirmed: Test JPEG OK, touch OK, greeting OK, brightness OK; Wi-Fi
+connected and obtained an IP, and the clock showed correct local time. A passive
+serial sample records JPEG1280x720 decode+cover156ms, internal free316471/largest
+237568, PSRAM free28575716/largest28311552, aligned input51743, raw1843200 and
+final768000 bytes. Subsequent idle PSRAM was30474708. These are synthetic-test
+measurements, not UBox-download peak memory or a leak soak. The navigation
+regression also fails against the former unsafe deletion (active-screen assertion)
+and passes after restoring the correction.
+
+CI run39770586133 passed host checks and all three firmware build/config/package
+jobs at0754f36d7141b7ae66e5d1e349b62575d107b227, including Linux DST boundaries.
+The operator then explicitly clarified that UBox/MQTT must have NO administrator
+PIN either. This overrides the initial specification's PIN workflow. Removed every
+PIN gate/hash/lockout and kept all credential fields masked. Existing NVS settings
+stay compatible; the obsolete48-byte hash/salt area is ignored and zeroed on next
+save. There is no default or hidden PIN. UI navigation regression remains relevant
+to all transient settings screens. Production storage encryption is still open.
+
+Added a20-second total HTTP transfer deadline in addition to8-second individual
+calls, and reset the request validator while a synthetic frame is shown so the
+next poll restores the real image. Set station-connected false immediately on
+credential change rather than waiting for the remote disconnect event.
+The final no-PIN build is0x17cbf0 bytes; its fresh CI/flash receipt follows.

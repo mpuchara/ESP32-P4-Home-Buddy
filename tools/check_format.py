@@ -8,6 +8,7 @@ paths = list((root / "main").glob("*.c")) + list((root / "tests").glob("*.c"))
 for component in ("board", "ui", "core", "connectivity", "configuration", "screensaver", "ubox_client", "services"):
     base = root / "components" / component
     paths.extend(p for p in base.glob("*.c") if not p.name.startswith("hb_font_"))
+    paths.extend(base.glob("*.h"))
     paths.extend((base / "include").glob("*.h"))
 binary = Path(clang_format.__file__).parent / "data" / "bin" / "clang-format"
 if not binary.is_file():

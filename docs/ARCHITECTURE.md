@@ -9,22 +9,19 @@ LVGL 8.3.11 and the existing BSP. No biometric or camera/audio capture runs.
 * ui: one LVGL owner, 2 ms ticks, handler sleeps at most 20 ms. A four-entry
   command queue transfers completed image ownership and copies status/temperature/
   greeting data. Configuration has a separate two-entry work queue. Network,
-  PBKDF2, NVS and JPEG decoding never run in LVGL callbacks.
+  NVS and JPEG decoding never run in LVGL callbacks.
 * configuration: validated schema-1 snapshots, mutex-protected reads and a single
-  NVS blob transaction for settings plus salted PIN hash. No automatic erase on
-  corruption. Wi-Fi setup is explicitly exempt from PIN per operator request and can only
-  update SSID/password; UBox/MQTT and the existing PIN remain protected. A Wi-Fi
-  save before PIN setup leaves the PIN unset, including after reboot.
-  No default PIN. PBKDF2-HMAC-SHA256, random 16-byte salt, 20,000 rounds;
-  constant-time digest comparison. Five wrong attempts cause a 60-second RAM-only
-  lockout. Unlock lasts 120 seconds and save consumes it. Reboot resets lockout.
-  NVS credentials are plaintext at rest: production encryption remains incomplete.
+  NVS blob transaction. No automatic erase on corruption. All settings open
+  directly without a PIN, as explicitly requested by the operator. Existing
+  schema-1 records load without losing network/bridge/broker settings; the old
+  48-byte PIN field is reserved, ignored on read and zeroed on the next save.
+  Credentials are masked in UI but NVS encryption remains incomplete.
 * connectivity: ESP-Hosted 2.12.2 SDIO, legacy station APIs, bounded scan and
   disconnect requests, eight-result SSID list, DHCP events/RSSI and retries at
   5..30 seconds. Metadata RPC failure reports UNKNOWN rather than inventing a C6
-  version. Only scan is physically verified so far. Wi-Fi storage on C6 is RAM.
+  version. Scan and association/DHCP are physically verified. Wi-Fi storage on C6 is RAM.
 * ubox_client: one task requests only original cached /snapshot.jpg. Two MiB
-  staging, 8-second HTTP timeout, no redirects, exponential 5..300-second backoff.
+  staging, 8-second per-call timeout and 20-second total transfer deadline, no redirects, exponential 5..300-second backoff.
   ETag advances only after decoder success and UI queue acceptance; 304 preserves
   the image and accepted-image age. No capture, PTZ or private JPEG persistence.
 * screensaver: baseline 8-bit JPEG only, source <=2048x2048, <=4 MP. IDF hardware
@@ -52,7 +49,7 @@ fades out 500 ms; Test UI does not represent recognition.
 
 ## Failure boundaries
 
-NVS init/corruption preserves data and disables protected setup. Display failure
+NVS init/corruption preserves data and disables settings. Display failure
 leaves serial diagnostics. Wi-Fi/C6 failures leave offline synthetic JPEG testing
 usable. HTTP/decoder failures keep the old image. MQTT invalid/stale data keeps the
 last valid value until its timestamp expires; explicit unavailable clears it.

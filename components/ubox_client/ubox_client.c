@@ -2,6 +2,7 @@
 #include "esp_heap_caps.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "hb_config.h"
@@ -47,6 +48,8 @@ static void worker(void *arg)
             etag[0] = 0;
             strcpy(previous, source);
         }
+        if (hb_ui_image_is_test())
+            etag[0] = 0; // Restore the real cached image after an explicit synthetic UI test.
         candidate[0] = 0;
         esp_http_client_config_t cfg = {.url = url,
                                         .timeout_ms = 8000,
@@ -60,6 +63,7 @@ static void worker(void *arg)
         uint16_t *frame = NULL;
         if (!client)
             goto finish;
+        int64_t deadline = esp_timer_get_time() + 20000000;
         esp_http_client_set_header(client, "X-UBox-Token", c.ubox_token);
         if (etag[0])
             esp_http_client_set_header(client, "If-None-Match", etag);
@@ -82,6 +86,13 @@ static void worker(void *arg)
             goto cleanup;
         while (transfer.received < HB_JPEG_LIMIT)
         {
+            int64_t remaining = (deadline - esp_timer_get_time()) / 1000;
+            if (remaining <= 0)
+            {
+                transfer.failed = true;
+                break;
+            }
+            esp_http_client_set_timeout_ms(client, remaining < 8000 ? (int)remaining : 8000);
             int got = esp_http_client_read(client, (char *)body + transfer.received,
                                            HB_JPEG_LIMIT - transfer.received > 4096
                                                ? 4096

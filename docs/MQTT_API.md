@@ -1,7 +1,7 @@
 # MQTT temperature input, iteration 2
 
 Configure a broker URI, separate username/password, an exact topic and freshness
-limit in the PIN-protected UI. There is no hardcoded broker/topic/secret.
+limit in the local UI (without administrator PIN). There is no hardcoded broker/topic/secret.
 A useful operator-chosen topic is home_buddy/temperature/outdoor. The client
 subscribes QoS1, reconnects after 10 s, checks TLS CA trust and bounds its input to
 767 bytes. Arrays/nested objects, duplicate keys and fragmented offset mismatches

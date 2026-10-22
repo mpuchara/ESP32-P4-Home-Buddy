@@ -61,3 +61,10 @@ times out; legacy station scan works with untouched C6 flash. Host software chec
 do not establish physical JPEG colors, touch corners, brightness or live DHCP.
 Operator tests for the synthetic JPEG, greeting, corners/drag and provisioning
 have been requested. Preserve their pending status until an actual response.
+
+Operator subsequently confirmed Test JPEG, touch, greeting and brightness all OK;
+Wi-Fi connected with an IP and the clock showed correct local time. Hardware JPEG
+1280x720 decode+cover measured 156 ms, free PSRAM 28575716 and largest 28311552
+during decode, aligned input 51743, raw RGB565 1843200, final 768000 bytes.
+This confirms the offline decode path and station/SNTP workflow, not live UBox or
+MQTT. Cold boot/reconnect, repeated network failures and soak remain pending.

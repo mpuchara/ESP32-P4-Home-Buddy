@@ -5,7 +5,7 @@ Apache-2.0 application with an attributed MIT board-support component.
 
 **Development firmware 0.2.0-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
-MQTT temperature, queued greeting overlays and direct Wi-Fi setup and PIN-protected UBox/MQTT settings.
+MQTT temperature, queued greeting overlays and direct Wi-Fi/UBox/MQTT settings without administrator PIN.
 Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
 
 ## Hardware and status
@@ -60,16 +60,17 @@ No browser installer or OTA is provided yet.
 Tap the saver to open Wi-Fi, UBox, MQTT, brightness and diagnostic controls.
 Missing image/time/temperature remain unavailable. Test JPEG uses a committed
 synthetic image; Test greeting explicitly says Test UI. No biometric inference runs.
-Wi-Fi opens directly: choose a network and enter its password, as requested by
-the operator. UBox/MQTT edits require a self-chosen 6-12 digit PIN. Passwords/tokens are
-masked, saved in NVS, and excluded from diagnostics. **NVS is not encrypted at
-rest in this development build**; PIN controls touchscreen access, not physical
-flash extraction. Never provision production secrets on an untrusted unit.
+All settings open directly, without an administrator PIN, at the operator's
+explicit request. Choose a Wi-Fi network and enter its password; UBox and MQTT
+credentials are edited in their own screens. Passwords/tokens stay masked and
+excluded from diagnostics. **NVS is not encrypted at rest in this development
+build.** Local touchscreen access allows changing settings. No default PIN or
+hidden PIN gate remains.
 Thirty idle seconds return to the saver; critical saves are exempt.
 
 Wi-Fi scanning works on the connected C6 despite unavailable metadata RPC.
-Association/DHCP/reconnect, live UBox and MQTT need operator configuration and
-physical validation. No C6 firmware update was performed.
+Association/DHCP and correct local clock are operator-verified. Reconnect,
+live UBox and MQTT still need acceptance. No C6 firmware update was performed.
 Use the wifi profile for connectivity; the bringup profile remains offline.
 See [user guide](docs/USER_GUIDE.md), [UBox API](docs/UBOX_API.md) and
 [MQTT temperature example](docs/MQTT_API.md).
