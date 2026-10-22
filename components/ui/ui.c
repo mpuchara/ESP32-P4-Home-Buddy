@@ -77,7 +77,7 @@ static void read_touch(lv_indev_drv_t *drv, lv_indev_data_t *data)
         data->state = LV_INDEV_STATE_PRESSED;
         last_touch = lv_tick_get();
         if (diagnostic && touch_label)
-            lv_label_set_text_fmt(touch_label, "x=%d  y=%d  (800 × 480)", x, y);
+            lv_label_set_text_fmt(touch_label, "x=%d  y=%d  (800 x 480)", x, y);
     }
     else
         data->state = LV_INDEV_STATE_RELEASED;

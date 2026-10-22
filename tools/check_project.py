@@ -48,6 +48,11 @@ class ProjectChecks(unittest.TestCase):
                 coverage.update(start + int(v, 16) for v in re.findall(r"0x[0-9a-fA-F]+", body))
         for letter in "ĄąĆćĘęŁłŃńÓóŚśŹźŻż°":
             self.assertIn(ord(letter), coverage, letter)
+        ui = (ROOT / "components/ui/ui.c").read_text(encoding="utf-8")
+        for text in re.findall(r'"(?:[^"\\]|\\.)*"', ui):
+            for letter in text:
+                if ord(letter) > 127:
+                    self.assertIn(ord(letter), coverage, f"UI glyph {letter!r}")
 
 
 if __name__ == "__main__":
