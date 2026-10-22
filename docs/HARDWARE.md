@@ -84,3 +84,10 @@ The20MHz restart sample subsequently verified actual clock, saved Wi-Fi/DHCP,
 Open-Meteo TLS/accepted current response, and a real640x360 JPEG HTTP200accepted
 with matching101730-byte transfer. No C6 write was performed. Clock mitigation is
 not a guarantee against recurrence; long-term transport testing remains open.
+
+Final0.2.1-dev implementationdd3d444 passed all clean CI profiles in run39807653198
+and was flashed/hash-verified on COM5. Post-flash station/DHCP, restored locality,
+verified-TLS weather and complete UBox640x360/304 responses were observed. The
+new2304x1296 bound/layout is host-tested; no new frame of that size arrived in the
+final short sample. Full-resolution hardware acceptance and long-term stability
+remain open; no LTE capture was initiated merely to obtain test evidence.

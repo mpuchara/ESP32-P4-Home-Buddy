@@ -293,3 +293,42 @@ per-dimension bound to4096, retaining the2MiB JPEG and4MP pixel limits. Add a
 still enforced. Host tests5/5passed, firmware built0x1754d0bytes. Device acceptance
 and final CI for this bound adjustment follow separately. No low-resolution UBox
 endpoint or capture call was introduced.
+
+
+## Final iteration-2 receipt:0.2.1-dev
+
+Implementation dd3d4443d3f3df3f7a5b1b09172ad261f976ccde passed every job in
+CI run39807653198: host tests/checks and diagnostics, bringup and wifi firmware
+build/configuration/package jobs. This includes five CTest suites, three Python
+project checks, formatting, whitespace, dependency lockfile and effective SDIO
+20MHz assertions; Linux executes the Warsaw DST boundaries. The local five CTest
+suites also passed with final sampling/full-source dimension regressions.
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39807653198
+
+Final Wi-Fi firmware0x1754d0bytes was flashed/hash-verified on COM5. It booted at
+actual SDIO20MHz, retried station association and obtained DHCP, restored saved
+locality, validated Open-Meteo TLS and accepted HTTP200/current data. It accepted
+complete original640x360 UBox frames(expected/received104438 then later103160bytes),
+with approximately126ms decode+cover and repeated conditional304 accepted. Idle
+PSRAM samples remained30474708bytes between these operations. This is a short
+sample, not a leak/fragmentation/stability soak. No CRC was logged in that final
+short sample; absence there does not prove the mitigation eliminates the issue.
+
+The2304x1296 source caused the earlier reject and is now covered by the expanded
+side bound, unchanged4MP/2MiB budgets and host layout regressions. The final short
+post-fix hardware sample happened to contain640x360 frames; a fresh2304x1296
+hardware frame remains a separate acceptance item. Polling still uses only the
+original cached snapshot route and never initiates an LTE capture to force a test.
+
+Public-only local package:dist/iteration2-final, with SHA256SUMS; app SHA256
+9e75f39c429fc24531fb9eae3e71aa4d36f28f4b9b8666d187995eed226ac002.
+It contains app/boot/partition/OTA-initial/debug/license outputs, not NVS, private
+backups, user photos or credentials. A documentation-only receipt follows this
+verified implementation with[skip ci]. PR#1 stays draft and unmerged. No release,
+C6 write, HA_UBOX_bridge modification, biometric inference or active MQTT.
+
+Next acceptance work: a naturally available full-resolution frame, sustained
+connection/error recovery and stale-weather tests, repeated replacement heap/
+fragmentation checks, cold power-on and the planned72-hour physical soak. Secure
+production storage/provisioning remains a later task; do not infer it from masked
+Wi-Fi fields or direct setup. The operator-requested UBox token edit is visible.

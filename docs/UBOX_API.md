@@ -55,3 +55,9 @@ Using decoder BGR(native little-endian RGB565) and explicit BT.601 corrected it;
 the operator confirmed both real-image colors and the intentionally visible token
 field. A passive log also captured HTTP304 accepted=1 without a decode/replacement.
 Long error/reconnect/fault-injection acceptance remains separate.
+
+The bridge later supplied2304x1296(679649bytes), demonstrating the old2048-side
+limit was too small although the4MP budget was sufficient. The side limit is now
+4096, with the original pixel/body caps retained and a regression for that source.
+The final post-fix sample accepted640x360 and304 responses; a naturally available
+2304x1296 hardware frame and sustained failure/reconnect tests remain to validate.
