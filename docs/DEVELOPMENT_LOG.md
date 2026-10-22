@@ -80,3 +80,26 @@ MQTT, automatic brightness and OTA are not implemented.
 
 Next gate: visible 800×480 LVGL and peripheral verification, then fullscreen UBox
 snapshot transport and rendering. Follow docs/DEVELOPMENT_PLAN.md.
+
+## 2026-10-22: missing text reported during physical display test
+
+The operator observed a dark saver and, after touch, menu rectangles and a slider
+without any labels. This confirms a visible display path and touch navigation,
+but does not confirm slider brightness or complete four-corner calibration.
+
+Root cause: hb_font_20 used compressed bitmap_format=1, while the resolved LVGL
+configuration has LV_USE_FONT_COMPRESSED=0. LVGL therefore returns NULL for glyph
+bitmaps even though their descriptors/codepoint maps exist. The earlier static
+glyph-coverage test did not exercise decoding and did not detect this mismatch.
+
+Regenerated the same Noto Sans subset with --no-compress (bitmap_format=0), keeping
+the current LVGL configuration. Added a host regression using the real pinned
+LVGL 8.3.11 font decoder with compression disabled. It rejects the old compressed
+font at bitmap != NULL and passes the corrected font for ASCII and all Polish
+letters. Added target startup probes for ASCII/Polish glyph descriptors and bitmap
+pointers so this failure is reported through serial rather than silently accepted.
+
+Corrected display firmware built (0x8b9e0 bytes), flashed/hash-verified on COM5,
+and booted. Target log: "Font bitmaps ready: ASCII and Polish", then LVGL ready.
+Host CTest: 2/2 passed; Python checks 3/3, formatting and actionlint passed.
+Visual text confirmation and the new CI run remain pending at this entry.

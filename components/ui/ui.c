@@ -158,6 +158,18 @@ static void task(void *arg)
 esp_err_t hb_ui_start(void)
 {
     lv_init();
+    const uint32_t font_probe[] = {'A', 0x141, 0x17c};
+    for (size_t i = 0; i < sizeof(font_probe) / sizeof(font_probe[0]); ++i)
+    {
+        lv_font_glyph_dsc_t glyph = {0};
+        if (!lv_font_get_glyph_dsc(&hb_font_20, &glyph, font_probe[i], 0) ||
+            !lv_font_get_glyph_bitmap(&hb_font_20, font_probe[i]) || !glyph.box_w || !glyph.box_h)
+        {
+            ESP_LOGE("ui", "Font bitmap unavailable for U+%04x", (unsigned)font_probe[i]);
+            return ESP_ERR_INVALID_STATE;
+        }
+    }
+    ESP_LOGI("ui", "Font bitmaps ready: ASCII and Polish");
     pixels = heap_caps_aligned_alloc(64, 800 * 480 * sizeof(lv_color_t),
                                      MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!pixels)

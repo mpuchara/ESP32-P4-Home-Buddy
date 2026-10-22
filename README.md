@@ -79,7 +79,9 @@ python -m pip install -r tools/requirements-dev.txt
 python tools/check_project.py
 ```
 
-C tests execute the actual cover/crop and touch-coordinate code on the host.
+C tests execute the actual cover/crop and touch-coordinate code on the host,
+plus the committed font through the real LVGL decoder with font compression off.
+Resolve firmware dependencies first, or supply LVGL_SOURCE_DIR to the test build.
 CI builds diagnostic, display and Wi-Fi profiles, validates partition/dependency
 configuration, runs host tests and checks whitespace. Manual release workflow
 creates draft prereleases only after CI. Hardware validation remains separate.

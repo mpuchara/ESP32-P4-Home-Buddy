@@ -68,5 +68,8 @@ python tools/check_project.py
 ```
 
 The UI font is committed, so Node/font generation is not needed for normal builds.
+Host font tests require the resolved managed LVGL component; run a firmware
+configure/build first, or pass -D LVGL_SOURCE_DIR=/path/to/lvgl-8.3.11 to CMake.
+CI fetches LVGL commit 396f70508480f79725fc1354cd290cc83f69b2ef for these tests.
 Development formatting uses clang-format 19.1.7 and .clang-format; generated and
 vendored files are excluded. CI validates all three firmware profiles.
