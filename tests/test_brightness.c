@@ -44,10 +44,10 @@ static void controller(void)
     c.night.pwm = 40;
     hb_brightness_state s;
     hb_brightness_init(&s, 128, 0);
-    uint8_t last = 128;
+    unsigned last = 128;
     for (uint64_t now = 100; now <= 60000; now += 100)
     {
-        uint8_t pwm = hb_brightness_step(&s, &c, true, -2, (now / 5000) * 5000, now);
+        unsigned pwm = hb_brightness_step(&s, &c, true, -2, (now / 5000) * 5000, now);
         CHECK(pwm >= 26 && pwm <= 255);
         CHECK(abs((int)pwm - last) <= 1);
         last = pwm;
