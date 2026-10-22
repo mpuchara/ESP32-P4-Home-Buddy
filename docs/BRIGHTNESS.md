@@ -37,5 +37,6 @@ day/night calibration remain necessary. This is not calibrated photometry.
 Host checks cover interpolation/reversed direction, missing/equal/invalid anchors,
 freshness, limits, rate, outliers, manual and override expiry, invalid schema;
 synthetic meter exposure compensation and pool stress are separate from physical
-color/brightness acceptance. Real calibration, reboot persistence, changing room
+color/brightness acceptance. Operator confirmed a valid metric responding to
+increased camera illumination. Real calibration, reboot persistence, changing room
 light and five-minute on-device expiry are pending operator acceptance.

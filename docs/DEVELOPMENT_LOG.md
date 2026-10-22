@@ -382,3 +382,24 @@ network host-unreachable; no uninterrupted connectivity claim is made.
 No C6 firmware write, bridge modification, forced LTE snapshot, model download,
 biometric enrollment, production release or PR merge occurred. Naturally available
 2304x1296 UBox acceptance, cold-power boot and planned72-hour soak remain pending.
+
+Operator follow-up: local light now shows OK with a numeric value that changes
+when more light reaches the camera. Thus illumination responsiveness is physically
+confirmed; the earlier black short samples do not establish a camera/meter fault.
+This confirmation does not replace real day/night anchors or AUTO/persistence tests.
+
+Final local package: dist/iteration3-upright-final, public build outputs and
+SHA256SUMS only. App SHA256:
+c6e376dd90fefe575e982be7e2e7838de8543a865a42a5dd568c0d2b49a82631.
+All three local firmware profiles build and pass effective configuration checks.
+Six host suites pass on Windows; the camera/brightness suite additionally passes
+GCC -Wall -Wextra -Werror under Ubuntu. Linux CI host also passes after signed
+PWM test intermediates avoid platform-specific type-limit/absolute-value warnings.
+
+Final implementation d4af598bded38d8eda0ce220565255fe09bb6ed4 passed all four
+jobs in CI39839957879: host suites/checks and diagnostics/bringup/wifi clean
+firmware builds, effective configurations and public-only packages. This includes
+the project-local CSI adapter against the pinned Linux IDF source. CI receipt:
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39839957879
+The following documentation-only acceptance receipt uses [skip ci]. PR1 remains
+open/draft/unmerged. Original private backup hash was rechecked unchanged.

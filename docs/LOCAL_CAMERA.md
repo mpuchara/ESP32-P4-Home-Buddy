@@ -86,7 +86,9 @@ exposure loop adjusts shutter/gain every >=500ms, bounded by read VTS minus15,
 minimum4 rows, analog gain1..8. It does not leave the sensor permanently at a
 fixed exposure to measure light. Measurements exclude the 200ms settling period
 after control changes. No gamma/creative color processing is added to the metric.
-Exposure and color quality under changing light still need physical validation.
+The operator confirmed usable RAW8 colors/detail and that the local metric reports
+OK and rises when more light reaches the camera. Absolute accuracy, exposure
+compensation across lighting changes and real day/night control still need validation.
 
 ## Face AI follow-up
 
