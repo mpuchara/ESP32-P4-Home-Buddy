@@ -52,3 +52,11 @@ largest block 245760, minimum 328135; PSRAM free 31244760 at uptime 3 seconds.
 Logical framebuffer is 768000 bytes. JPEG logs report aligned input/raw allocation,
 decode+cover time and free/largest blocks during a successful decode. These boot
 numbers are not a JPEG peak or leak/soak result.
+
+## Synthetic JPEG on the physical P4
+
+1280x720 input, decode+cover156ms. During successful decode: internal free316471,
+largest237568; PSRAM free28575716, largest28311552; aligned input51743, padded
+raw1843200, output768000 bytes. After cleanup the idle PSRAM sample was30474708
+with the displayed frame retained. This is one synthetic decode sample, not an
+HTTP two-MiB peak or a repeated-swap leak/fragmentation test.

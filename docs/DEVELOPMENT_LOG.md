@@ -206,3 +206,50 @@ calls, and reset the request validator while a synthetic frame is shown so the
 next poll restores the real image. Set station-connected false immediately on
 credential change rather than waiting for the remote disconnect event.
 The final no-PIN build is0x17cbf0 bytes; its fresh CI/flash receipt follows.
+
+
+##0.2.1-dev: operator-requested Open-Meteo, camera colors and visible token
+
+The operator confirmed a live UBox image but reported severe wrong colors; asked
+for Open-Meteo/manual locality instead of MQTT, and a visible long-token field.
+Pinned IDF5.5.1 jpeg_decode.c configures RGB565 endian scrambling under rgb_order.
+The previous RGB setting emitted big-endian565 while LVGL expects native little
+endian. Use BGR for native565 and explicit BT.601. Flashed P4-only and the operator
+confirmed corrected colors and visible token. General logs still omit secrets.
+A passive log recorded UBox304 accepted=1, preserving the existing decoded frame.
+
+Implemented Pogoda: typed locality -> up to5geocoded country/region matches ->
+explicit selection -> persistent independent location record. Open-Meteo current
+Celsius over certificate/hostname-verified HTTPS,10-minute polling,1-hour timestamp
+freshness, bounded retry/response/depth/deadline and off-LVGL processing. No default
+city or invented temperature. Attribution/model-data status appears in settings.
+Removed MQTT client/dependency/UI/subscription and legacy payload parser entirely.
+Old transport bytes remain opaque layout-compatible padding and are cleared on
+save. Compile-time assertions preserve852-byte settings/900-byte old record.
+
+Host CTest5/5passed, including new real-parser geocoding/weather/UTF8/unit/time/
+depth cases; project checks3/3passed. Public Warsaw API probe downloaded1087-byte
+geocoding and319-byte current responses, and the actual C parsers passed against
+them. This public contract probe is not a configured default or hardware reading.
+The weather-capable P4 firmware built at0x175130bytes and was flashed/hash-verified.
+Device locality search/temperature acceptance was requested and remains pending.
+Source cleanup after that flash removes the unused MQTT archive/dependency too.
+
+Earlier no-PIN/static-font implementation210862dc749ce50fb45b45858b5138a7a798b28b
+passed all CI jobs in run39771837517. It is not a CI receipt for0.2.1 weather work;
+a fresh run is required. PR#1 remains draft/unmerged, C6 unchanged, no release.
+
+
+### Device weather acceptance and SDIO mitigation
+
+The operator explicitly confirmed locality search, correct selection and a
+current temperature shown on the saver. No MQTT setup was needed. Camera colors
+and the visible-token field were separately confirmed. Weather functionality is
+now device-verified; stale/outage/reconnect/soak cases remain pending.
+
+Later passive logs at40MHz captured sdmmc_send_cmd0x109/INVALID_CRC and a rejected
+snapshotHTTP200, leaving the previous image. Selected20MHz in the Wi-Fi profile,
+with an effective-config CI assertion; this is an attempted host-side signal/
+transport mitigation, not a proven root cause or a C6 firmware update. Fresh
+build/flash/boot evidence will follow. Private location and credentials are not
+copied to these public logs/docs. No merge or production release.

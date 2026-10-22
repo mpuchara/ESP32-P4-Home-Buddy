@@ -28,11 +28,12 @@ LVGL 8.3.11 and the existing BSP. No biometric or camera/audio capture runs.
   JPEG engine uses aligned input/output; raw RGB565 is padded to 16-pixel MCU
   dimensions. CPU nearest-neighbor cover scale creates a separate 800x480 frame.
   It preserves aspect ratio, crops centrally and never stretches to force fit.
-* services: SNTP with explicit sync-valid state; POSIX TZ
-  CET-1CEST,M3.5.0,M10.5.0/3. Clock label changes only on a changed minute. MQTT
-  reconnects independently, verifies TLS using the IDF CA bundle, assembles bounded
-  fragments and validates timestamped Celsius data. No discovery or identity
-  events. Temperature expires even while the broker is disconnected.
+* services: explicit-validity SNTP plus one bounded Open-Meteo worker. Geocoding
+  returns up to5locations for manual selection; chosen coordinates persist in a
+  separate weather record. TLS CA/hostname verification,8192-byte JSON cap, depth8,
+ 20-second total deadline. Current Celsius is fetched every600seconds, expires
+  after3600seconds and is rejected before time sync or for a future timestamp.
+  No MQTT client/menu/subscription remains. Model weather is not a sensor reading.
 
 ## Buffer ownership
 
@@ -51,11 +52,20 @@ fades out 500 ms; Test UI does not represent recognition.
 
 NVS init/corruption preserves data and disables settings. Display failure
 leaves serial diagnostics. Wi-Fi/C6 failures leave offline synthetic JPEG testing
-usable. HTTP/decoder failures keep the old image. MQTT invalid/stale data keeps the
+usable. HTTP/decoder failures keep the old image. Weather invalid/stale data keeps the
 last valid value until its timestamp expires; explicit unavailable clears it.
 Before SNTP, time and all available-temperature measurements are rejected/unavailable.
-Secrets never enter the general UI diagnostics or application log messages.
+Secrets never enter general diagnostics/logs. The UBox token is deliberately
+visible in its edit field per operator request; Wi-Fi passwords remain masked.
 
 The previous identity, local-camera, audio and profile architecture remains a
 future milestone, not implemented behavior. Secure boot, encrypted persistent
 storage, migrations, OTA rollback and 72-hour acceptance remain open.
+
+## JPEG color boundary
+
+Pinned IDF5.5.1 jpeg_decode.c selects RGB565 big-endian byte scrambling when its
+rgb_order is RGB. LVGL LV_COLOR_16_SWAP=0 uses native little-endian words. Select
+BGR for the decoder's native RGB565 byte order and explicit BT.601 conversion.
+This corrects the byte layout, not a global red/blue panel swap; UI colors/mapping
+remain unchanged. The operator confirmed corrected real-camera colors.

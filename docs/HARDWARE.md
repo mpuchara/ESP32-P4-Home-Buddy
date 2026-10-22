@@ -68,3 +68,14 @@ Wi-Fi connected with an IP and the clock showed correct local time. Hardware JPE
 during decode, aligned input 51743, raw RGB565 1843200, final 768000 bytes.
 This confirms the offline decode path and station/SNTP workflow, not live UBox or
 MQTT. Cold boot/reconnect, repeated network failures and soak remain pending.
+
+##0.2.1-dev follow-up
+
+Operator confirmed a real UBox image, corrected colors after native RGB565 endian
+selection, visible token field, and Open-Meteo locality search/selection with a
+temperature displayed on the saver. Passive logs show304accepted with the existing
+image. During later network traffic, SDIO returned0x109(ESP_ERR_INVALID_CRC) at
+40MHz and a snapshot was rejected while retaining the old frame. The host clock
+is being reduced to20MHz using the supported Kconfig option, with unchanged pins
+and untouched C6 flash. This mitigation still requires verification and is not
+proof of long-term transport stability.

@@ -11,8 +11,6 @@ typedef struct
     double value;
     int64_t timestamp;
 } hb_temperature_t;
-bool hb_temperature_parse(const char *data, size_t n, int64_t now, uint32_t max_age,
-                          hb_temperature_t *out);
 bool hb_etag_commit(char *stored, size_t capacity, const char *candidate, bool decoded,
                     bool accepted);
 typedef struct

@@ -67,21 +67,6 @@ int main(void)
     CHECK(!hb_timestamp("2026-10-22T12:00:00+14:01", &stamp));
     CHECK(!hb_fresh(now + 1, now, 900) && !hb_fresh(now - 901, now, 900) &&
           hb_fresh(now - 900, now, 900));
-    hb_temperature_t temperature;
-    const char *valid = "{\"temperature\":12.5,\"unit\":\"C\",\"timestamp\":\"2026-10-22T12:00:00+"
-                        "02:00\",\"available\":true}";
-    CHECK(hb_temperature_parse(valid, strlen(valid), now, 900, &temperature) &&
-          temperature.available && temperature.value == 12.5);
-    CHECK(!hb_temperature_parse(valid, strlen(valid), now + 901, 900, &temperature));
-    CHECK(!hb_temperature_parse(valid, strlen(valid), 0, 900, &temperature));
-    const char *invalid[] = {"{", "{}", "{\"available\":true}",
-                             "{\"temperature\":\"12\",\"available\":true}",
-                             "{\"temperature\":200,\"unit\":\"C\",\"available\":true}"};
-    for (unsigned i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i)
-        CHECK(!hb_temperature_parse(invalid[i], strlen(invalid[i]), now, 900, &temperature));
-    const char *unavailable = "{\"available\":false}";
-    CHECK(hb_temperature_parse(unavailable, strlen(unavailable), now, 900, &temperature) &&
-          !temperature.available);
     char text[6];
     hb_clock_text(false, now, text);
     CHECK(!strcmp(text, "--:--"));
@@ -101,6 +86,6 @@ int main(void)
     hb_clock_text(true, stamp, text);
     CHECK(!strcmp(text, "02:00"));
 #endif
-    puts("dashboard: transfer/errors/ETag rollback/JPEG bounds/cover/temperature/time passed");
+    puts("dashboard: transfer/errors/ETag rollback/JPEG bounds/cover/time passed");
     return 0;
 }

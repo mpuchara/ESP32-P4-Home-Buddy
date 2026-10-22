@@ -1,3 +1,11 @@
+> Additional operator override: temperature uses Open-Meteo with manually selected
+> locality; MQTT temperature was removed. UBox token is visible in its edit field.
+
+> Current implementation override, 2026-10-22: the operator explicitly requested
+> all Wi-Fi/UBox/MQTT settings without an administrator PIN. The original prompt
+> below is preserved as received; current behavior and validation are recorded in
+> USER_GUIDE.md and DEVELOPMENT_LOG.md. No biometric workflows are implemented.
+
 # ESP32-P4 Home Buddy
 
 ## Master Development Prompt — Full Project Specification

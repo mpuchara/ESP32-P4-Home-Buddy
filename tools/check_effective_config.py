@@ -16,6 +16,7 @@ expected = {
 if profile == "wifi":
     expected.update({
         "ESP_HOSTED_SDIO_SLOT": 1,
+        "ESP_HOSTED_SDIO_CLOCK_FREQ_KHZ": 20000,
         "ESP_HOSTED_SDIO_PIN_CLK": 18,
         "ESP_HOSTED_SDIO_PIN_CMD": 19,
         "ESP_HOSTED_SDIO_PIN_D0": 14,

@@ -32,7 +32,10 @@ esp_err_t hb_image_decode(const uint8_t *data, size_t n, uint16_t **pixels)
     }
     memcpy(input, data, n);
     jpeg_decode_cfg_t config = {.output_format = JPEG_DECODE_OUT_FORMAT_RGB565,
-                                .rgb_order = JPEG_DEC_RGB_ELEMENT_ORDER_RGB};
+                                // IDF 5.5.1 RGB565 "RGB" selects big-endian bytes. LVGL uses
+                                // native little-endian words (LV_COLOR_16_SWAP=0).
+                                .rgb_order = JPEG_DEC_RGB_ELEMENT_ORDER_BGR,
+                                .conv_std = JPEG_YUV_RGB_CONV_STD_BT601};
     uint32_t written = 0;
     int64_t start = esp_timer_get_time();
     e = jpeg_decoder_process(decoder, &config, input, n, (uint8_t *)raw, outsz, &written);

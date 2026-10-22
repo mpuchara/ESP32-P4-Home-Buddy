@@ -46,3 +46,12 @@ timeout/reconnect and repeated-image heap behavior still need network acceptance
 
 After an explicit synthetic image test, the next configured UBox poll requests
 a full image so 304 cannot leave the diagnostic image displayed indefinitely.
+
+## Physical follow-up
+
+The operator confirmed a real bridge image, then reported severe color distortion.
+Pinned driver inspection showed RGB565 byte order was wrong for native LVGL.
+Using decoder BGR(native little-endian RGB565) and explicit BT.601 corrected it;
+the operator confirmed both real-image colors and the intentionally visible token
+field. A passive log also captured HTTP304 accepted=1 without a decode/replacement.
+Long error/reconnect/fault-injection acceptance remains separate.

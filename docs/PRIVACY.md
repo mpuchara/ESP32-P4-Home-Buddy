@@ -9,9 +9,11 @@ passwords and access tokens. NVS is not automatically erased after init failure.
 The current reserved profiles/models partitions are not mounted or formatted.
 
 The operator explicitly requested no administrator PIN anywhere in settings.
-Wi-Fi/UBox/MQTT forms open directly and all PIN gates/hash operations were removed.
-Network passwords and service tokens still authenticate the respective services;
-the UI masks them and application diagnostics omit them. Anyone with touchscreen
+Wi-Fi/UBox/weather forms open directly and all PIN gates/hash operations were removed.
+Wi-Fi passwords remain masked. The operator explicitly requested the UBox token
+visible in its edit field; general diagnostics/logs still omit it. Weather has no
+secret or broker credentials and only sends the selected locality/coordinates
+to Open-Meteo through verified HTTPS. Anyone with touchscreen
 access can edit settings. Schema-1 settings remain compatible; obsolete PIN bytes
 are ignored and cleared on the next successful configuration save.
 NVS is NOT encrypted at rest in this development build. Encrypted storage and

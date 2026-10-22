@@ -74,3 +74,11 @@ values; do not paste them unchanged. Keep the backup private.
 
 No C6 image, destination offset or update has been approved/tested for this unit
 yet. Do not treat these preparation steps as proof of a working update.
+
+##0.2.1 transport follow-up
+
+Station/DHCP/SNTP and real UBox and Open-Meteo data work with the unchanged C6.
+A later40MHz sample showed SDIO0x109/INVALID_CRC. The Wi-Fi profile now selects
+20MHz as a conservative host-side mitigation and CI checks the effective value.
+This does not establish that clock speed was the sole cause or replace a soak.
+Metadata version remains UNKNOWN; no C6 image/write/erase is authorized or used.

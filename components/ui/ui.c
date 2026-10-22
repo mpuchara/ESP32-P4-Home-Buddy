@@ -46,6 +46,9 @@ static uint32_t image_since;
 static char service_state[3][128];
 static int section;
 static hb_config_t editor;
+static hb_weather_config_t weather_editor;
+static hb_places_t weather_places;
+static lv_obj_t *place_list;
 static lv_img_dsc_t image;
 static char diagnostic_text[128] = "";
 static double outdoor;
@@ -145,6 +148,7 @@ static void close_page(void)
     touch_label = NULL;
     network_info = NULL;
     network_list = NULL;
+    place_list = NULL;
     displayed_networks[0] = 0;
     page_error = NULL;
     system_info = NULL;
@@ -243,8 +247,7 @@ static void save(lv_event_t *e)
         return;
     config_job job = {.wifi = section == 0};
     job.value = editor;
-    const size_t capacities[3][5] = {
-        {33, 65, 0, 0, 0}, {128, 128, 6, 5, 0}, {160, 65, 128, 128, 6}};
+    const size_t capacities[3][5] = {{33, 65, 0, 0, 0}, {128, 128, 6, 5, 0}, {128, 0, 0, 0, 0}};
     for (unsigned i = 0; i < 5 && capacities[section][i]; ++i)
         if (strlen(lv_textarea_get_text(field[i])) >= capacities[section][i])
         {
@@ -273,18 +276,17 @@ static void save(lv_event_t *e)
     }
     else
     {
-        strlcpy(job.value.mqtt_uri, lv_textarea_get_text(field[0]), sizeof(job.value.mqtt_uri));
-        strlcpy(job.value.mqtt_user, lv_textarea_get_text(field[1]), sizeof(job.value.mqtt_user));
-        strlcpy(job.value.mqtt_password, lv_textarea_get_text(field[2]),
-                sizeof(job.value.mqtt_password));
-        strlcpy(job.value.temperature_topic, lv_textarea_get_text(field[3]),
-                sizeof(job.value.temperature_topic));
-        if (!number_field(4, 30, 86400, &job.value.temperature_age))
+        const char *city = lv_textarea_get_text(field[0]);
+        if (city[0] && !weather_editor.has_location)
         {
-            form_error("Ważność temperatury: 30–86400 s.");
+            form_error("Wyszukaj i wybierz miejscowość z listy.");
             memset(&job, 0, sizeof(job));
             return;
         }
+        job.weather = true;
+        job.weather_value = weather_editor;
+        if (!city[0])
+            job.weather_value = (hb_weather_config_t){.schema = 1};
     }
     if (xQueueSend(jobs, &job, 0) == pdTRUE)
         critical = true;
@@ -317,9 +319,38 @@ static void refresh_networks(void)
         strlcpy(displayed_networks, networks, sizeof(displayed_networks));
     }
 }
+static void city_changed(lv_event_t *e)
+{
+    (void)e;
+    weather_editor.has_location = false;
+}
+static void search_city(lv_event_t *e)
+{
+    (void)e;
+    weather_editor.has_location = false;
+    lv_dropdown_set_options(place_list, "Wyszukiwanie...");
+    if (!hb_weather_search(lv_textarea_get_text(field[0])))
+        form_error("Wpisz co najmniej 2 znaki miejscowości.");
+    else
+        form_error("Wyszukiwanie Open-Meteo...");
+}
+static void choose_city(lv_event_t *e)
+{
+    unsigned index = lv_dropdown_get_selected(lv_event_get_target(e));
+    if (!index || index > weather_places.count)
+        return;
+    hb_place_t *place = &weather_places.place[index - 1];
+    lv_textarea_set_text(field[0], place->label);
+    weather_editor = (hb_weather_config_t){.schema = 1,
+                                           .has_location = true,
+                                           .latitude = place->latitude,
+                                           .longitude = place->longitude};
+    strlcpy(weather_editor.city, place->label, sizeof(weather_editor.city));
+    form_error("Wybrano miejscowość. Naciśnij Zapisz.");
+}
 static void show_form(void)
 {
-    page_base(section == 0 ? "Wi-Fi" : section == 1 ? "Kamera UBox" : "MQTT / temperatura");
+    page_base(section == 0 ? "Wi-Fi" : section == 1 ? "Kamera UBox" : "Pogoda / Open-Meteo");
     hb_config_get(&editor);
     lv_obj_t *fields = lv_obj_create(page);
     lv_obj_set_pos(fields, 12, 70);
@@ -346,7 +377,7 @@ static void show_form(void)
     else if (section == 1)
     {
         field[0] = input(fields, "Host / IP HA", editor.ubox_host, 127, false, 4);
-        field[1] = input(fields, "Token UBox", editor.ubox_token, 127, true, 64);
+        field[1] = input(fields, "Token UBox", editor.ubox_token, 127, false, 64);
         snprintf(number, sizeof(number), "%u", editor.ubox_port);
         field[2] = input(fields, "Port", number, 5, false, 124);
         snprintf(number, sizeof(number), "%u", (unsigned)editor.poll_seconds);
@@ -354,12 +385,19 @@ static void show_form(void)
     }
     else
     {
-        field[0] = input(fields, "Adres mqtt(s)://", editor.mqtt_uri, 159, false, 4);
-        field[1] = input(fields, "Użytkownik", editor.mqtt_user, 64, false, 64);
-        field[2] = input(fields, "Hasło MQTT", editor.mqtt_password, 127, true, 124);
-        field[3] = input(fields, "Temat temperatury", editor.temperature_topic, 127, false, 184);
-        snprintf(number, sizeof(number), "%u", (unsigned)editor.temperature_age);
-        field[4] = input(fields, "Ważność (s)", number, 5, false, 244);
+        hb_config_weather_get(&weather_editor);
+        weather_places = (hb_places_t){0};
+        field[0] = input(fields, "Miejscowość", weather_editor.city, 127, false, 4);
+        lv_obj_add_event_cb(field[0], city_changed, LV_EVENT_VALUE_CHANGED, NULL);
+        button(fields, "Szukaj", 0, 64, 160, search_city, NULL);
+        place_list = lv_dropdown_create(fields);
+        lv_obj_set_pos(place_list, 180, 64);
+        lv_obj_set_width(place_list, 520);
+        lv_dropdown_set_options(place_list, "Wyszukaj miejscowość");
+        lv_obj_set_style_text_font(place_list, &hb_font_20, 0);
+        lv_obj_add_event_cb(place_list, choose_city, LV_EVENT_VALUE_CHANGED, NULL);
+        label(fields, "Źródło: Open-Meteo.com (dane modelowe)", LV_ALIGN_TOP_LEFT, 0, 124);
+        label(fields, "Odświeżanie co 10 min. Zapisz po wyborze.", LV_ALIGN_TOP_LEFT, 0, 184);
     }
     button(page, "Zapisz", 490, 8, 140, save, NULL);
     lv_scr_load(page);
@@ -436,8 +474,9 @@ static void config_worker(void *arg)
         xQueueReceive(jobs, &job, portMAX_DELAY);
         esp_err_t err;
         command result = {0};
-        err = job.wifi ? hb_config_save_wifi(job.value.ssid, job.value.wifi_password)
-                       : hb_config_save(&job.value);
+        err = job.weather ? hb_config_weather_save(&job.weather_value)
+              : job.wifi  ? hb_config_save_wifi(job.value.ssid, job.value.wifi_password)
+                          : hb_config_save(&job.value);
         result.type = CMD_SAVED;
         if (err)
         {
@@ -456,6 +495,18 @@ bool hb_ui_publish_image(uint16_t *frame)
 bool hb_ui_image_is_test(void)
 {
     return atomic_load(&image_is_test);
+}
+void hb_ui_weather_places(const hb_places_t *places)
+{
+    if (!commands || !places)
+        return;
+    hb_places_t *copy = malloc(sizeof(*copy));
+    if (!copy)
+        return;
+    *copy = *places;
+    command c = {.type = CMD_PLACES, .places = copy};
+    if (xQueueSend(commands, &c, 0) != pdTRUE)
+        free(copy);
 }
 bool hb_ui_show_greeting(const char *name)
 {
@@ -505,6 +556,23 @@ static void update(lv_timer_t *timer)
             lv_obj_add_flag(empty, LV_OBJ_FLAG_HIDDEN);
             free((void *)old);
         }
+        else if (c.type == CMD_PLACES)
+        {
+            if (place_list && field[0] && !strcmp(c.places->query, lv_textarea_get_text(field[0])))
+            {
+                weather_places = *c.places;
+                char options[800] = "Wybierz miejscowość";
+                for (unsigned i = 0; i < weather_places.count; ++i)
+                {
+                    strlcat(options, "\n", sizeof(options));
+                    strlcat(options, weather_places.place[i].label, sizeof(options));
+                }
+                lv_dropdown_set_options(place_list, options);
+                form_error(weather_places.count ? "Wybierz wynik i zapisz."
+                                                : "Nie znaleziono miejscowości.");
+            }
+            free(c.places);
+        }
         else if (c.type == CMD_GREETING)
         {
             lv_label_set_text(greeting, c.text);
@@ -540,8 +608,12 @@ static void update(lv_timer_t *timer)
             }
             else if (!strncmp(c.text, "UBox:", 5))
                 strlcpy(service_state[1], c.text, sizeof(service_state[1]));
-            else if (!strncmp(c.text, "MQTT:", 5))
+            else if (!strncmp(c.text, "Pogoda:", 7))
+            {
                 strlcpy(service_state[2], c.text, sizeof(service_state[2]));
+                if (place_list)
+                    form_error(c.text);
+            }
         }
     }
     char clock[6];
@@ -567,7 +639,7 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.2.0-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware 0.2.1-dev\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
                  service_state[0], service_state[1], service_state[2],
@@ -634,7 +706,7 @@ static void screens(void)
     label(menu, "Home Buddy: ustawienia", LV_ALIGN_TOP_LEFT, 24, 14);
     button(menu, "Wi-Fi", 24, 68, 230, settings, (void *)0);
     button(menu, "Kamera UBox", 282, 68, 230, settings, (void *)1);
-    button(menu, "MQTT", 540, 68, 230, settings, (void *)2);
+    button(menu, "Pogoda", 540, 68, 230, settings, (void *)2);
     button(menu, "Test JPEG", 24, 136, 230, test_image, NULL);
     button(menu, "Test powitania", 282, 136, 230, test_greeting, NULL);
     button(menu, "Test dotyku", 540, 136, 230, touch_test, NULL);

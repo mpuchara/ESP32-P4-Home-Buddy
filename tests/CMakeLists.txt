@@ -25,7 +25,7 @@ target_compile_definitions(test_font PRIVATE LV_CONF_INCLUDE_SIMPLE LV_KCONFIG_I
 add_test(NAME font_bitmaps COMMAND test_font)
 set(CJSON_SOURCE_DIR "$ENV{IDF_PATH}/components/json/cJSON" CACHE PATH "Pinned cJSON 1.7.18")
 add_executable(test_dashboard test_dashboard.c ../components/core/dashboard.c ../components/core/geometry.c
- ../components/services/temperature.c "${CJSON_SOURCE_DIR}/cJSON.c")
+)
 target_include_directories(test_dashboard PRIVATE ../components/core/include "${CJSON_SOURCE_DIR}")
 if(NOT MSVC)
  target_link_libraries(test_dashboard PRIVATE m)
@@ -42,3 +42,11 @@ add_executable(test_navigation test_navigation.c ../components/ui/screen_lifecyc
 target_include_directories(test_navigation PRIVATE ../components/ui)
 target_link_libraries(test_navigation PRIVATE lvgl_host)
 add_test(NAME navigation COMMAND test_navigation)
+
+add_executable(test_weather test_weather.c ../components/services/weather_parser.c
+ ../components/core/dashboard.c ../components/core/geometry.c "${CJSON_SOURCE_DIR}/cJSON.c")
+target_include_directories(test_weather PRIVATE ../components/core/include "${CJSON_SOURCE_DIR}")
+if(NOT MSVC)
+ target_link_libraries(test_weather PRIVATE m)
+endif()
+add_test(NAME weather COMMAND test_weather)

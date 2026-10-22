@@ -1,39 +1,30 @@
-# Development firmware 0.2.0-dev user guide
+# Development firmware 0.2.1-dev user guide
 
-Use the wifi build on the verified GUITION profile. Tap the saver to open settings;
-use Return to close. After 30 idle seconds it returns automatically. A pending
-configuration save cannot time out halfway through. Touch diagnostics stay open until
-Return so corner/drag testing is possible. Brightness PWM has a 26/255 floor and
-is temporary; reboot restores the default.
+Tap the saver to open settings. All pages open directly, without administrator
+PIN, as requested. Thirty idle seconds return to the saver; pending saves are
+exempt. Touch diagnostics remain open until Return. Brightness has a 26/255 floor
+and resets to the default on reboot.
 
-1. Test JPEG shows a synthetic 1280x720 reference through the real hardware JPEG
-   decoder, cropped to fullscreen 800x480. It is explicitly marked TEST JPEG.
-2. Test greeting displays Test UI for about 4.8 seconds including fades. It is a
-   separate overlay, not an identity detection or modified JPEG.
-3. Test touch: check all four targets and center, then drag and watch coordinates.
-4. Open Wi-Fi directly, without an administrator PIN (operator-requested flow).
-   Tap fields to show the keyboard. Select an SSID from the scan or type it,
-   enter its password, then Save. Use Scan on the same screen to refresh the list.
-5. Check connection/IP/RSSI in Wi-Fi or System. Disconnect is deliberate until
-   credentials change or restart. It does not delete stored credentials.
-6. Open UBox directly and enter HA host/IP (without URL/path), bridge port,
-   token and poll seconds. Use the original cached snapshot bridge, not a capture
-   automation. The previous good image remains during an outage.
-7. Open MQTT directly, enter mqtt://host:1883 or mqtts://host:8883, separate username/
-   password, exact temperature topic and maximum age. TLS requires a trusted CA
-   from the IDF bundle; no insecure-certificate bypass is provided.
-8. Internet SNTP must succeed before a clock or available temperature is shown.
-   Time follows Polish CET/CEST rules. Missing/stale data shows unavailable.
+1. Wi-Fi: Scan, choose SSID, enter the network password and Save. The network
+   password stays masked. Wi-Fi obtains DHCP IP; System shows IP/RSSI.
+2. Kamera UBox: enter HA host/IP without URL/path, port (usually8100), token and
+   poll seconds. The token is intentionally VISIBLE in this field to make long
+   input checkable. It is not shown in System or serial logs. Save starts original
+   cached-image polling. No new LTE capture is requested.
+3. Pogoda: enter a locality name, tap Szukaj, choose the correct country/region
+   result from the dropdown, then Zapisz. ASCII spelling is accepted by geocoding;
+   you need not type Polish accents. No default location is assumed. Empty the
+   city field and Save to disable weather. No MQTT/broker setup exists.
+4. The device requests Open-Meteo current temperature at2m every10minutes over
+   verified HTTPS. These are weather-model data, not a local sensor measurement.
+   Data older than1hour become unavailable. Source attribution appears in Pogoda.
+5. Internet SNTP establishes time before HTTPS weather searches/data display.
+   The clock follows Warsaw CET/CEST. Missing/stale time/data are never fabricated.
+6. Test JPEG is an explicit synthetic reference, Test greeting displays Test UI,
+   and Test touch checks corner/center/drag coordinates. System reports per-service
+   state, heap/largest blocks and time since an image was accepted, not capture time.
 
-All settings are directly accessible without an administrator PIN, per the
-operator's explicit request. There is no hidden PIN or default PIN. Wi-Fi still
-requires the chosen network's password; UBox/broker authentication is unchanged.
-Do not send Wi-Fi passwords, tokens or broker passwords in issues/logs/chat.
-Only the touchscreen fields receive them; general diagnostics omit them.
-Development NVS is NOT encrypted at rest. A flash backup can contain all secrets.
-No factory reset UI exists yet; preserve NVS before any recovery.
-
-The operator confirmed JPEG, touch, greeting, brightness, Wi-Fi IP and correct
-local clock. Reconnection and live HA acceptance remain pending. Compilation/serial init alone does not
-prove them. No enrollment, camera/audio capture, face/speaker recognition,
-discovery, OTA or access-control workflow is available in this iteration.
+Wi-Fi, UBox image, corrected image colors, touch, greeting, brightness and local
+clock were physically confirmed by the operator. Weather search/selection/temperature display was also confirmed. Reconnect/cold-boot/fault/soak acceptance is separate.
+NVS is not encrypted at rest; private flash backups may contain credentials. No
+factory-reset, enrollment, local capture, biometric inference or OTA is exposed.

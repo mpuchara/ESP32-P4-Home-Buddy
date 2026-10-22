@@ -3,9 +3,9 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.2.0-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.2.1-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
-MQTT temperature, queued greeting overlays and direct Wi-Fi/UBox/MQTT settings without administrator PIN.
+Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
 
 ## Hardware and status
@@ -61,19 +61,20 @@ Tap the saver to open Wi-Fi, UBox, MQTT, brightness and diagnostic controls.
 Missing image/time/temperature remain unavailable. Test JPEG uses a committed
 synthetic image; Test greeting explicitly says Test UI. No biometric inference runs.
 All settings open directly, without an administrator PIN, at the operator's
-explicit request. Choose a Wi-Fi network and enter its password; UBox and MQTT
-credentials are edited in their own screens. Passwords/tokens stay masked and
-excluded from diagnostics. **NVS is not encrypted at rest in this development
+explicit request. Choose a Wi-Fi network and enter its password; UBox settings and weather location are edited in their own screens. Wi-Fi
+passwords stay masked; the UBox token is visible in its edit field as requested.
+Secrets remain excluded from general diagnostics. **NVS is not encrypted at rest in this development
 build.** Local touchscreen access allows changing settings. No default PIN or
 hidden PIN gate remains.
 Thirty idle seconds return to the saver; critical saves are exempt.
 
 Wi-Fi scanning works on the connected C6 despite unavailable metadata RPC.
 Association/DHCP and correct local clock are operator-verified. Reconnect,
-live UBox and MQTT still need acceptance. No C6 firmware update was performed.
+UBox images/conditional304 and device Open-Meteo search/temperature are verified.
+Reconnect/fault/soak acceptance remains incomplete. No C6 firmware update was performed.
 Use the wifi profile for connectivity; the bringup profile remains offline.
 See [user guide](docs/USER_GUIDE.md), [UBox API](docs/UBOX_API.md) and
-[MQTT temperature example](docs/MQTT_API.md).
+[Open-Meteo temperature example](docs/MQTT_API.md).
 
 ## Tests
 
@@ -88,7 +89,7 @@ python tools/check_project.py
 C tests execute the actual cover/crop and touch-coordinate code on the host,
 plus the committed font through the real LVGL decoder with font compression off.
 Dashboard tests exercise transfer bounds, ETag commit/rollback, JPEG header checks,
-RGB565 cover, strict temperature parsing, freshness and time. Linux CI runs DST
+RGB565 cover, Open-Meteo geocoding/current-data parsing, freshness and time. Linux CI runs DST
 boundaries; Windows CRT does not support that POSIX timezone rule.
 Supply CJSON_SOURCE_DIR pointing to cJSON 1.7.18 (IDF components/json/cJSON).
 Resolve firmware dependencies first, or supply LVGL_SOURCE_DIR to the test build.
