@@ -6,8 +6,8 @@ Assessment date: 2026-10-22. Physical USB identity: COM5, ESP32-P4 rev. 1.0,
 | Peripheral | Evidence | Status for this unit |
 |---|---|---|
 | P4 / flash | esptool 4.12.0 read on COM5 | Rev 1.0 / 16 MB confirmed |
-| ST7701S 480×800 DSI | Physical boot: DSI/PPA startup and LVGL ready | Visible image/orientation observation pending |
-| GT911 | Physical probe 0x5D, chip ID 911, configuration 250 | Detected; four-corner touch test pending |
+| ST7701S 480×800 DSI | Physical boot and operator observation of saver/menu text | Visible UI confirmed; complete image/orientation/cold-boot acceptance pending |
+| GT911 | Physical probe 0x5D, chip ID 911, configuration 250; operator opens menu by touch | Basic touch navigation confirmed; four-corner test pending |
 | 32 MB PSRAM | Physical boot: 32 MB at 80 MHz, SPI SRAM memory test OK | Capacity and startup test confirmed |
 | C6 SDIO | Physical slot1 40 MHz init; ESP32-C6 detected | Link confirmed; firmware version RPC times out, network acceptance blocked |
 | OV02C10 camera | supplied assumption | Exact sensor not verified; not in inspected esp_cam_sensor supported table |

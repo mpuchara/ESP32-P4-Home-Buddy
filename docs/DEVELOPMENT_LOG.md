@@ -102,4 +102,10 @@ pointers so this failure is reported through serial rather than silently accepte
 Corrected display firmware built (0x8b9e0 bytes), flashed/hash-verified on COM5,
 and booted. Target log: "Font bitmaps ready: ASCII and Polish", then LVGL ready.
 Host CTest: 2/2 passed; Python checks 3/3, formatting and actionlint passed.
-Visual text confirmation and the new CI run remain pending at this entry.
+The operator subsequently confirmed that saver text and menu labels are visible.
+That follow-up exposed cramped text in the four menu tiles. Increased tile height
+from 70 to 112 pixels, provided a 52-pixel title area and a separate bottom-aligned
+status, reduced padding to fit the full status and moved the controls below.
+The actual font advances give "W przygotowaniu" a 162-pixel width, fitting the
+168-pixel content width. Complete visual confirmation of this layout and CI for
+the latest change remain pending at this entry.

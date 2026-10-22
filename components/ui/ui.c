@@ -114,26 +114,33 @@ static void screens(void)
     for (int i = 0; i < 4; ++i)
     {
         lv_obj_t *tile = lv_obj_create(menu);
-        lv_obj_set_size(tile, 180, 70);
+        lv_obj_set_size(tile, 180, 112);
         lv_obj_set_pos(tile, 16 + i * 194, 94);
+        lv_obj_set_style_pad_all(tile, 4, 0);
         lv_obj_set_style_bg_color(tile, lv_color_hex(0x23313b), 0);
-        label(tile, names[i], LV_ALIGN_TOP_MID, 0, -3);
-        label(tile, "W przygotowaniu", LV_ALIGN_BOTTOM_MID, 0, 5);
+        lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_t *title = label(tile, names[i], LV_ALIGN_TOP_MID, 0, 0);
+        lv_obj_set_size(title, LV_PCT(100), 52);
+        lv_label_set_long_mode(title, LV_LABEL_LONG_WRAP);
+        lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_t *state = label(tile, "W przygotowaniu", LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_set_width(state, LV_PCT(100));
+        lv_obj_set_style_text_align(state, LV_TEXT_ALIGN_CENTER, 0);
     }
-    label(menu, "Podświetlenie", LV_ALIGN_TOP_LEFT, 24, 193);
+    label(menu, "Podświetlenie", LV_ALIGN_TOP_LEFT, 24, 233);
     lv_obj_t *slider = lv_slider_create(menu);
     lv_obj_set_size(slider, 440, 22);
-    lv_obj_set_pos(slider, 285, 206);
+    lv_obj_set_pos(slider, 285, 246);
     lv_slider_set_range(slider, 26, 255);
     lv_slider_set_value(slider, 128, LV_ANIM_OFF);
     lv_obj_add_event_cb(slider, brightness, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_t *button = lv_btn_create(menu);
     lv_obj_set_size(button, 260, 55);
-    lv_obj_set_pos(button, 24, 264);
+    lv_obj_set_pos(button, 24, 294);
     label(button, "Skanuj sieci Wi-Fi", LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_event_cb(button, scan, LV_EVENT_CLICKED, NULL);
     status = label(menu, "Diagnostyka uruchomienia, bez zapisanej konfiguracji.", LV_ALIGN_TOP_LEFT,
-                   24, 340);
+                   24, 366);
     button = lv_btn_create(menu);
     lv_obj_set_size(button, 160, 52);
     lv_obj_align(button, LV_ALIGN_BOTTOM_RIGHT, -24, -18);
