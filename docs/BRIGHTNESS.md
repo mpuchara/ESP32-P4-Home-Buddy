@@ -40,3 +40,22 @@ synthetic meter exposure compensation and pool stress are separate from physical
 color/brightness acceptance. Operator confirmed a valid metric responding to
 increased camera illumination. Real calibration, reboot persistence, changing room
 light and five-minute on-device expiry are pending operator acceptance.
+
+## Override expiry and save admission (0.3.1-dev)
+
+Only an explicit press of TYMCZASOWO starts/restarts its five-minute deadline.
+Slider/options edits and saving never extend it. After expiry, the open form
+follows the live AUTO mode; a later slider movement selects MANUAL. A stale
+form/save snapshot containing OVERRIDE is normalized to AUTO by the service if
+there is no active interval. Stored OVERRIDE records also load as AUTO.
+Brightness controls ignore edits while a save is in flight so the persisted
+snapshot cannot silently replace a newer live edit.
+
+A host integration test compiles the real brightness service with deterministic
+clock, task-yield and NVS boundaries. It covers restart loading, missing/corrupt/
+short/oversized records without erasure, failed open/set/commit without live RAM
+admission, no flash writes during control ticks, expiry and stale edits/saves.
+This emulates storage/task boundaries; it does not prove real NVS rollback on
+commit error, physical flash durability, concurrency or an actual board reboot.
+After any reported save failure the user must retry intentionally and verify.
+Real two-anchor calibration and physical restart/expiry acceptance remain pending.

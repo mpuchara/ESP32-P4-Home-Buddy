@@ -37,3 +37,9 @@ factory-reset, enrollment, local capture, biometric inference or OTA is exposed.
 8. Wyświetlacz: AUTO/MANUAL/TYMCZASOWO, day/night calibration, fallback and response
    settings. [Detailed workflow](BRIGHTNESS.md). Missing calibration uses fallback;
    missing camera data after calibration holds the last safe level.
+
+Temporary brightness (0.3.1-dev): explicitly select TYMCZASOWO to begin five
+minutes. Editing sliders/options or saving does not extend that interval. After
+expiry the service/form returns to AUTO; only pressing TYMCZASOWO again starts a
+new interval. A later ordinary slider adjustment selects MANUAL. Controls ignore
+new edits while the save worker is committing the displayed configuration.

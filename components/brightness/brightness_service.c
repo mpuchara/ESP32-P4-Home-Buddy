@@ -51,19 +51,35 @@ void hb_brightness_get(hb_brightness_config *out, uint8_t *pwm)
         *pwm = (uint8_t)state.output;
     xSemaphoreGive(mutex);
 }
-esp_err_t hb_brightness_apply(const hb_brightness_config *value)
+static esp_err_t apply(const hb_brightness_config *value, bool begin_override)
 {
     if (!hb_brightness_valid(value))
         return ESP_ERR_INVALID_ARG;
     if (!mutex)
         return ESP_ERR_INVALID_STATE;
     xSemaphoreTake(mutex, portMAX_DELAY);
-    bool begin_override = value->mode == HB_BRIGHT_OVERRIDE && config.mode != HB_BRIGHT_OVERRIDE;
     config = *value;
-    if (begin_override)
-        state.override_until_ms = now_ms() + (uint64_t)config.override_seconds * 1000;
+    if (config.mode == HB_BRIGHT_OVERRIDE)
+    {
+        if (begin_override)
+            state.override_until_ms = now_ms() + (uint64_t)config.override_seconds * 1000;
+        else if (now_ms() >= state.override_until_ms)
+            config.mode = HB_BRIGHT_AUTO;
+    }
+    else
+        state.override_until_ms = 0;
     xSemaphoreGive(mutex);
     return ESP_OK;
+}
+esp_err_t hb_brightness_apply(const hb_brightness_config *value)
+{
+    return apply(value, false);
+}
+esp_err_t hb_brightness_begin_override(const hb_brightness_config *value)
+{
+    if (!value || value->mode != HB_BRIGHT_OVERRIDE)
+        return ESP_ERR_INVALID_ARG;
+    return apply(value, true);
 }
 esp_err_t hb_brightness_save(const hb_brightness_config *value)
 {
@@ -102,7 +118,11 @@ esp_err_t hb_brightness_start(bool available)
             size_t size = sizeof(loaded);
             e = nvs_get_blob(handle, "brightness", &loaded, &size);
             if (e == ESP_OK && size == sizeof(loaded) && hb_brightness_valid(&loaded))
+            {
                 config = loaded;
+                if (config.mode == HB_BRIGHT_OVERRIDE)
+                    config.mode = HB_BRIGHT_AUTO;
+            }
             else if (e != ESP_ERR_NVS_NOT_FOUND)
                 ESP_LOGW("brightness", "Invalid calibration record preserved; manual fallback 128");
             nvs_close(handle);

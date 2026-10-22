@@ -197,8 +197,18 @@ static void close_page(void)
     keyboard = NULL;
     memset(&editor, 0, sizeof(editor));
 }
+static void brightness_sync_mode(void)
+{
+    hb_brightness_config live;
+    hb_brightness_get(&live, NULL);
+    if (brightness_editor.mode == HB_BRIGHT_OVERRIDE && live.mode != HB_BRIGHT_OVERRIDE)
+        brightness_editor.mode = live.mode;
+}
 static void brightness(lv_event_t *e)
 {
+    if (critical)
+        return;
+    brightness_sync_mode();
     brightness_editor.manual_pwm = (uint32_t)lv_slider_get_value(lv_event_get_target(e));
     if (brightness_editor.mode == HB_BRIGHT_AUTO || calibration)
         brightness_editor.mode = HB_BRIGHT_MANUAL;
@@ -576,12 +586,20 @@ static void local_camera(lv_event_t *e)
 }
 static void brightness_mode(lv_event_t *e)
 {
+    if (critical)
+        return;
     calibration = 0;
     brightness_editor.mode = (uint32_t)(uintptr_t)lv_event_get_user_data(e);
-    hb_brightness_apply(&brightness_editor);
+    if (brightness_editor.mode == HB_BRIGHT_OVERRIDE)
+        hb_brightness_begin_override(&brightness_editor);
+    else
+        hb_brightness_apply(&brightness_editor);
 }
 static void calibrate(lv_event_t *e)
 {
+    if (critical)
+        return;
+    brightness_sync_mode();
     hb_camera_status camera;
     hb_camera_get_status(&camera);
     uint64_t now = (uint64_t)esp_timer_get_time() / 1000;
@@ -602,6 +620,7 @@ static void save_brightness(lv_event_t *e)
     (void)e;
     if (critical)
         return;
+    brightness_sync_mode();
     if (calibration)
     {
         hb_light_anchor anchor = {
@@ -622,6 +641,9 @@ static void save_brightness(lv_event_t *e)
 }
 static void brightness_options(lv_event_t *e)
 {
+    if (critical)
+        return;
+    brightness_sync_mode();
     unsigned option = lv_dropdown_get_selected(lv_event_get_target(e));
     if (lv_event_get_user_data(e))
         brightness_editor.transition_seconds = 20 + option * 10;
@@ -635,6 +657,9 @@ static void brightness_options(lv_event_t *e)
 }
 static void fallback_changed(lv_event_t *e)
 {
+    if (critical)
+        return;
+    brightness_sync_mode();
     brightness_editor.fallback_pwm = (uint32_t)lv_slider_get_value(lv_event_get_target(e));
     hb_brightness_apply(&brightness_editor);
 }
@@ -753,6 +778,8 @@ static void camera_brightness_update(void)
         uint8_t pwm;
         hb_brightness_config current;
         hb_brightness_get(&current, &pwm);
+        if (brightness_editor.mode == HB_BRIGHT_OVERRIDE && current.mode != HB_BRIGHT_OVERRIDE)
+            brightness_editor.mode = current.mode;
         lv_label_set_text_fmt(pwm_info, "%u / 255", pwm);
         char text[400];
         snprintf(text, sizeof(text), "%s | Światło: %s %.3f\nKalibracja: %s | Dzień: %s | Noc: %s",
@@ -920,7 +947,7 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.3.0-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware 0.3.1-dev\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
                  service_state[0], service_state[1], service_state[2],

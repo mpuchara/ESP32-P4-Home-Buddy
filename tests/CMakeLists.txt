@@ -60,3 +60,15 @@ else()
  target_link_libraries(test_brightness PRIVATE m)
 endif()
 add_test(NAME brightness_camera COMMAND test_brightness)
+
+add_executable(test_brightness_service test_brightness_service.c
+ ../components/brightness/brightness_service.c ../components/core/brightness.c)
+target_include_directories(test_brightness_service PRIVATE brightness_platform
+ ../components/brightness/include ../components/core/include ../components/camera/include)
+if(MSVC)
+ target_compile_options(test_brightness_service PRIVATE /W4 /WX)
+else()
+ target_compile_options(test_brightness_service PRIVATE -Wall -Wextra -Werror)
+ target_link_libraries(test_brightness_service PRIVATE m)
+endif()
+add_test(NAME brightness_service COMMAND test_brightness_service)

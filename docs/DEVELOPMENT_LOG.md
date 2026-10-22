@@ -403,3 +403,19 @@ the project-local CSI adapter against the pinned Linux IDF source. CI receipt:
 https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39839957879
 The following documentation-only acceptance receipt uses [skip ci]. PR1 remains
 open/draft/unmerged. Original private backup hash was rechecked unchanged.
+
+## 0.3.1-dev: explicit temporary override and persistence regression
+
+Continued clean ed7fa2e on the existing draft PR1. Found that an open brightness
+form retained OVERRIDE after the worker returned to AUTO; editing an option or
+saving that stale snapshot could start another five-minute interval. Only explicit
+temporary-mode selection now starts/restarts a deadline. Live edits/saves preserve
+an active deadline and normalize expired overrides to AUTO. The form follows
+expiry, and controls ignore edits while the configuration worker commits a save.
+Existing calibration/schema, GPIO/PWM, camera orientation and dashboard remain.
+
+Added real brightness-service host integration against deterministic NVS/clock/
+OS boundaries: defaults/restart, both anchors, absent/short/oversized/invalid
+records preserved without writes, NVS errors without applying RAM settings,
+expiry/stale save, explicit restart and no per-tick flash writes. This does not
+claim physical NVS transaction rollback or real day/night calibration acceptance.

@@ -10,6 +10,7 @@ for component in ("board", "ui", "core", "connectivity", "configuration", "scree
     paths.extend(p for p in base.glob("*.c") if not p.name.startswith("hb_font_"))
     paths.extend(base.glob("*.h"))
     paths.extend((base / "include").glob("*.h"))
+paths.extend((root / "tests" / "brightness_platform").rglob("*.h"))
 binary = Path(clang_format.__file__).parent / "data" / "bin" / "clang-format"
 if not binary.is_file():
     binary = binary.with_suffix(".exe")
