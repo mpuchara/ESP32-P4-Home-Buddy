@@ -66,7 +66,7 @@ static void scan(lv_event_t *e);
 static void close_page(void);
 static void update(lv_timer_t *timer);
 static lv_obj_t *camera_info, *camera_photo, *brightness_info, *pwm_info;
-static lv_obj_t *monitor_info;
+static lv_obj_t *monitor_info, *quality_info;
 static lv_obj_t *face_label, *presence_label, *face_boxes[HB_FACE_MAX];
 static lv_img_dsc_t camera_image;
 static uint16_t *preview_pixels;
@@ -166,6 +166,7 @@ static void close_page(void)
     hb_face_enable(false);
     face_label = NULL;
     monitor_info = NULL;
+    quality_info = NULL;
     presence_label = NULL;
     memset(face_boxes, 0, sizeof(face_boxes));
     hb_camera_test_pattern(false);
@@ -607,6 +608,27 @@ static void monitor_page(lv_event_t *e)
     button(page, "Wygaszacz UBox", 500, 425, 270, close_menu, NULL);
     lv_scr_load(page);
 }
+static void quality_action(lv_event_t *e)
+{
+    bool enabled = (bool)(uintptr_t)lv_event_get_user_data(e);
+    if (enabled)
+        hb_camera_test_pattern(false);
+    if (hb_face_enable(enabled) != ESP_OK)
+        form_error("Brak pamięci na pomiar twarzy.");
+}
+static void quality_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Jakość obrazu twarzy: diagnostyka");
+    button(page, "Uruchom pomiar", 24, 70, 350, quality_action, (void *)1);
+    button(page, "Zatrzymaj pomiar", 410, 70, 350, quality_action, NULL);
+    quality_info = label(page, "Uruchom pomiar i spójrz w kamerę.", LV_ALIGN_TOP_LEFT, 24, 140);
+    lv_obj_set_width(quality_info, 740);
+    label(page, "Progi orientacyjne. Pomiar nie odrzuca wykrytej twarzy.", LV_ALIGN_TOP_LEFT, 24,
+          385);
+    button(page, "Wygaszacz UBox", 500, 425, 270, close_menu, NULL);
+    lv_scr_load(page);
+}
 static void local_camera(lv_event_t *e)
 {
     (void)e;
@@ -782,7 +804,7 @@ static void brightness_page(lv_event_t *e)
 }
 static void camera_brightness_update(void)
 {
-    if (!camera_info && !brightness_info && !monitor_info)
+    if (!camera_info && !brightness_info && !monitor_info && !quality_info)
         return;
     if ((uint32_t)(lv_tick_get() - preview_tick) < 100)
         return;
@@ -852,6 +874,48 @@ static void camera_brightness_update(void)
                 hb_camera_release(&frame);
             }
         }
+    }
+    if (quality_info)
+    {
+        hb_face_status face;
+        hb_face_get(&face);
+        char text[600];
+        if (face.error != ESP_OK)
+            snprintf(text, sizeof(text), "Pomiar niedostępny: %s", esp_err_to_name(face.error));
+        else if (!face.diagnostic_enabled)
+            snprintf(text, sizeof(text), "Uruchom pomiar i spójrz w kamerę.");
+        else if (!hb_face_fresh(&face, now))
+            snprintf(text, sizeof(text), "Oczekiwanie na nowy pomiar...");
+        else if (!face.count)
+            snprintf(text, sizeof(text), "Nie wykryto twarzy.");
+        else
+        {
+            unsigned best = 0;
+            for (unsigned i = 1; i < face.count; i++)
+                if ((unsigned)face.quality[i].width * face.quality[i].height >
+                    (unsigned)face.quality[best].width * face.quality[best].height)
+                    best = i;
+            hb_face_quality q = face.quality[best];
+            const char *hint = q.flags & HB_FQ_EDGE           ? "Twarz przy brzegu kadru"
+                               : q.flags & HB_FQ_SMALL        ? "Mała twarz - przybliż się"
+                               : q.flags & HB_FQ_DARK         ? "Ciemny wycinek twarzy"
+                               : q.flags & HB_FQ_BRIGHT       ? "Jasny wycinek twarzy"
+                               : q.flags & HB_FQ_LOW_CONTRAST ? "Niski kontrast"
+                               : q.flags & HB_FQ_LOW_DETAIL   ? "Mało detali"
+                                                              : "Brak uwag testowych";
+            if (!q.valid)
+                snprintf(text, sizeof(text), "Brak poprawnego wycinka twarzy.");
+            else
+                snprintf(text, sizeof(text),
+                         "Największa twarz: %u x %u px (wejście AI)\nJasność: %.1f / "
+                         "255\nKontrast: %.1f\nDetal: %.1f\nSkrajne piksele: %.1f %%\nUwagi: "
+                         "%s\nPomiar: %u us | Model: %u ms",
+                         (unsigned)q.width, (unsigned)q.height, (double)q.mean, (double)q.contrast,
+                         (double)q.detail, (double)q.near_limit_percent, hint,
+                         (unsigned)face.quality_us, (unsigned)(face.inference_us / 1000));
+        }
+        if (strcmp(lv_label_get_text(quality_info), text))
+            lv_label_set_text(quality_info, text);
     }
     if (monitor_info)
     {
@@ -1092,7 +1156,7 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.4.4-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware 0.4.5-dev\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
                  service_state[0], service_state[1], service_state[2],
@@ -1168,6 +1232,7 @@ static void screens(void)
     button(menu, "Obecność w tle", 540, 204, 230, monitor_page, NULL);
     button(menu, "Skanuj Wi-Fi", 24, 290, 230, scan, NULL);
     button(menu, "System", 282, 290, 230, system_test, NULL);
+    button(menu, "Jakość twarzy", 540, 290, 230, quality_page, NULL);
     button(menu, "Powrót", 620, 410, 150, close_menu, NULL);
     status = label(menu, "", LV_ALIGN_TOP_LEFT, 24, 355);
     lv_obj_set_width(status, 740);

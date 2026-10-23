@@ -183,9 +183,9 @@ static void worker(void *)
         result.ready = true;
         result.error = ESP_OK;
         result.frame_ms = stamp;
-        result.completed_ms = now_ms();
         result.sequence = seq;
         result.inference_us = (uint32_t)(esp_timer_get_time() - begin);
+        int64_t quality_begin = esp_timer_get_time();
         for (auto &r : results)
         {
             if (result.count >= HB_FACE_MAX)
@@ -194,8 +194,16 @@ static void worker(void *)
                 continue;
             hb_face_box b{r.box[0], r.box[1], r.box[2], r.box[3], r.score};
             if (hb_face_map_box(&b))
-                result.boxes[result.count++] = b;
+            {
+                unsigned i = result.count++;
+                result.boxes[i] = b;
+                result.quality[i] = hb_face_quality_measure(
+                    pixels, HB_FACE_INPUT_BYTES, HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT,
+                    r.box[0], r.box[1], r.box[2], r.box[3]);
+            }
         }
+        result.quality_us = (uint32_t)(esp_timer_get_time() - quality_begin);
+        result.completed_ms = now_ms();
         hb_presence_status occupancy{};
         uint32_t monitor_left = 0;
         bool diagnostic_owner = false;
@@ -216,13 +224,14 @@ static void worker(void *)
         {
             ESP_LOGI("face",
                      "sequence=%u count=%u inference_us=%u psram=%u largest=%u dma=%u presence=%u "
-                     "hits=%u misses=%u diag=%u monitor_ms=%u period_ms=%u",
+                     "hits=%u misses=%u diag=%u monitor_ms=%u period_ms=%u quality_us=%u",
                      (unsigned)seq, (unsigned)result.count, (unsigned)result.inference_us,
                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
                      (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM),
                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA),
                      (unsigned)occupancy.value, occupancy.hits, occupancy.misses,
-                     (unsigned)diagnostic_owner, (unsigned)monitor_left, (unsigned)period);
+                     (unsigned)diagnostic_owner, (unsigned)monitor_left, (unsigned)period,
+                     (unsigned)result.quality_us);
         }
         last_sequence = seq;
         hb_compute_leave();

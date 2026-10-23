@@ -2,6 +2,7 @@
 #pragma once
 #include "esp_err.h"
 #include "hb_face_demand.h"
+#include "hb_face_quality.h"
 #include "hb_presence.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -27,9 +28,10 @@ extern "C"
         bool enabled, ready, diagnostic_enabled;
         uint32_t monitor_remaining_ms;
         esp_err_t error;
-        uint32_t sequence, inference_us, count;
+        uint32_t sequence, inference_us, quality_us, count;
         uint64_t frame_ms, completed_ms;
         hb_face_box boxes[HB_FACE_MAX];
+        hb_face_quality quality[HB_FACE_MAX];
         hb_presence_status presence;
     } hb_face_status;
     // The page and bounded background test are independent owners of one worker.

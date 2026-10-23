@@ -75,3 +75,12 @@ background trial; simply returning to the menu does not. The trial expires after
 A concurrently enabled foreground Test twarzy can continue after the lease ends,
 and closing that page keeps a still-live background trial. Test kolorow cancels
 both. No local image, greeting or HA action is added to the saver.
+
+
+0.4.5 quality trial: open Jakosc twarzy -> Uruchom pomiar and face the camera.
+The largest detected face supplies dimensions, brightness, contrast and detail.
+Move closer to increase the face's input size; change actual illumination to
+observe processed-face brightness. Hints are provisional and do not reject a face.
+Detail also changes with beard/glasses/noise/scale, so it is not a focus diagnosis.
+Without a fresh face the page shows unavailable/wait text. Stop or leave to end
+foreground measurement. An active10min background lease still follows its deadline.

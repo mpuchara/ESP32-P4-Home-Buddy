@@ -108,3 +108,10 @@ continuously ON preserves evidence. Worker tick and locked publication expire
 leases without LVGL participation; reads never renew demand. Background-only
 start period1500ms, foreground500ms. No extra model/frame worker, persistence,
 network endpoint or HA event. Existing admission and JPEG serialization apply.
+
+
+0.4.5 adds bounded per-face scalar quality on the retained model input, before
+preview-coordinate mapping. No image copy/storage or new worker/model. Both model
+and quality complete before timestamp/publication, under the same existing epoch.
+UI displays the largest face and an explicitly provisional hint; metrics never
+filter presence/detection. See FACE_QUALITY.md for arithmetic/coordinate limits.

@@ -135,3 +135,9 @@ frame. Lazy model/input stay allocated while either owner is active; page close
 frees preview widgets/buffer while retaining a live monitor's model. Existing
 admission and load-delta guards are unchanged. Combined natural JPEG allocations,
 expiry release and repeated requests need measured receipts.
+
+
+0.4.5 quality uses only scalar accumulators and up to four scalar result structs;
+no extra ROI image, histogram or heap allocation. Existing234x416 input is reused.
+64-bit sum products bound arithmetic at maximum generic800x480 ROI. Hardware
+quality_us overhead remains to be measured; no speed or recognition claim.

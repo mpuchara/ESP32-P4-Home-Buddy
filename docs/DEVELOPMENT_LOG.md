@@ -765,3 +765,23 @@ full-size JPEG decode concurrent with inference; do not infer those observations
 Actual10-minute expiry, reboot default-OFF, repeat starts and longer combined
 stress remain pending. No firmware write/configuration change for this receipt.
 Documentation-only [skip ci]; existing code CI remains unchanged and green.
+
+
+## 0.4.5 face-image quality diagnostic, 2026-10-23
+
+Continue cleaneb620ec. Add per-box size, mean luma, contrast, neighbouring-luma
+detail and near-limit fraction on the retained234x416 processed detector input.
+Bounds/capacity checks and64-bit accumulators avoid invalid access/overflow;
+exact variance numerator avoids float cancellation on constant maximum ROIs.
+Up to four scalar results, no crop allocation/image persistence/new model.
+
+Add Jakosc twarzy page with explicit start/stop and largest-face metrics. Hint
+thresholds are provisional, not calibrated focus/readiness or identity confidence.
+No filtering of accepted detection/presence and no exposure/brightness/storage
+change. Model and metric timings are separate; completion follows quality work.
+Existing foreground/background ownership, deadlines and memory guards remain.
+
+Local12/12 host suites, Python3/3 and formatting pass. Host tests cover arithmetic,
+smoothing response, clipping/capacity/extreme coordinates and accumulator limits.
+Firmware/CI and physical metric/layout/overhead checks are pending. No alignment,
+embeddings, enrollment, identification or HA event added in this diagnostic step.
