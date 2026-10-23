@@ -45,7 +45,7 @@ its Espressif-product restriction; other new components declare MIT.
 The portrait input allocation is 194,688 bytes. A static mutex serializes model
 load/inference/free and hardware JPEG decode outside LVGL. JPEG waits up to 1 s;
 AI uses nonblocking acquisition and yields. Loading needs PSRAM free/largest
->=16/8 MiB and internal >=192/128 KiB; inference needs >=12/4 MiB and >=64/32 KiB.
+>=16/8 MiB and internal >=192/96 KiB; inference needs >=12/4 MiB and >=64/32 KiB.
 Observed load deltas above 4 MiB PSRAM or 64 KiB internal stop/release diagnostics.
 These shared-heap checks are not a hard private arena. Upstream allocation failure
 can assert; conservative admission does not establish complete fault isolation.
@@ -71,3 +71,12 @@ operator confirmed that symptom. 0.4.2 separately bounds completed-result age
 completed zero-face result clears rectangles immediately; there is no successful-
 detection hold across a newer miss. These are display diagnostics, not presence
 or identity events. Host tests reproduce 800 ms inference and both age limits.
+
+
+Operator accepts that 0.4.2 detects faces much more consistently, usually 700-800ms,
+with occasional short waiting captions. On reopening, the old 128KiB internal
+largest-block admission refused despite281,495 free internal bytes and a100KiB
+largest block after actual cleanup. This was a policy refusal, not an allocator
+failure. Based on measured ~30KiB load delta, require96KiB largest while retaining
+192KiB aggregate admission,64KiB observed internal load guard and all PSRAM limits.
+Tests cover the new exact boundary. Repeated physical reopening remains to verify.

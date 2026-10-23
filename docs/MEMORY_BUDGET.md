@@ -103,7 +103,7 @@ Second natural2304x1296 frame:739,606bytes,295ms; at allocation log PSRAM
 old displayed image, free PSRAM returned to26,723,652/largest23,592,960. Two full
 frames/one replacement are observed, not a sustained repeated-swap/AI admission test.
 
-##0.4.1 diagnostic detection budget
+##0.4.2 diagnostic detection budget
 
 ESPDet416 weights are578,160bytes before pack/alignment; input194,688bytes.
 Build and physical acceptance receipts are in DEVELOPMENT_LOG.md.
@@ -113,3 +113,10 @@ worker remains. Loading/inference use conservative aggregate/largest-block
 admission and serialize with JPEG decode. Heap-delta guards are not a hard private
 allocator budget. Actual combined hardware allocation/latency/release receipts
 follow separately; do not infer future recognition/audio capacity from free bytes.
+
+
+ESPDet416 observed load delta on P4: 1,862,120 bytes PSRAM including194,688-byte
+input, and29,328 (0.4.1) /29,784 (0.4.2) internal bytes. Shared heap deltas include
+concurrent activity. In the0.4.1 diagnostic sample free PSRAM was24,742,992 with
+largest17,825,792; a later idle sample returned to26,723,652/largest23,592,960.
+This is a short observed return, not a repeated combined allocation/leak soak.

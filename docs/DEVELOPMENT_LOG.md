@@ -615,3 +615,14 @@ expired before inference completed. Add completion timestamp and require capture
 zero result clears boxes immediately; this is not identity/presence hysteresis.
 Host tests reproduce800ms processing, completion expiry, absolute expiry and
 invalid/future completion. User-visible improvement/cleanup remain pending.
+
+
+Operator accepts 0.4.2 visible rectangles and substantially improved consistency,
+usually700-800ms, with occasional short waiting captions. A second attempt shows
+AI: brak pamieci. The log proves model/input cleanup at59573ms, free PSRAM returned
+to26,723,652. Internal idle free281,495/largest102,400 bytes. At110873ms policy
+refused before load because the old largest-block guard required128KiB, despite
+measured load delta~30KiB. Tune only loading largest-block admission to96KiB;
+retain192KiB free,64KiB observed load cap and unchanged PSRAM/inference guards.
+No memory allocation exception or panic was observed. Test boundary96KiB/96KiB-1.
+Repeated open/close acceptance is pending; no model arena cache is introduced.

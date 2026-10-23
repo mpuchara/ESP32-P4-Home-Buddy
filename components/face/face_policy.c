@@ -4,7 +4,7 @@
 bool hb_face_admit(uint32_t p, uint32_t pl, uint32_t i, uint32_t il, bool loading)
 {
     return p >= (loading ? 16U : 12U) * 1024 * 1024 && pl >= (loading ? 8U : 4U) * 1024 * 1024 &&
-           i >= (loading ? 192U : 64U) * 1024 && il >= (loading ? 128U : 32U) * 1024;
+           i >= (loading ? 192U : 64U) * 1024 && il >= (loading ? 96U : 32U) * 1024;
 }
 bool hb_face_clip(hb_face_box *b)
 {
