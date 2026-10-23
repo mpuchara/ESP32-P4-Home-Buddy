@@ -71,7 +71,7 @@ static void ha_page(lv_event_t *e)
     field[0] = input(fields, "Host HA (bez http://)", cfg.host, 127, false, 4);
     snprintf(number, sizeof(number), "%u", cfg.port);
     field[1] = input(fields, "Port", number, 5, false, 64);
-    field[2] = input(fields, "Webhook ID / token REST", cfg.secret, 512, true, 124);
+    field[2] = input(fields, "Webhook ID / token REST", cfg.secret, 512, false, 124);
     snprintf(number, sizeof(number), "%u", (unsigned)cfg.cooldown_seconds);
     field[3] = input(fields, "Cooldown zdarzeń (s)", number, 4, false, 184);
     ha_mode = lv_dropdown_create(fields);

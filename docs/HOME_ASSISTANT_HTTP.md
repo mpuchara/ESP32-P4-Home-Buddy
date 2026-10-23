@@ -10,7 +10,7 @@ disabled by default. The fullscreen dashboard and local greeting do not depend o
 2. Add a Webhook trigger. Generate a random secret ID, 32-128 characters using
    letters, digits, underscore or hyphen. Allow POST; retain local-network-only.
 3. Home Buddy: Settings -> Home Assistant. Enter the bare HA host/IP (no scheme
-   or path), port (normally 8123), Webhook mode and that ID in the masked field.
+   or path), port (normally 8123), Webhook mode and that ID in the visible credential field.
    Select HTTPS only for a verified TLS endpoint. Save, then reopen this page.
 4. Test connection performs GET `/`. It verifies host reachability only; it cannot
    verify a webhook ID. Send diagnostic test performs the actual POST with
@@ -46,7 +46,7 @@ Events still trigger a new encounter even when the helper text is unchanged.
 Create a Home Assistant Long-Lived Access Token in the user's profile security
 settings. It can grant broad account permissions. It is distinct from the UBox
 Bridge X-UBox-Token; do not copy that credential. Select REST API on Home Buddy,
-enter the same bare host/port and paste the token in the masked field. Save.
+enter the same bare host/port and paste the token in the visible credential field. Save.
 The client sends `Authorization: Bearer <token>` in the header, never in the URL.
 GET `/api/` tests API access; diagnostic POST tests the actual operation separately.
 Events POST to `/api/events/home_buddy_identity`. In HA use an Event trigger with
@@ -67,8 +67,8 @@ One request already in flight cannot be recalled after session cancellation.
 
 HTTP on a LAN has no transport encryption. HTTPS uses the trusted CA bundle and
 hostname verification; there is no insecure bypass. A private/self-signed CA needs
-explicit future trust provisioning and currently fails verification. Credentials
-are masked in this form and omitted from logs/exports. Development NVS is plaintext
+explicit future trust provisioning and currently fails verification. At the owner's request, credentials
+are visible in this form so they can be checked while typing; logs/exports omit them. Development NVS is plaintext
 at rest; restrict physical access. No image, audio or embedding enters the payload.
 Do not expose the webhook to the internet. Face recognition/webhook alone must not
 control high-risk access such as door unlocking.
