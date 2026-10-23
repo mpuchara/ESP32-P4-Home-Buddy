@@ -66,6 +66,13 @@ not evidence of physical recognition accuracy or a working HA automation.
 
 ## Physical and CI receipt
 
+Later HA form readability fix: explicit dark panel/contrast, shorter labels,
+readable checkbox/transport text and bounded status wrapping. Verified using
+before/after 800x480 LVGL renders of the actual form construction. This updated
+recognition app is 4,382,192 bytes, SHA256
+8b45c8004f67c56600cda54963fddf2ee7d1b2c25bc03359f26730053b66f2c5;
+app headroom 2,957,840 bytes. Earlier image sizes above remain baseline receipts.
+
 2026-10-23: [implementation CI run](https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39988036946)
 passed host and all four firmware profiles on d938878. Subsequent tooling/document
 changes retain the same firmware source; their latest checks remain visible in PR #2.

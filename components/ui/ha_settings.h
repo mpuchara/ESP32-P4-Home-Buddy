@@ -41,6 +41,8 @@ static lv_obj_t *ha_checkbox(lv_obj_t *parent, const char *text, int y, bool che
 {
     lv_obj_t *box = lv_checkbox_create(parent);
     lv_checkbox_set_text(box, text);
+    lv_obj_set_style_text_color(box, lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(box, &hb_font_20, LV_PART_MAIN);
     lv_obj_set_pos(box, 0, y);
     if (checked)
         lv_obj_add_state(box, LV_STATE_CHECKED);
@@ -62,16 +64,22 @@ static void ha_page(lv_event_t *e)
     lv_obj_t *fields = lv_obj_create(page);
     lv_obj_set_pos(fields, 12, 70);
     lv_obj_set_size(fields, 776, 226);
+    lv_obj_set_style_bg_color(fields, lv_color_hex(0x10171c), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(fields, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(fields, 8, LV_PART_MAIN);
     char number[16];
-    field[0] = input(fields, "HA host (bez http:// i ścieżki)", cfg.host, 127, false, 4);
+    field[0] = input(fields, "Host HA (bez http://)", cfg.host, 127, false, 4);
     snprintf(number, sizeof(number), "%u", cfg.port);
     field[1] = input(fields, "Port", number, 5, false, 64);
-    field[2] = input(fields, "Webhook ID / token REST (sekret)", cfg.secret, 512, true, 124);
+    field[2] = input(fields, "Webhook ID / token REST", cfg.secret, 512, true, 124);
     snprintf(number, sizeof(number), "%u", (unsigned)cfg.cooldown_seconds);
     field[3] = input(fields, "Cooldown zdarzeń (s)", number, 4, false, 184);
     ha_mode = lv_dropdown_create(fields);
     lv_obj_set_pos(ha_mode, 0, 250);
     lv_obj_set_width(ha_mode, 690);
+    lv_obj_set_style_text_color(ha_mode, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ha_mode, lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(ha_mode, &hb_font_20, LV_PART_MAIN);
     lv_dropdown_set_options(ha_mode, "Webhook (zalecany)\nREST API (zaawansowany)");
     lv_dropdown_set_selected(ha_mode, cfg.mode);
     ha_enable = ha_checkbox(fields, "Włącz publikację zdarzeń", 310, cfg.enabled);
@@ -82,6 +90,7 @@ static void ha_page(lv_event_t *e)
     button(fields, "Test połączenia", 0, 475, 320, ha_test_action, NULL);
     button(fields, "Wyślij test diagnostyczny", 345, 475, 350, ha_test_action, (void *)1);
     ha_info = label(fields, "", LV_ALIGN_TOP_LEFT, 0, 540);
+    lv_obj_set_width(ha_info, 690);
     button(page, "Zapisz", 490, 8, 140, save_ha, NULL);
     memset(&cfg, 0, sizeof(cfg));
     lv_scr_load(page);
