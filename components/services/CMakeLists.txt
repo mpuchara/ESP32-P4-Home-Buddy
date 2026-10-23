@@ -1,0 +1,1 @@
+idf_component_register(SRCS "weather_service.c" "weather_parser.c" INCLUDE_DIRS "include" REQUIRES configuration core PRIV_REQUIRES esp_netif esp_event esp_timer esp_http_client esp_psram mbedtls json ui)
