@@ -722,3 +722,32 @@ both owners. Logs add scalar owner/countdown/period for physical verification.
 Local11/11 host suites, Python3/3 and format pass. face_demand covers ownership,
 exact expiry/renewal, default OFF, overflow and clock anomalies. Builds, CI,
 physical background inference/JPEG coexistence and expiry remain pending.
+
+
+## 0.4.4 build/boot verification receipt, 2026-10-23
+
+Implementation299f7dd021efdce7eb557dbf55cf1bec9ee9a4db passes all four CI jobs:
+Linux host11suites; diagnostics/bringup/wifi clean build/config/package.
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39937908256
+All local builds/effective configs pass: diagnostics0x378d0, bringup0x3a1850,
+wifi0x3eb060bytes, unchanged6MiB slots. Python3/3, format/whitespace and GCC
+-Wall -Wextra -Werror demand tests pass. Dependency lock unchanged. Public-only
+packages dist/iteration4-monitor-044, dist/iteration4-monitor-044-bringup and
+ dist/iteration4-monitor-044-diagnostics-final have60 verified hashes and byte
+parity with completed current build outputs. Final Wi-Fi application SHA256:
+71a97dcfa8c607f843d180274ad326db3f27d3e58cf77b2f547f3ca3a9078f48.
+An earlier diagnostics staging copy preceded final build completion; it is
+superseded by the explicitly verified diagnostics-final directory.
+
+Final image flashed/hash-verified on COM5; boot confirms0.4.4-dev, Wi-Fi and camera
+about30fps. A passive sample accepts a natural2304x1296 UBox JPEG (1,034,334-byte
+staging), decode/cover226ms. At allocation log free PSRAM16,832,312/largest16,252,928,
+internal286,531/largest180,224. No monitor session appeared in these samples.
+Thus monitor-on-screensaver, simultaneous model/JPEG, manual stop/release, handoff,
+repeat starts and physical10-minute expiry remain unverified. The operator has
+been asked to start, return to UBox for20s, inspect countdown/presence, then stop
+and confirm readable layout. Host deadline tests do not prove RTOS/device timing.
+
+Default monitoring OFF, no persistent config/NVS/calibration/C6/bridge change,
+identity, HA event or automatic greeting. PR1 remains draft/unmerged. This is a
+documentation-only receipt [skip ci].
