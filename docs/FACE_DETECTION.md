@@ -26,7 +26,7 @@ is used to hide misses. A rectangle means face detection, not household identity
 
 The operator confirmed actual 0.4.0 detections below 40 ms, but frequent misses
 with glasses/beard/dark clothing and a dark background. Camera image/rotation were
-accepted. The operator has not yet accepted 0.4.1 detection stability.
+accepted. The operator accepts substantially better stability in the corrected 0.4.2 UI.
 
 Sensor AE already adjusts integration and analog gain every 500 ms, with settling
 checks and bounded controls. These controls and the calibrated illumination meter
@@ -79,4 +79,14 @@ largest-block admission refused despite281,495 free internal bytes and a100KiB
 largest block after actual cleanup. This was a policy refusal, not an allocator
 failure. Based on measured ~30KiB load delta, require96KiB largest while retaining
 192KiB aggregate admission,64KiB observed internal load guard and all PSRAM limits.
-Tests cover the new exact boundary. Repeated physical reopening remains to verify.
+Tests cover the new exact boundary. The operator confirms detection works again after returning from the screensaver.
+This confirms at least one reopen; it does not establish a three-cycle or soak test.
+
+
+Final implementation791f8d9a252ec1edd5f5c9d93df62780c538f6ff passed host9/9,
+all three local firmware builds/configuration checks and all four CI jobs:
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39913963248
+Final image was flashed/hash-verified on COM5. Operator confirms improved detection
+and successful reopening. Occasional waiting captions remain; these explicitly
+mean no fresh completed result, not a negative detection or a presence event.
+Long combined tests and identity/presence behavior remain future work.

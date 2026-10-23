@@ -626,3 +626,32 @@ measured load delta~30KiB. Tune only loading largest-block admission to96KiB;
 retain192KiB free,64KiB observed load cap and unchanged PSRAM/inference guards.
 No memory allocation exception or panic was observed. Test boundary96KiB/96KiB-1.
 Repeated open/close acceptance is pending; no model arena cache is introduced.
+
+
+## Final 0.4.2 verification receipt, 2026-10-23
+
+Implementation791f8d9a252ec1edd5f5c9d93df62780c538f6ff passes all four CI jobs
+(host9suites; diagnostics/bringup/wifi clean builds/config/package):
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39913963248
+All three local profiles and effective configurations pass: diagnostics0x378d0,
+bringup0x3a0d30, wifi0x3ea540 bytes. Dependency lock unchanged. Python3/3,
+format/whitespace and GCC -Wall -Wextra -Werror face regressions pass. Public-only
+packages dist/iteration4-face-042-reload{,-bringup,-diagnostics} contain retained
+licenses and60 verified hashes. Final Wi-Fi application SHA256:
+90a89790b4491a1a09c33a7e1193a0f72805555016ae182fe97d7853a8aca5ff.
+This image was flashed/hash-verified and booted on COM5; no C6/bridge/NVS change.
+
+Operator confirms substantially improved face detection, typically700-800ms,
+and after the reload fix confirms detection works again on reentry from the
+screensaver. This accepts at least one reopen, not an explicitly counted three-
+cycle test or sustained soak. Occasional waiting captions persist for about a
+second: only fresh completed results are shown. They are not negative detections.
+No automation/identity/presence semantics are inferred from these diagnostics.
+
+Captured latest-image model load delta is1,862,120bytes PSRAM/internal29,340bytes.
+A short session runs about763-810ms per model call; cleanup explicitly logs released
+allocations and free PSRAM26,723,652 at80402ms. A subsequent natural UBox640x360
+JPEG decoded/covered in142ms. Full-size UBox simultaneous model allocation,
+long fragmentation tests and labelled accuracy/false-positive evaluation remain
+unverified. No biometric image/template or private log is committed. PR1 remains
+draft/unmerged. Documentation-only receipt [skip ci].

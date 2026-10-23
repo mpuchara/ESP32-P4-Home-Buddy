@@ -118,4 +118,5 @@ is an optional diagnostic consumer on the same P4, not a second camera driver.
 Initial compile fits6MiB app slots without silicon/peripheral/partition changes.
 ESPDet416 model execution is measured at757-803ms in the0.4.1 sample; load uses
 about1.86MB PSRAM including input. 0.4.2 corrects UI expiry after that measured
-latency. Visible rectangles and perceived stability await operator confirmation.
+latency. Operator confirms visible detections are substantially more stable and reopening
+works after the reload admission fix. Long combined/labelled tests remain.
