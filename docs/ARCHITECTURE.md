@@ -1,8 +1,8 @@
-# Architecture, iteration 3
+# Architecture, 0.6.1-dev
 
 The default profile keeps outputs disabled; bringup enables board/UI and wifi also
 enables the ESP-Hosted station worker. Dependencies remain locked to IDF 5.5.1,
-LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from LVGL/networking. No biometric inference or audio capture runs.
+LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from LVGL/networking. The recognition profile adds opt-in local face inference; audio capture/voice recognition is not implemented.
 
 * board: native DSI 480x800 RGB565 ping-pong and PPA rotation 270 degrees from
   logical 800x480. GT911 mapping remains x=physical_y, y=479-physical_x.
@@ -13,7 +13,7 @@ LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from L
 * configuration: validated schema-1 snapshots, mutex-protected reads and a single
   NVS blob transaction. No automatic erase on corruption. All settings open
   directly without a PIN, as explicitly requested by the operator. Existing
-  schema-1 records load without losing network/bridge/broker settings; the old
+  schema-1 records load without losing network/bridge settings; the old
   48-byte PIN field is reserved, ignored on read and zeroed on the next save.
   Wi-Fi passwords are masked; UBox token editing is intentionally visible. NVS encryption remains incomplete.
 * connectivity: ESP-Hosted 2.12.2 SDIO, legacy station APIs, bounded scan and
@@ -59,9 +59,9 @@ Before SNTP, time and all available-temperature measurements are rejected/unavai
 Secrets never enter general diagnostics/logs. The UBox token is deliberately
 visible in its edit field per operator request; Wi-Fi passwords remain masked.
 
-The previous identity, local-camera, audio and profile architecture remains a
-future milestone, not implemented behavior. Secure boot, encrypted persistent
-storage, migrations, USB recovery and 72-hour acceptance remain open.
+The face identity worker, transactional profile adapter and USB migration tool are
+implemented. Physical identity acceptance, security provisioning and 72-hour soak
+remain open. Secure storage refuses unprovisioned hardware; RAM-only is explicit.
 
 ## JPEG color boundary
 
@@ -127,3 +127,12 @@ The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
 HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
+
+## Deployment and identity transport
+
+All four build profiles use one 7 MiB factory application and table 0x10000.
+See SINGLE_IMAGE_FLASH_LAYOUT.md for model/profile/voice ranges. No OTA or SD.
+The existing 16-entry identity bus has independent greeting, HA and compatibility
+cursors. A separate bounded HTTP worker sends Webhook or REST events, never from
+the AI or LVGL task. Offline queues are drained, session/5s freshness is checked,
+and independent HA cooldown prevents inference spam. See HOME_ASSISTANT_HTTP.md.

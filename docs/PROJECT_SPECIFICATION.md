@@ -1,3 +1,5 @@
+> Historical original specification. Its MQTT, microSD and OTA proposals are superseded by the owner's 0.6.1-dev continuation: SINGLE_IMAGE_FLASH_LAYOUT.md, HOME_ASSISTANT_HTTP.md and USB_FLASHING.md. Original text below is retained for traceability, not current requirements.
+
 > Additional operator override: temperature uses Open-Meteo with manually selected
 > locality; MQTT temperature was removed. UBox token is visible in its edit field.
 

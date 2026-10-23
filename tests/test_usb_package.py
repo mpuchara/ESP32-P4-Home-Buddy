@@ -55,6 +55,12 @@ class USBPackaging(unittest.TestCase):
             files = private_relocation(data,Path(temporary))
             self.assertEqual([o for o, _ in files],[0x11000,0x19000])
             self.assertEqual(files[0][1].read_bytes(),b"S" * 0x6000)
+            unknown = list(entries)
+            unknown[0] = ("nvs",1,2,0x9000,0x7000)
+            changed = table(unknown)
+            data[0x8000:0x8000+len(changed)] = changed
+            with self.assertRaises(ValueError): private_relocation(data,Path(temporary))
+            data[0x8000:0x8000+len(binary)] = binary
             data[0xc20000] = 1
             with self.assertRaises(ValueError): private_relocation(data,Path(temporary))
             bad = bytearray(binary); bad[10] ^= 1

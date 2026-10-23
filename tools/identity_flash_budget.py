@@ -32,8 +32,8 @@ def main():
         measured["model_package"] = {"bytes": len(image), "sha256": hashlib.sha256(image).hexdigest()}
     margin = slot - measured["application"]["bytes"]
     print(json.dumps({"measured": measured, "candidate_layout": candidate, "application_partition_bytes": slot,
-                      "current_models_bytes": 0x1e0000,
-                      "mbf_fits_current_models": measured["mbf"]["bytes"] <= 0x1e0000,
+                      "model_partition_bytes": 0x400000,
+                      "mbf_fits_model_partition": measured["mbf"]["bytes"] <= 0x400000,
                       "application_headroom_bytes": margin,
                       "model_partition_headroom_bytes": 0x400000 - measured.get("model_package", {}).get("bytes", 0),
                       "reserved_bytes": 0xe0000, "voice_partition_bytes": 0x300000, "profile_partition_bytes": 0x100000,

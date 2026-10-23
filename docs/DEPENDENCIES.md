@@ -78,7 +78,7 @@ Compatibility is being tested on IDF5.5.1/rev1; upstream timing is not our resul
 See [face recognition implementation and limitations](FACE_RECOGNITION.md),
 [onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
-The experimental MBF worker remains opt-in. The 0.6.0-dev candidate uses onboard
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
-MQTT. Unprovisioned hardware remains RAM-only. See ITERATION6_REPORT.md and
+HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.

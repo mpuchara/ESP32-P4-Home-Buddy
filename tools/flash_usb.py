@@ -56,6 +56,17 @@ def private_relocation(data, parent):
     entries = {r["name"]: r for r in rows}
     if any(r["type"] == 0 and r["subtype"] == 0 for r in rows):
         raise ValueError("Different factory layout requires a reviewed data migration")
+    nvs, phy = entries.get("nvs", {}), entries.get("phy_init", {})
+    original = (nvs.get("offset"), phy.get("offset")) == (0x9000, 0x11000)
+    previous = (nvs.get("offset"), phy.get("offset")) == (0x11000, 0x19000)
+    app = entries.get("ota_0", {})
+    expected_app_size = 0x600000 if original else 0x500000
+    if (not (original or previous) or nvs.get("size") != 0x6000 or
+            phy.get("size") != 0x1000 or nvs.get("type") != 1 or
+            nvs.get("subtype") != 2 or phy.get("type") != 1 or phy.get("subtype") != 1 or
+            app.get("type") != 0 or app.get("subtype") != 16 or
+            app.get("offset") != 0x20000 or app.get("size") != expected_app_size):
+        raise ValueError("Unknown settings/application map requires a reviewed migration")
     old_profiles = entries.get("profiles")
     if old_profiles and any(x != 255 for x in data[old_profiles["offset"]:old_profiles["offset"] + old_profiles["size"]]):
         raise ValueError("Existing nonblank profiles need a reviewed logical/security migration")

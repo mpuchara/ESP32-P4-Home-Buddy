@@ -165,7 +165,7 @@ sufficient authorization for door unlocking/alarm disarming.
 
 ## Deployment and acceptance
 
-The recognition profile selects partitions.identity.csv and the standard
+The recognition profile selects partitions.csv and the standard
 human_face_feat Flash-partition loader from locked recognition 0.3.3/ESP-DL 3.3.14.
 Detection/MNP weights remain app rodata. The model is provisioned with installation,
 not downloaded at boot. No external storage is mounted or required.

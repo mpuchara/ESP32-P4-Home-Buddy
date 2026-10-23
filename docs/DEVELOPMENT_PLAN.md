@@ -10,15 +10,15 @@ Physical acceptance cannot be inferred from successful compilation.
 | 2 | Fullscreen cached UBox JPEG, cover crop, ETag, NTP/Warsaw clock, Open-Meteo temperature layers | Implemented; JPEG/clock verified, Real UBox/colors/304 and device weather verified; outage/soak pending |
 | 3 | Direct setup, persistent configuration, complete Polish touchscreen settings | All settings without PIN per operator request; Wi-Fi provisioning verified; encryption pending |
 | 4 | Exact camera driver, frame capture, illumination metric, two-anchor calibration | OV02C10 ID and ~30fps capture verified; RAW8 colors/detail/upright operator-confirmed; real calibration and stability pending |
-| 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | 0.4.2 ESPDet416 detection is operator-accepted as more stable (700-800ms), including reopen. 0.4.5 scalar face-quality readouts operator-confirmed; alignment/embeddings/enrollment remain pending |
+| 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | 0.4.2 ESPDet416 detection is operator-accepted as more stable (700-800ms), including reopen. 0.4.5 scalar face-quality readouts operator-confirmed; alignment/MBF/enrollment implemented, physical acceptance pending |
 | 6 | ES8311/PCM/VAD, local speaker embeddings and on-device enrollment | Pending |
-| 7 | Temporal fusion, greetings, independent cooldowns, Webhook/REST events and HA helper examples | 0.4.3 temporal presence accepted; 0.4.4 background navigation/countdown/manual stop/layout operator-accepted; 10min expiry pending. Identity/greeting/events remain pending |
-| 8 | Secure persistent storage, migrations, deletion, USB recovery | Pending |
+| 7 | Temporal fusion, greetings, independent cooldowns, Webhook/REST events and HA helper examples | 0.4.3 temporal presence accepted; 0.4.4 background navigation/countdown/manual stop/layout operator-accepted; 10min expiry pending. Identity/greeting/HTTP events implemented; real confirmed-identity HA action pending |
+| 8 | Secure persistent storage, migrations, deletion, USB recovery | Transactional gate and USB tool implemented; secure provisioning and physical power-loss/deletion acceptance pending |
 | 9 | Profiling, fault injection, reconnect, recovery and 72-hour physical soak | Pending |
 
 ## Next acceptance gates
 
-1. CI build all three profiles and Linux DST tests for iteration 2.
+1. CI build all four profiles and Linux host regression for 0.6.1-dev.
 2. Confirm synthetic JPEG colors/crop, no bars, greeting fades, full touch range,
    slider range, cold boot and repeated menu/image transitions.
 3. Wi-Fi association/DHCP and SNTP verified; reconnect and reboot restore pending.

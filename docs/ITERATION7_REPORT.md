@@ -3,9 +3,8 @@
 This report supersedes iteration 6 deployment decisions. Builds/tests below are
 not evidence of physical recognition accuracy or a working HA automation.
 
-1. **Source revision:** the implementation commit is the latest commit touching
-   components/home_assistant/ha_http_client.c (`git log -1 --format=%H --` that
-   path). A later documentation receipt commit may be the branch head. PR #2 stays
+1. **Source revision:** firmware implementation d938878958886ab78ecb24784a1cbf270450d75f.
+   Use `git rev-parse HEAD` for the latest receipt/tooling commit. PR #2 stays
    draft on codex/local-face-recognition, based on codex/initial-hardware-foundation.
 2. **Implemented:** preserves onboard ESPDet416/MNP/alignment/MBF, enrollment,
    transactions and bounded event bus; replaces MQTT with separate Webhook/REST
@@ -47,7 +46,8 @@ not evidence of physical recognition accuracy or a working HA automation.
     endpoint evaluated and deferred; /api/status is not implemented.
 12. **Automated validation:** local recognition firmware builds; effective config,
     budget enforcement and three USB dry-run modes pass. Host C suite 15/15;
-    project checks 3/3; Python model/USB tests 5/5. Fault injection preserves
+    project checks 3/3; Python model/USB tests 5/5; ASan/UBSan storage/event and
+    HTTP policy/payload executables pass. Fault injection preserves
     transaction recovery and event overflow/session semantics. HTTP tests cover
     payload escaping, URLs, credentials, status classification, cooldown and
     freshness; they do not substitute for real ESP TLS/network fault injection.
@@ -66,6 +66,24 @@ not evidence of physical recognition accuracy or a working HA automation.
 
 ## Physical and CI receipt
 
-Pending live verification at initial implementation commit. No security
-provisioning performed. Full Flash backups and credentials are private and never
-included in the repository or public firmware package.
+2026-10-23: [implementation CI run](https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39988036946)
+passed host and all four firmware profiles on d938878. Subsequent tooling/document
+changes retain the same firmware source; their latest checks remain visible in PR #2.
+
+P4 COM5 full migration completed with exit 0. Before any write, a fresh private
+16,777,216-byte backup was read and SHA256-verified:
+f1fbe5ecf3c24ec4a9941592bd3e18dae101ea4200a03aeefe5ee2f64eaf04bf.
+It matches the original snapshot. Current ROM query confirmed Secure Boot and
+Flash encryption disabled. NVS/PHY were relocated byte-for-byte from that copy.
+Bootloader/table/application/MBF/settings writes all passed verify_flash. No chip
+erase, profile/voice writes, eFuses or C6 flash. Backup/credentials remain private.
+
+The migrated application boots and captures OV02C10 frames at approximately
+30 fps. Stored Wi-Fi reconnected and obtained DHCP; UBox reports accepted=1,
+HTTP 304 and successful decode after initial network recovery. Short serial
+observation to about 108 seconds uptime showed no panic/watchdog or reboot;
+PSRAM settled near 26.3 MB free. This is not a soak/leak test. Visual touchscreen,
+brightness/weather regression, MBF model loading/inference, real enrollment,
+multi-person accuracy, application-only physical upgrade and actual recognized
+HA automation remain unaccepted until directly observed. Webhook is entered by
+the operator on the touchscreen; no secrets are requested in chat.
