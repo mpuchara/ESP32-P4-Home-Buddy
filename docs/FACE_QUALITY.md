@@ -56,3 +56,13 @@ minimum size, invalid dimensions/capacity/extreme coordinates, and maximum ROI
 accumulator bounds with an unchanged sentinel. They verify arithmetic/bounds, not
 image-quality classification or model accuracy. Actual camera metric response,
 layout and overhead need physical receipts in DEVELOPMENT_LOG.md.
+
+
+Final implementationbb2107fcda897a5cfdb91aa15d1d91dd572758bf passes host12/12,
+all three local profiles/configs and four CI jobs39943561382. Final Wi-Fi image is
+flashed/hash-verified on COM5. On63 nonzero-face samples, quality postprocess took
+5.789..29.946ms (median17.323ms); no ROI allocation is added. This is postprocess
+time, not total frame latency or an accuracy/readiness measure. Operator reports visible150x190px, mean126/255, contrast66, detail7.3,
+near-limit4.3%, quality19ms and model578ms. Displayed metric availability is
+physically accepted; distance-response, explicit layout acceptance and validated
+quality classification remain pending. Final receipt in DEVELOPMENT_LOG.md.

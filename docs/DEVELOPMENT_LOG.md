@@ -785,3 +785,36 @@ Local12/12 host suites, Python3/3 and formatting pass. Host tests cover arithmet
 smoothing response, clipping/capacity/extreme coordinates and accumulator limits.
 Firmware/CI and physical metric/layout/overhead checks are pending. No alignment,
 embeddings, enrollment, identification or HA event added in this diagnostic step.
+
+
+## 0.4.5 build/boot and measured quality overhead, 2026-10-23
+
+Implementationbb2107fcda897a5cfdb91aa15d1d91dd572758bf passes all four CI jobs:
+Linux host12suites; diagnostics/bringup/wifi clean build/config/package.
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39943561382
+All local profiles and effective configs pass: diagnostics0x378d0, bringup0x3a2400,
+wifi0x3ebbe0bytes, unchanged6MiB slots. Python3/3, format/whitespace and GCC
+-Wall -Wextra -Werror quality regressions pass. Dependency lock unchanged. Public
+ dist/iteration4-quality-045{,-bringup,-diagnostics} has60 verified hashes and byte
+parity with final build outputs. Wi-Fi application SHA256:
+086d64c3ad2bfc4fb533267493d2cbcbf3b8791985b9d93e1d606e2ca60318de.
+
+Final image flashed/hash-verified on COM5 and reset. Boot confirms0.4.5-dev,
+Wi-Fi and about30fps capture. A natural640x360 UBox JPEG decoded/covered in139ms
+before the sampled quality session. This is not a simultaneous full-size JPEG test.
+Actual model load: PSRAM delta1,862,120/internal29,368bytes including input. A
+66-iteration diagnostic sample contains63 nonzero-face results; this is unlabelled
+telemetry, not an accuracy benchmark. On nonzero-face samples, quality postprocess
+ranges5,789..29,946us, median17,323us. Model run ranges553,472..749,475us in that
+sample, separately from quality. The quality page has no live preview, so this is
+not a controlled speed comparison with the previous camera-preview UI. Camera
+capture remained about29.9fps in the sample. No extra ROI allocation is introduced.
+
+Metric arithmetic/bounds and actual processing are observed. Operator subsequently
+reports the visible largest-face readout:150x190px, mean126/255, contrast66,
+detail7.3, near-limit pixels4.3%, quality19000us and model578ms. These accept
+displayed metric availability and agree with the sampled timing range; they do
+not establish focus/identity suitability. Distance-response, explicit full-layout
+acceptance, repeat sessions and long combined load remain pending. Existing presence/monitor calibration and resource gates are retained;
+no image/template logging, enrollment, identity, HA event or exposure change.
+PR1 stays draft/unmerged. Documentation-only receipt [skip ci].
