@@ -559,3 +559,30 @@ Nine local host suites and static project checks pass; the face policy additiona
 passes GCC -Wall -Wextra -Werror under Ubuntu. They test admission/geometry/expiry,
 not neural accuracy. Wi-Fi app initially builds0x38d8b0bytes. Hardware model load
 and detection acceptance are pending explicit Test twarzy activation.
+
+
+## 0.4.0-dev build and boot receipt, 2026-10-23
+
+Implementation 84a0cb0c68cc1f9dfc26c8f47084d977de9cb24e passed all four CI jobs:
+Linux host nine suites and diagnostics/bringup/wifi clean build/config/package.
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39902790684
+All three local builds and effective configurations pass, with dependencies.lock
+unchanged: diagnostics 0x378d0, bringup 0x344090, wifi 0x38d8b0 bytes. These retain
+the existing 6 MiB application slots. Public-only packages are in
+ dist/iteration4-face-040, dist/iteration4-face-040-bringup and
+ dist/iteration4-face-040-diagnostics; their 60 file hashes were verified.
+Wi-Fi app SHA256: 4431b01e355250c27a2cc43199391f657687ed20a1fdc055dab488aec5d10b0f.
+
+The final Wi-Fi image was flashed/hash-verified on COM5. Boot confirms 0.4.0-dev;
+passive samples show camera about 30 fps and a naturally cached 2304x1296 UBox
+JPEG (857,018 bytes) accepted, decoded/covered in 224 ms. After image cleanup,
+sampled free PSRAM was 26,723,652 with largest block 23,592,960 bytes. Detection
+was disabled: there is no captured model load/inference/cleanup evidence yet.
+The operator has been asked to activate Test twarzy in good light and report the
+box/count/time and return to screensaver. Face correctness, initialization memory,
+inference latency and coexistence under load remain explicitly unverified.
+
+No calibration/NVS schema change, C6 flash, bridge change, private-image upload,
+merge or production release. Existing night calibration acceptance remains valid;
+representative daytime anchor and physical persistence test are still pending.
+Documentation-only verification receipt uses [skip ci].
