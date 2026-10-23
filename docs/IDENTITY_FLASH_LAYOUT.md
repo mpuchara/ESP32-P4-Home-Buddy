@@ -1,84 +1,86 @@
-# Identity model flash assessment (no migration applied)
+# Internal Flash model architecture, iteration 6
 
-Measured original Wi-Fi binary rebuilt from 223a4ff: **4,111,328 bytes**.
-Managed P4 generic model files: MBF **3,522,832**, MNP **129,968**, MSR **61,248**,
-ESPDet416 **578,160** bytes. MBF SHA256:
-`0cd2629f7111b821f419531d0d3ff33d81018391fa57039acd1022a4531cfd48`.
-These are actual file sizes, not RAM estimates. Firmware build receipts are in
-IDENTITY_VALIDATION.md. Detection/landmark code and alignment growth are included
-in the measured experimental app; MBF weights are deliberately external on SD.
+No microSD, USB storage, network filesystem or runtime model download is used.
+Inference stays on P4/PSRAM. Generic weights are provisioned at installation.
 
-## Current map, unchanged
+## Measurements and selected mechanism
 
-| Area | Offset | Bytes | End (exclusive) |
+Clean recognition baseline from 430487a with IDF 5.5.1: app 4,383,872 bytes.
+Pinned MBF EDL2: 3,522,832 bytes; SHA256
+0cd2629f7111b821f419531d0d3ff33d81018391fa57039acd1022a4531cfd48.
+MNP 129,968; MSR 61,248; ESPDet416 578,160 bytes, retained in app rodata.
+Zlib level 9 of the actual MBF file is 2,638,927 bytes; XZ default 2,582,280.
+Neither fits the former 1,966,080-byte model partition. Compression is therefore
+not selected. Startup/decompression peak and performance were NOT measured on P4.
+Embedding uncompressed MBF alongside the baseline app would require 7,906,704
+bytes before packaging, exceeding both 5 MiB and former 6 MiB OTA slots.
+
+Select the upstream dedicated Flash partition loader. Locked recognition 0.3.3
+uses label human_face_feat and a model name lookup in a packed image. Locked
+ESP-DL 3.3.14's packer emits PDL3 v1.0 with one MBF entry, data offset 112.
+Total image size is 3,522,944 bytes; whole-file SHA256:
+f8aa1d21c47814bf324b78ec3a050f993dfa38b1f6a582b6afb5ce0264daf294.
+The PDL3 embedded digest (computed with its digest field zeroed) is separately
+549e05f7c02c4f10ae97988053eb1cec8c280564e162b1936385e73fe11c6625.
+These are different digests by definition. Packaging verifies both contract and
+raw MBF digest. Firmware validates exact version/index/size, the entire pinned
+package SHA256, read errors and mapping capacity before invoking ESP-DL. Missing,
+corrupt or incompatible images fail recognition startup without formatting storage.
+The default models/SPIFFS partition is not treated as a compatible model image.
+
+## Candidate map (build-tested, NOT installed)
+
+Bootloader at 0x2000; candidate partition table at 0x10000. A security-assessment
+build measured 0x85a0 (34,208) bytes, which FAILED the old 0x8000 table boundary.
+The relocated table leaves room for that measured security bootloader. This
+assessment never flashed or provisioned a device; signed recovery remains pending. Data alignment is 4 KiB;
+application alignment is 64 KiB. Ends are exclusive; total Flash 0x1000000.
+
+| Region | Start | End | Size |
 |---|---:|---:|---:|
-| NVS | 0x9000 | 0x6000 | 0xf000 |
-| OTA metadata | 0xf000 | 0x2000 | 0x11000 |
-| PHY | 0x11000 | 0x1000 | 0x12000 |
-| OTA0 | 0x20000 | 0x600000 | 0x620000 |
-| OTA1 | 0x620000 | 0x600000 | 0xc20000 |
-| profiles | 0xc20000 | 0x200000 | 0xe20000 |
-| models | 0xe20000 | 0x1e0000 | 0x1000000 |
+| NVS | 0x11000 | 0x17000 | 24 KiB |
+| OTA metadata | 0x17000 | 0x19000 | 8 KiB |
+| PHY | 0x19000 | 0x1a000 | 4 KiB |
+| NVS key reserve, encrypted | 0x1a000 | 0x1b000 | 4 KiB |
+| alignment gap | 0x1b000 | 0x20000 | 20 KiB |
+| ota_0 | 0x20000 | 0x520000 | 5 MiB |
+| ota_1 | 0x520000 | 0xa20000 | 5 MiB |
+| human_face_feat | 0xa20000 | 0xe20000 | 4 MiB |
+| profiles, encrypted flag | 0xe20000 | 0xea0000 | 512 KiB |
+| reserved | 0xea0000 | 0x1000000 | 1,441,792 bytes |
 
-Current models capacity is 1,966,080 bytes: MBF alone exceeds it by 1,556,752.
-Original Wi-Fi + MBF alone is 7,634,160 bytes, already larger than a 6,291,456-byte
-OTA slot before recognition code growth. Keeping the two OTA slots and the 2 MiB
-profile area leaves no contiguous internal location for MBF. The current models
-SPIFFS partition is not an ESP-DL raw `human_face_feat` model partition.
+partitions.csv remains the original map for standard diagnostic/bringup/wifi builds.
+Only config/sdkconfig.recognition chooses partitions.identity.csv. No partition
+migration is automatic. Ordinary app OTA is not a table migration. See
+FLASH_MIGRATION.md for actual read-only device inventory, private backup and
+required explicit authorization. Both slots use rollback-enabled recognition
+firmware, but physical OTA/rollback and security-enabled bootloader capacity are
+not physically accepted. Current measured app and headroom are in ITERATION6_REPORT.md.
+CI enforces at least 256 KiB growth margin; this is an engineering guard, not a
+promise that future voice/runtime/TLS features will fit.
 
-## Experimental deployment selected
+## Future voice, explicit capacity limitation
 
-Keep the partition table, settings, existing profiles and OTA capacity unchanged.
-Store only generic MBF on local FAT microSD; MNP/MSR and ESPDet weights remain
-in application rodata. No runtime download. The 3,522,832-byte MBF file is checked
-against its pinned digest before construction. No household data is written to SD.
-The app guard checks that the resulting experimental binary still fits OTA.
-Model load/inference activations must be measured separately; file size is not
-inference RAM. SDMMC slot 0 hardware/mount/dual-slot coexistence acceptance is pending.
+The upstream Espressif speaker_verification model directory inspected 2026-10-23
+lists sv_tdnn_tiny_3s.espdl and sv_tdnn_tiny_6s.espdl at 2,844,528 bytes EACH
+(blob SHAs 1ac47a6fe8d57bfacdde5b235b5a43f646d816bd and
+a9bde025305e4258ee3e79151988e1cbc0baecf7). This is a research candidate from
+upstream master, NOT part of our locked dependencies, converted/benchmarked here,
+or validated for this device. The README describes P4 support, separate 3/6-second
+models and separate partition labels. Even ONE model exceeds the reserve by
+1,402,736 bytes. Reserve plus spare MBF partition capacity is 2,113,152 bytes,
+still 731,376 bytes short before packing. The current face milestone layout is
+therefore NOT a final face+voice production layout.
 
-## Exact internal-flash candidate, proposal only
+Onboard-only next options: move shared ESPDet/MNP/MSR weights out of duplicated
+app slots and remeasure smaller OTA slots with a combined larger model area;
+quantize/compress an explicitly assessed compatible speaker model and measure its
+true accuracy/decompression requirements; or replace the dual-app strategy with
+an independently verified compact recovery application and a larger main slot.
+Each requires another measured proposal and migration approval. No external
+storage is an acceptable fallback. A/B model updates would consume still more
+space and cannot be assumed feasible. Do not replace MBF with MFN to hide this.
 
-This option is **not applied** and is not approved for migration or flashing.
-It requires reducing OTA slots to 5 MiB and moving/shrinking the existing profile
-partition. Production must validate growth/recovery and voice requirements first.
-
-| Area | Offset | Size | End |
-|---|---:|---:|---:|
-| NVS/OTA metadata/PHY | unchanged | unchanged | unchanged |
-| OTA0 | 0x20000 | 0x500000 | 0x520000 |
-| OTA1 | 0x520000 | 0x500000 | 0xa20000 |
-| generic models | 0xa20000 | 0x400000 | 0xe20000 |
-| profiles | 0xe20000 | 0x80000 | 0xea0000 |
-| future voice reserve | 0xea0000 | 0x160000 | 0x1000000 |
-
-MBF+MNP+MSR files total 3,714,048 bytes, leaving 480,256 bytes inside the proposed
-4 MiB models area before pack/alignment/filesystem overhead. ESPDet stays in the
-app. A packed raw image needs labels compatible with its loader, or a separate
-filesystem-backed loader; the table alone does not implement either. A 512 KiB
-profile area exceeds the 245,760-byte maximum feature payload, but transactional
-two-copy storage, encryption metadata, wear levelling and future voice templates
-could exceed it. The 1,441,792-byte voice reserve is explicitly provisional because
-no voice model has been selected. Thus this is a capacity candidate, not a settled
-production storage architecture. Staying on SD or using larger flash may be preferable.
-
-## Mandatory migration procedure before applying any candidate
-
-1. Record actual active OTA slot, version, flash encryption/Secure Boot state and
-   all installed partition entries. Stop new profile/settings changes.
-2. Make a private verified 16,777,216-byte full P4 flash backup and SHA256, plus
-   logical settings/profile exports appropriate to their schema/security state.
-   Store backups privately, outside Git/CI/release artifacts, and test recovery.
-3. Explicitly authorize destructive relocation; flashing the new table without
-   migration can overwrite the old profile region and old OTA application.
-4. With a recovery image/tool and physical access, migrate compatible settings and
-   versioned profiles to a fresh layout, verify integrity/decryption and only then
-   activate firmware. Preserve model IDs; never reuse a different model database.
-5. Verify both OTA slots, rollback selection, settings persistence and profile
-   recovery. Normal OTA cannot safely substitute for a partition-table migration.
-6. Recovery uses the same device's complete verified backup and matching security
-   provisioning. Restoring only the old app is insufficient after a changed map;
-   profiles created after backup would be lost. Secure Boot/flash encryption may
-   further limit raw rollback; do not burn eFuses during this experiment.
-
-No erase, migration, settings/profile write, flash-encryption enablement, production
-release or firmware flash was performed in this iteration.
+Sources: [locked recognition source](https://github.com/espressif/esp-dl/tree/eb72563e6a4e61d2bbc0d46e4c79f2c9f816c3c6/models/human_face_recognition),
+[voice model directory](https://github.com/espressif/esp-dl/tree/master/models/speaker_verification/models/p4),
+[voice contract](https://github.com/espressif/esp-dl/blob/master/models/speaker_verification/README.md).

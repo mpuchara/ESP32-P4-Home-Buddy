@@ -14,6 +14,7 @@
 #include "hb_geometry.h"
 #include "hb_identity.h"
 #include "hb_image.h"
+#include "hb_mqtt.h"
 #include "hb_raw_frame.h"
 #include "hb_services.h"
 #include "hb_ui.h"
@@ -84,6 +85,7 @@ static bool identity_screen;
 static uint32_t identity_tick;
 static void identity_page(lv_event_t *e);
 static void household_page(lv_event_t *e);
+static lv_obj_t *mqtt_enable, *mqtt_publish, *mqtt_tls, *mqtt_info;
 
 static void flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *data)
 {
@@ -183,6 +185,7 @@ static void close_page(void)
         hb_identity_command(&stop);
     }
     identity_screen = false;
+    mqtt_enable = mqtt_publish = mqtt_tls = mqtt_info = NULL;
     identity_info = identity_choice = identity_box = NULL;
     memset(identity_marks, 0, sizeof(identity_marks));
     hb_face_enable(false);
@@ -332,9 +335,12 @@ static void identity_delete(lv_event_t *e)
 static void household_page(lv_event_t *e)
 {
     (void)e;
-    page_base("Domownicy: RAM-only (dane znikają po restarcie)");
+    page_base("Domownicy: sprawdź status trwałego zapisu");
+    hb_identity_start();
     hb_id_status s;
     hb_identity_get(&s);
+    label(page, s.persistence_ready ? "Chroniony Flash" : "RAM-only: dane znikają po restarcie",
+          LV_ALIGN_TOP_LEFT, 24, 45);
     char options[HB_ID_PEOPLE * (HB_ID_NAME + 12)] = "";
     for (unsigned i = 0; i < s.profile_count; ++i)
     {
@@ -438,7 +444,7 @@ static void identity_update(void)
         return;
     if (!identity_screen)
     {
-        lv_label_set_text(identity_info, s.message);
+        lv_label_set_text_fmt(identity_info, "%s\n%s", s.message, s.persistence_message);
         return;
     }
     const char *states[] = {"UNAVAILABLE", "UNKNOWN", "AMBIGUOUS", "KNOWN"};
@@ -534,6 +540,78 @@ static bool number_field(unsigned index, unsigned low, unsigned high, uint32_t *
         return false;
     *out = value;
     return true;
+}
+static void save_mqtt(lv_event_t *e)
+{
+    (void)e;
+    if (critical)
+        return;
+    config_job job = {.mqtt = true};
+    job.mqtt_value.schema = 1;
+    uint32_t port, cooldown;
+    if (strlen(lv_textarea_get_text(field[0])) >= sizeof(job.mqtt_value.host) ||
+        strlen(lv_textarea_get_text(field[2])) >= sizeof(job.mqtt_value.username) ||
+        strlen(lv_textarea_get_text(field[3])) >= sizeof(job.mqtt_value.password))
+    {
+        form_error("Pole jest za długie (limit bajtów UTF-8).");
+        return;
+    }
+    if (!number_field(1, 1, 65535, &port) || !number_field(4, 0, 3600, &cooldown))
+    {
+        form_error("Port: 1-65535; cooldown: 0-3600 s");
+        return;
+    }
+    strlcpy(job.mqtt_value.host, lv_textarea_get_text(field[0]), sizeof(job.mqtt_value.host));
+    strlcpy(job.mqtt_value.username, lv_textarea_get_text(field[2]),
+            sizeof(job.mqtt_value.username));
+    strlcpy(job.mqtt_value.password, lv_textarea_get_text(field[3]),
+            sizeof(job.mqtt_value.password));
+    job.mqtt_value.port = port;
+    job.mqtt_value.cooldown_seconds = cooldown;
+    job.mqtt_value.enabled = lv_obj_has_state(mqtt_enable, LV_STATE_CHECKED);
+    job.mqtt_value.publish_identity = lv_obj_has_state(mqtt_publish, LV_STATE_CHECKED);
+    job.mqtt_value.tls = lv_obj_has_state(mqtt_tls, LV_STATE_CHECKED);
+    if (xQueueSend(jobs, &job, 0) == pdTRUE)
+        critical = true;
+    memset(&job, 0, sizeof(job));
+}
+static lv_obj_t *mqtt_checkbox(lv_obj_t *parent, const char *text, int y, bool checked)
+{
+    lv_obj_t *box = lv_checkbox_create(parent);
+    lv_checkbox_set_text(box, text);
+    lv_obj_set_pos(box, 0, y);
+    if (checked)
+        lv_obj_add_state(box, LV_STATE_CHECKED);
+    return box;
+}
+static void mqtt_page(lv_event_t *e)
+{
+    (void)e;
+    if (!hb_config_ready())
+        return;
+    page_base("Home Assistant / MQTT 5");
+    hb_mqtt_config cfg;
+    hb_mqtt_config_get(&cfg);
+    lv_obj_t *fields = lv_obj_create(page);
+    lv_obj_set_pos(fields, 12, 70);
+    lv_obj_set_size(fields, 776, 226);
+    char number[16];
+    field[0] = input(fields, "Broker (host / IP)", cfg.host, 127, false, 4);
+    snprintf(number, sizeof(number), "%u", cfg.port);
+    field[1] = input(fields, "Port", number, 5, false, 64);
+    field[2] = input(fields, "Użytkownik", cfg.username, 64, false, 124);
+    field[3] = input(fields, "Hasło", cfg.password, 128, true, 184);
+    snprintf(number, sizeof(number), "%u", (unsigned)cfg.cooldown_seconds);
+    field[4] = input(fields, "Cooldown zdarzeń (s)", number, 4, false, 244);
+    mqtt_enable = mqtt_checkbox(fields, "Włącz MQTT", 310, cfg.enabled);
+    mqtt_publish =
+        mqtt_checkbox(fields, "Publikuj zdarzenia tożsamości", 350, cfg.publish_identity);
+    mqtt_tls = mqtt_checkbox(fields, "TLS: certyfikat CA i nazwa hosta", 390, cfg.tls);
+    label(fields, "Hasło w NVS. Ochrona pamięci wymaga provisioningu.", LV_ALIGN_TOP_LEFT, 0, 435);
+    mqtt_info = label(fields, "", LV_ALIGN_TOP_LEFT, 0, 475);
+    button(page, "Zapisz", 490, 8, 140, save_mqtt, NULL);
+    memset(&cfg, 0, sizeof(cfg));
+    lv_scr_load(page);
 }
 static void save(lv_event_t *e)
 {
@@ -769,10 +847,11 @@ static void config_worker(void *arg)
         xQueueReceive(jobs, &job, portMAX_DELAY);
         esp_err_t err;
         command result = {0};
-        err = job.brightness ? hb_brightness_save(&job.brightness_value)
-              : job.weather  ? hb_config_weather_save(&job.weather_value)
-              : job.wifi     ? hb_config_save_wifi(job.value.ssid, job.value.wifi_password)
-                             : hb_config_save(&job.value);
+        err = job.mqtt         ? hb_mqtt_config_save(&job.mqtt_value)
+              : job.brightness ? hb_brightness_save(&job.brightness_value)
+              : job.weather    ? hb_config_weather_save(&job.weather_value)
+              : job.wifi       ? hb_config_save_wifi(job.value.ssid, job.value.wifi_password)
+                               : hb_config_save(&job.value);
         result.type = CMD_SAVED;
         if (err)
         {
@@ -1294,6 +1373,9 @@ static void update(lv_timer_t *timer)
 {
     (void)timer;
     identity_update();
+    if (mqtt_info)
+        lv_label_set_text(mqtt_info,
+                          hb_mqtt_connected() ? "MQTT: połączono" : "MQTT: rozłączono / wyłączone");
     camera_brightness_update();
     command c;
     while (xQueueReceive(commands, &c, 0) == pdTRUE)
@@ -1477,6 +1559,7 @@ static void screens(void)
     button(menu, "Jakość twarzy", 540, 290, 230, quality_page, NULL);
     button(menu, "Domownicy", 24, 355, 230, household_page, NULL);
     button(menu, "Rozpoznawanie twarzy", 282, 355, 300, identity_page, NULL);
+    button(menu, "Home Assistant", 594, 355, 180, mqtt_page, NULL);
     button(menu, "Powrót", 620, 410, 150, close_menu, NULL);
     status = label(menu, "", LV_ALIGN_TOP_LEFT, 24, 412);
     lv_obj_set_width(status, 740);

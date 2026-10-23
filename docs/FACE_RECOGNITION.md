@@ -1,6 +1,6 @@
-# Local household recognition, 0.5.0-dev
+# Local household recognition, 0.6.0-dev
 
-This is an **experimental RAM-only implementation**, not completed hardware acceptance.
+This is an **experimental implementation**, not completed hardware acceptance. Internal Flash loading, gated profile persistence and MQTT infrastructure are implemented. See ITERATION6_REPORT.md for current receipts.
 The baseline is development branch commit `223a4ff1977b6bcb3bdb73f013b59801b6d30c7d`.
 Remote branch heads were checked before development; main contained only the initial commit.
 No device was flashed, no partition table was changed, no C6 update was performed.
@@ -147,49 +147,43 @@ lower thresholds to improve the displayed known rate.
 
 ## Storage and privacy
 
-**RAM-only. Restart loses every profile, name, template and evaluation counter.**
-No biometric persistence, database file parser, schema migration or encrypted
-biometric store is implemented. Corrupt persistent database/failed-write/reboot
-recovery acceptance is therefore pending, not represented by synthetic tests.
-The database model namespace prevents incompatible in-memory feature sets.
-The upstream `dl::recognition::DataBase` is not used: in the locked source,
-`query_feat` returns a loop index instead of the stored feature ID; enrollment
-mutates memory before storage writes finish and is not a household transaction.
+Development devices without secure provisioning remain **RAM-only**. The worker now
+uses a versioned, two-bank profile store when explicitly enabled on hardware with
+Flash encryption AND Secure Boot. No irreversible security operation is performed
+by opening this store. See [profile format and limitations](PROFILE_DATABASE.md).
+Existing NVS settings remain in their original region. Settings NVS is plaintext
+in this development configuration; biometric persistence is blocked instead of
+silently writing a plaintext database.
 
-Existing settings/NVS and profiles partitions remain untouched. NVS is plaintext
-in this development firmware. Flash encryption/NVS encryption would require an
-explicit provisioning design, backup/recovery policy and device-state verification.
-Neither protects a plaintext custom biometric file automatically. This iteration
-writes no templates and burns no eFuses or keys. RAM-only storage is not protection
-against a compromised firmware/debug interface. No images, embeddings or biometric
-records enter Git, Wi-Fi, MQTT, CI or firmware packages. Debug output contains only
-resource/timing metadata, never embedding values. No cloud/HA/PC biometric processing.
-Recognition is not liveness detection and must not unlock doors/disable security.
-
-An internal FACE event accessor exposes status, confirmed stable ID, similarities,
-session/frame and timestamp, independently from greeting cooldown. There is no
-network/MQTT publisher. The interface reserves VOICE/BOTH sources but emits only FACE. Entered/left
-events use their own presence tracker, separate from identity confirmation and the
-existing diagnostic tracker. The future single local consumer must poll each result;
-this bounded latest-result API is not a lossless historical event log.
+A bounded 16-event ring has separate greeting, MQTT and compatibility cursors,
+with overflow/stale counters, cancellation epoch and five-second source age limits.
+Only FACE is emitted. VOICE/BOTH are reserved, with conflict handling requirements
+in hb_identity_future.h. Each encounter suppresses repeated classifications;
+MQTT and greetings have independent cooldowns. This buffer is not lossless.
+No embeddings or images are serialized to MQTT. Recognition is not liveness or
+sufficient authorization for door unlocking/alarm disarming.
 
 ## Deployment and acceptance
 
-Use the separate `config/sdkconfig.recognition` profile. The three normal profiles
-compile with experimental model execution disabled. Run:
+The recognition profile selects partitions.identity.csv and the standard
+human_face_feat Flash-partition loader from locked recognition 0.3.3/ESP-DL 3.3.14.
+Detection/MNP weights remain app rodata. The model is provisioned with installation,
+not downloaded at boot. No external storage is mounted or required.
 
 ```powershell
 idf.py -B build-recognition -D SDKCONFIG=build-recognition/sdkconfig -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;config/sdkconfig.recognition" build
-python tools/prepare_identity_model.py local/sd-staging
-python tools/identity_flash_budget.py build-recognition
+python tools/prepare_identity_model.py local/onboard-model-staging
+python tools/identity_flash_budget.py build-recognition --enforce
 ```
 
-Copy the generic `models/` directory to a FAT microSD outside the device. The
-experimental worker mounts the existing TF slot only on explicit recognition start.
-Do not hot-remove the card while loading. Mount/read/model failure reports unavailable.
-This is generic model provisioning; personal enrollment remains entirely on the P4.
-See [flash assessment](IDENTITY_FLASH_LAYOUT.md) before any future migration.
-See [actual validation](IDENTITY_VALIDATION.md) for build/test receipts and blockers.
+These are preparation commands only. Do not flash this new partition table as
+an ordinary update to an existing device. Follow [migration preflight](FLASH_MIGRATION.md)
+and obtain explicit authorization. The three standard profiles retain the original
+partition map and leave experimental model execution disabled.
+
+See [actual validation](ITERATION6_REPORT.md). Physical MBF execution, accuracy,
+secure persistence, MQTT broker/TLS and HA automation acceptance remain pending.
+The ten-minute background lease is deliberately retained during validation.
 
 ## Inspected primary sources
 
@@ -199,6 +193,6 @@ See [actual validation](IDENTITY_VALIDATION.md) for build/test receipts and bloc
 - [Espressif flash encryption](https://docs.espressif.com/projects/esp-idf/en/v5.5.1/esp32p4/security/flash-encryption.html) and [NVS encryption](https://docs.espressif.com/projects/esp-idf/en/v5.5.1/esp32p4/api-reference/storage/nvs_encryption.html).
 
 Recognition component and generic weights ship under the component MIT notice,
-retained in `components/identity/vendor/MBF-MIT.txt` and SD staging. Published
+retained in `components/identity/vendor/MBF-MIT.txt` and onboard-model staging. Published
 93.94% TAR at FAR=1e-4 and 146.2 ms P4 inference are upstream IJB-C/reference-board
 benchmarks, not results from this GUITION device or this camera pipeline.

@@ -98,7 +98,7 @@ Initial hardware specification:
 | Audio                     | Integrated microphone and ES8311 audio codec |
 | External RAM              | 32 MB PSRAM                                  |
 | Flash                     | 16 MB                                        |
-| Storage expansion         | microSD                                      |
+| Model and profile storage | 16 MB onboard Flash; no external storage      |
 | USB                       | Two USB-C connectors                         |
 | Network                   | Wi-Fi through ESP32-C6 / ESP-Hosted          |
 
@@ -133,7 +133,7 @@ These projects document:
 * Landscape framebuffer rotation.
 * ESP32-C6 networking.
 * Backlight PWM.
-* Memory and microSD initialization.
+* Onboard memory initialization and verified Flash model loading.
 * Hardware revision compatibility.
 
 Prefer reusing reliable and properly licensed drivers rather than rewriting hardware support unnecessarily.
@@ -1283,7 +1283,7 @@ Profiles must remain on the physical device.
 
 Provide a dedicated local profile manager.
 
-Storage may use internal flash or microSD, depending on measured requirements.
+All model and profile storage must use onboard Flash. External storage is excluded.
 
 ### 14.1 Requirements
 
@@ -1393,7 +1393,7 @@ Evaluate partition constraints carefully because the device has 16 MB flash and 
 
 Do not assume that two complete OTA slots, all AI models and profile storage will fit without a partition-budget analysis.
 
-If needed, place suitable model assets on local microSD or use a carefully designed model-storage partition.
+Place model assets in a verified onboard model partition; validate capacity and recovery before migration.
 
 All models must remain available locally at runtime.
 

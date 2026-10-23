@@ -122,6 +122,7 @@ filter presence/detection. See FACE_QUALITY.md for arithmetic/coordinate limits.
 See [face recognition implementation and limitations](FACE_RECOGNITION.md),
 [unchanged flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
-The experimental MBF worker is opt-in; household profiles are RAM-only and lost
-on reboot. No biometric persistence or network publisher is enabled. Existing
-UBox/Open-Meteo/clock, camera leases and bounded presence diagnostics remain.
+The experimental MBF worker remains opt-in. The 0.6.0-dev candidate uses onboard
+Flash for model storage, gated encrypted profile persistence and native identity
+MQTT. Unprovisioned hardware remains RAM-only. See ITERATION6_REPORT.md and
+FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.

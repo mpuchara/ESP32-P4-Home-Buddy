@@ -1,3 +1,6 @@
+> Historical iteration 5 receipts. Superseded storage deployment and outstanding
+> criteria are documented in ITERATION6_REPORT.md. No microSD deployment is supported.
+
 # Iteration 5 validation receipts (development)
 
 Status: experimental implementation; hardware acceptance incomplete.
@@ -43,8 +46,7 @@ validate this new subsystem. Upstream reference timing/accuracy is not board dat
 
 ## Explicit remaining criteria
 
-1. Provision generic MBF on local FAT microSD; verify slot 0 with C6 slot 1 and
-   demonstrate missing/corrupt/removed-card behavior without Wi-Fi disruption.
+1. Use the internal-Flash installation and missing/corrupt-model acceptance in FLASH_MIGRATION.md.
 2. Execute MBF on native camera ROIs, inspect landmark overlays and alignment;
    compare ESPDet candidates with official MSR candidates under representative scenes.
 3. Measure per-stage inference/preprocessing, model deltas, peak/internal/PSRAM and

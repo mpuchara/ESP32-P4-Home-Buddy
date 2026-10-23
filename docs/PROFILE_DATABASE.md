@@ -1,24 +1,60 @@
-# RAM-only profile database
+# Onboard profile database, schema 1
 
-The worker owns a bounded database of 8 people, each with 8-15 committed
-512-float MBF templates. Each profile has an enabled flag, display name, stable
-64-bit ID and templates. Future voice enrollment has no fabricated implementation.
-ID = random boot namespace plus monotonically increasing counter. It is stable
-through rename/delete of other entries during this RAM database's lifetime;
-profiles themselves do not survive reboot. Deleted IDs are not reassigned when
-an array slot is reused. A model namespace is checked before matching/mutation.
+The single identity worker owns 8 bounded household slots, each with up to 15
+512-float MBF templates. Enrollment still requires 8 diverse samples and a new
+verification frame. Names, enabled flags, 64-bit IDs, templates and next-ID counter
+are persisted together. Rename and additional samples preserve the ID. Deleting
+an ID never makes it available for reassignment. Blank profiles may exist before
+enrollment. The face-model namespace is checked on every restore and mutation.
+Voice enrollment is not implemented; voice_enrolled is always false.
 
-Pending templates live in separate staging. Additional-sample sessions copy the
-committed set into staging before appending, up to 15 templates total. Verification plus explicit save commits
-the complete set together in the single owner worker. Cancel/failed verification
-leaves committed vectors unchanged. Delete clears the whole person's entry.
+## Secure gate
 
-Upstream database is intentionally bypassed: its query returns sequential result
-indices rather than stored feature IDs, and enrollment changes RAM before file
-writes complete. It lacks the required household metadata/transaction contract.
+The adapter opens only when HB_IDENTITY_PERSISTENCE is opted in, hardware Flash
+encryption and Secure Boot are active, and profiles is the dedicated encrypted
+0x41 data partition of the correct size. There is no key generation, eFuse write,
+format-on-error or plaintext fallback. Unprovisioned development devices use
+explicitly labeled RAM-only mode. No personal data is uploaded anywhere.
 
-No plaintext or encrypted biometric persistence exists. There are no implemented
-on-flash schema, corruption recovery, failed-write rollback or reboot migration
-claims. These are deferred until encryption/provisioning and storage layout are
-settled. NVS/settings and the existing profiles partition are untouched.
-[Privacy and storage details](FACE_RECOGNITION.md), [migration proposal](IDENTITY_FLASH_LAYOUT.md).
+## Transaction format
+
+512 KiB contains two raw 256 KiB erase-aligned banks. Each bank holds a 128-byte
+header and a 246,640-byte P4 ABI snapshot. Header fields include magic, schema,
+payload size/dimension, generation, payload SHA256, exact model namespace and a
+second SHA256 protecting header metadata. The schema pins the little-endian P4
+ABI and dimensions; it is NOT a portable interchange/export format. Incompatible
+model, schema or ABI is rejected rather than silently reusing templates. A future
+schema must perform an explicit migration. Capture sequences/times and greeting
+cooldowns are cleared before storage because uptime is not meaningful after boot.
+
+Commit erases the inactive bank, writes payload, reads/hash-verifies it, writes the
+header LAST, then reads/hash-validates the committed bank. The previous bank is
+untouched until a later transaction. Reboot selects the highest valid generation;
+a failed/torn write recovers the prior committed copy. With no valid copy, corruption
+and model mismatch block persistent writes rather than formatting data. The worker
+reports failures and reloads the last valid state. An all-blank header is an
+uncommitted bank, including a power loss before the final header write.
+
+Deletion commits the remaining database first, then erases the obsolete bank.
+A scrub failure is reported, never acknowledged as fully removed. Power loss
+between commit and scrub preserves logical deletion in the new generation but
+may leave encrypted obsolete blocks until scrub/reuse. This is not cryptographic
+erasure against a holder of encryption keys; replay of an old whole-device image
+is not prevented by this schema. Prior fallback generations may contain pre-rename
+state, which is the documented tradeoff of recovery after corruption.
+
+## Capacity and wear
+
+Each bank leaves 15,376 bytes after header/snapshot. At most 120 face vectors
+(245,760 bytes) plus metadata fit. Do not claim this also fits voice templates.
+The store alternates banks and writes only on explicit create/rename/save/delete,
+never every frame, greeting or MQTT publish. This spreads erase cycles over two
+banks but is NOT a general wear-levelled filesystem; Flash endurance still limits
+write frequency. Capacity is checked before any erase. PSRAM scratch storage is
+bounded to one extra database snapshot and is zeroed after each transaction.
+
+Host fault injection covers erase/write/read boundaries and torn writes, capacity,
+corruption fallback, create/rename/delete, maximum templates, stable IDs and reboot
+restoration. Its injected checksum tests the transaction protocol; the device uses
+mbedTLS SHA256. Host tests do not establish encryption/provisioning or physical
+power-loss acceptance. See FLASH_MIGRATION.md and ITERATION6_REPORT.md.

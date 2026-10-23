@@ -10,7 +10,7 @@
 6. Explicitly confirm saving. Cancellation leaves the prior committed set intact.
 
 Samples are locally generated MBF vectors; no PC, cloud, phone app or photo file
-is used. All data is RAM-only and disappears after restart. A repeated session copies the existing set into staging and adds diverse new
+is used. Without authorized secure provisioning, data remains explicitly RAM-only and disappears after restart. With gated protected persistence enabled, save/rename/delete commits to onboard Flash; check the persistence status and follow PROFILE_DATABASE.md reboot acceptance. A repeated session copies the existing set into staging and adds diverse new
 samples up to 15 total, committing only after fresh verification and confirmation.
 Cancellation leaves the existing samples intact. Duplicate similarity >0.995 and sample counts
 are initial engineering settings, awaiting camera calibration.

@@ -9,10 +9,12 @@
 #include "freertos/task.h"
 #include "hb_face.h"
 #include "hb_identity.h"
+#include "hb_profile_flash.h"
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <new>
 extern "C"
 {
@@ -25,7 +27,6 @@ extern "C"
 #if CONFIG_HB_IDENTITY_EXPERIMENTAL
 #include "human_face_detect.hpp"
 #include "human_face_recognition.hpp"
-#include "mbedtls/sha256.h"
 #endif
 
 static QueueHandle_t jobs;
@@ -37,6 +38,12 @@ static hb_id_database *database;
 static hb_id_enrollment *enrollment;
 static uint16_t *published_preview;
 static uint32_t preview_sequence;
+static portMUX_TYPE event_lock = portMUX_INITIALIZER_UNLOCKED;
+static hb_event_bus event_bus;
+static uint64_t boot_id;
+static hb_profile_io profile_io{};
+static hb_profile_revision profile_revision{0, -1};
+static hb_id_database *storage_scratch;
 // Initial engineering thresholds, deliberately not described as calibrated probabilities.
 static const hb_id_policy policy{CONFIG_HB_IDENTITY_THRESHOLD_MILLI / 1000.0f,
                                  CONFIG_HB_IDENTITY_MARGIN_MILLI / 1000.0f,
@@ -67,6 +74,108 @@ static void publish(hb_id_status &s)
     xSemaphoreTake(guard, portMAX_DELAY);
     published = s;
     xSemaphoreGive(guard);
+}
+
+static void identity_events(const hb_id_status &s)
+{
+    static hb_presence_tracker presence{};
+    static hb_presence_value previous = HB_PRESENCE_UNKNOWN;
+    static uint32_t session;
+    if (s.mode != HB_ID_BACKGROUND || s.session != epoch.load() || !s.detection_valid ||
+        !s.frame_ms || s.frame_ms > now_ms() || now_ms() - s.frame_ms > 5000)
+        return;
+    if (session != s.session)
+    {
+        session = s.session;
+        previous = HB_PRESENCE_UNKNOWN;
+        hb_presence_reset(&presence);
+    }
+    hb_presence_observe(&presence, s.sequence, s.frame_ms, s.completed_ms, s.faces > 0, now_ms());
+    auto occupancy = hb_presence_read(&presence, true, s.ready, now_ms());
+    hb_id_event e{};
+    e.boot_id = boot_id;
+    e.timestamp_ms = s.completed_ms;
+    e.frame_ms = s.frame_ms;
+    e.session = s.session;
+    e.sequence = s.sequence;
+    e.state = s.match.state;
+    e.similarity = s.match.best;
+    e.second = s.match.second;
+    e.source = HB_ID_SOURCE_FACE;
+    time_t wall = time(nullptr);
+    if (wall > 1700000000)
+        e.unix_ms = (int64_t)wall * 1000;
+    bool entered = occupancy.fresh && occupancy.value == HB_PRESENCE_PRESENT &&
+                   previous != HB_PRESENCE_PRESENT;
+    bool left =
+        occupancy.fresh && occupancy.value == HB_PRESENCE_ABSENT && previous == HB_PRESENCE_PRESENT;
+    if (occupancy.fresh)
+        previous = occupancy.value;
+    portENTER_CRITICAL(&event_lock);
+    if (s.session == epoch.load() && (entered || left))
+    {
+        e.kind = entered ? HB_ID_EVENT_ENTERED : HB_ID_EVENT_LEFT;
+        hb_event_push(&event_bus, e);
+    }
+    portEXIT_CRITICAL(&event_lock);
+    if (s.match.state == HB_ID_UNAVAILABLE || (s.match.state == HB_ID_KNOWN && !s.confirmed))
+        return;
+    e.kind = s.confirmed                        ? HB_ID_EVENT_RECOGNIZED
+             : s.match.state == HB_ID_AMBIGUOUS ? HB_ID_EVENT_AMBIGUOUS
+                                                : HB_ID_EVENT_UNKNOWN;
+    e.confirmed = s.confirmed;
+    e.person_id = s.confirmed ? s.confirmed_id : 0;
+    e.persistent_id = s.persistence_ready;
+    if (e.person_id)
+        for (unsigned i = 0; i < s.profile_count; ++i)
+            if (s.profiles[i].id == e.person_id)
+                snprintf(e.person_name, sizeof(e.person_name), "%s", s.profiles[i].name);
+    portENTER_CRITICAL(&event_lock);
+    if (s.session == epoch.load())
+        hb_event_push(&event_bus, e);
+    portEXIT_CRITICAL(&event_lock);
+}
+
+static void persistence_start(hb_id_status &s)
+{
+    snprintf(s.persistence_message, sizeof(s.persistence_message),
+             "RAM-only: brak bezpiecznego provisioningu; profile znikają po restarcie");
+    if (!hb_profile_flash_open(&profile_io))
+        return;
+    storage_scratch = (hb_id_database *)heap_caps_calloc(1, sizeof(*database),
+                                                         MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!storage_scratch)
+        return;
+    hb_store_result r =
+        hb_profile_restore(&profile_io, database, storage_scratch, &profile_revision);
+    s.persistence_ready = r == HB_STORE_OK || r == HB_STORE_EMPTY;
+    snprintf(s.persistence_message, sizeof(s.persistence_message),
+             s.persistence_ready ? "Profile: chroniony Flash, schemat 1"
+                                 : "Baza profili uszkodzona lub niezgodna. Zapis zablokowany");
+}
+
+static void persistence_commit(hb_id_status &s, bool deletion)
+{
+    if (!s.persistence_ready)
+        return;
+    hb_store_result r =
+        hb_profile_commit(&profile_io, database, storage_scratch, &profile_revision);
+    if (r == HB_STORE_OK && deletion)
+        r = hb_profile_scrub(&profile_io, &profile_revision);
+    if (r != HB_STORE_OK)
+    {
+        // Never report unsaved RAM changes as durable. Re-read last valid committed copy.
+        hb_store_result restored =
+            hb_profile_restore(&profile_io, database, storage_scratch, &profile_revision);
+        s.persistence_ready = false;
+        snprintf(s.persistence_message, sizeof(s.persistence_message),
+                 "Błąd zapisu (%u/%u). Zapis zablokowany; sprawdź bazę po restarcie", (unsigned)r,
+                 (unsigned)restored);
+        message(s, "Nie potwierdzono trwałego zapisu profili");
+    }
+    else
+        message(s, deletion ? "Profil usunięty z Flash; stara kopia wymazana"
+                            : "Profile zapisane we Flash");
 }
 
 #if CONFIG_HB_IDENTITY_EXPERIMENTAL
@@ -100,41 +209,12 @@ class Models
     {
         if (mbf)
             return true;
-        if (hb_identity_model_storage() != ESP_OK)
+        int64_t load_started = esp_timer_get_time();
+        esp_err_t model_error = hb_identity_model_storage();
+        if (model_error != ESP_OK)
         {
-            message(s, "Brak microSD. Sprawdź kartę z lokalnym modelem MBF");
-            return false;
-        }
-        // Upstream constructors may assert on corrupt/missing files. Verify before invoking them.
-        FILE *f = fopen("/sdcard/models/p4/human_face_feat_mbf_s8_v1.espdl", "rb");
-        if (!f)
-        {
-            message(s, "Brak lokalnego modelu MBF na microSD");
-            return false;
-        }
-        mbedtls_sha256_context hash;
-        mbedtls_sha256_init(&hash);
-        int rc = mbedtls_sha256_starts(&hash, 0);
-        unsigned char block[1024], digest[32];
-        size_t total = 0, n;
-        while ((n = fread(block, 1, sizeof(block), f)))
-        {
-            total += n;
-            rc |= mbedtls_sha256_update(&hash, block, n);
-            if (total > 3522832)
-                break;
-        }
-        bool io_error = ferror(f);
-        fclose(f);
-        rc |= mbedtls_sha256_finish(&hash, digest);
-        mbedtls_sha256_free(&hash);
-        static const unsigned char expected[32] = {0x0c, 0xd2, 0x62, 0x9f, 0x71, 0x11, 0xb8, 0x21,
-                                                   0xf4, 0x19, 0x53, 0x1d, 0x0d, 0x3f, 0xf3, 0x3d,
-                                                   0x81, 0x01, 0x83, 0x91, 0xfa, 0x57, 0x03, 0x9a,
-                                                   0xcd, 0x10, 0x22, 0xa4, 0x53, 0x1c, 0xfd, 0x48};
-        if (rc || io_error || total != 3522832 || memcmp(expected, digest, 32))
-        {
-            message(s, "Nieprawidłowy plik modelu MBF");
+            snprintf(s.message, sizeof(s.message), "Model MBF we Flash: %s",
+                     esp_err_to_name(model_error));
             return false;
         }
         uint32_t p = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
@@ -188,6 +268,7 @@ class Models
             message(s, "Przekroczono budżet pamięci modeli");
             return false;
         }
+        s.model_load_us = esp_timer_get_time() - load_started;
         return true;
     }
     bool infer(hb_id_status &s, hb_id_embedding &embedding)
@@ -314,6 +395,7 @@ static void worker(void *)
 {
     hb_id_status state{};
     hb_id_tracker tracker{};
+    persistence_start(state);
     bool capture = false, verify = false;
     uint64_t until = 0;
 #if CONFIG_HB_IDENTITY_EXPERIMENTAL
@@ -356,16 +438,19 @@ static void worker(void *)
             case HB_ID_CMD_CREATE:
                 message(state, hb_id_create(database, c.name) ? "Profil utworzony w RAM"
                                                               : "Nie można dodać profilu");
+                persistence_commit(state, false);
                 break;
             case HB_ID_CMD_RENAME:
                 message(state, hb_id_rename(database, c.person_id, c.name) ? "Nazwa zmieniona"
                                                                            : "Nieprawidłowa nazwa");
+                persistence_commit(state, false);
                 break;
             case HB_ID_CMD_DELETE:
                 hb_id_delete(database, c.person_id);
                 memset(enrollment, 0, sizeof(*enrollment));
                 state.mode = HB_ID_STOP;
                 message(state, "Profil i próbki usunięte z RAM");
+                persistence_commit(state, true);
                 break;
             case HB_ID_CMD_BEGIN:
                 capture = verify = false;
@@ -390,6 +475,7 @@ static void worker(void *)
                 {
                     state.mode = HB_ID_STOP;
                     message(state, "Próbki zapisane tylko w RAM");
+                    persistence_commit(state, false);
                 }
                 else
                     message(state, "Najpierw 8 próbek i weryfikacja nową klatką");
@@ -538,13 +624,14 @@ static void worker(void *)
         {
             state.ready = false;
             state.confirmed = false;
-            message(state, "Model wyłączony. Wymagany profil recognition i lokalna microSD");
+            message(state, "Model wyłączony. Wymagany profil recognition i model we Flash");
         }
         capture = verify = false;
 #endif
         state.samples = enrollment->count;
         state.verified = enrollment->verified;
         publish(state);
+        identity_events(state);
         // No overlapping inference, no unbounded queue. Commands are checked at least every 100ms
         // idle.
         for (unsigned j = 0; j < (state.mode == HB_ID_STOP ? 1U : 10U); ++j)
@@ -555,11 +642,9 @@ static void worker(void *)
         }
     }
 }
-esp_err_t hb_identity_command(const hb_id_command *c)
+esp_err_t hb_identity_start(void)
 {
-    if (!c || c->type > HB_ID_CMD_EXPECTED || !memchr(c->name, 0, HB_ID_NAME))
-        return ESP_ERR_INVALID_ARG;
-    // Initialised exclusively from the existing UI command producer.
+    // Called before UI startup, or exclusively by the UI command producer.
     if (!jobs)
     {
         database = (hb_id_database *)heap_caps_calloc(1, sizeof(*database),
@@ -584,6 +669,10 @@ esp_err_t hb_identity_command(const hb_id_command *c)
             return ESP_ERR_NO_MEM;
         }
         hb_id_database_init(database, esp_random());
+        boot_id = ((uint64_t)esp_random() << 32) | esp_random();
+        portENTER_CRITICAL(&event_lock);
+        hb_event_bus_init(&event_bus);
+        portEXIT_CRITICAL(&event_lock);
         if (xTaskCreate(worker, "local_identity", 12288, nullptr, 1, nullptr) != pdPASS)
         {
             free(database);
@@ -596,6 +685,15 @@ esp_err_t hb_identity_command(const hb_id_command *c)
             return ESP_ERR_NO_MEM;
         }
     }
+    return ESP_OK;
+}
+esp_err_t hb_identity_command(const hb_id_command *c)
+{
+    if (!c || c->type > HB_ID_CMD_EXPECTED || !memchr(c->name, 0, HB_ID_NAME))
+        return ESP_ERR_INVALID_ARG;
+    esp_err_t start = hb_identity_start();
+    if (start)
+        return start;
     if (c->type != HB_ID_CMD_EVALUATE)
         epoch.fetch_add(1); // Cancel in-flight publication immediately, even if queue is full.
     if (c->type == HB_ID_CMD_STOP || c->type == HB_ID_CMD_CANCEL)
@@ -653,10 +751,19 @@ bool hb_identity_greeting(uint64_t now, char name[HB_ID_NAME])
         uint64_t id, ms;
     };
     static Cooldown cooldown[HB_ID_PEOPLE]{};
+    hb_id_event event{};
+    bool found = false;
+    while (hb_identity_event_read(HB_EVENTS_GREETING, &event))
+        if (event.kind == HB_ID_EVENT_RECOGNIZED)
+        {
+            found = true;
+            break;
+        }
+    if (!name || !found)
+        return false;
     hb_id_status s{};
     hb_identity_get(&s);
-    if (!name || s.mode != HB_ID_BACKGROUND || !s.confirmed || s.match.state != HB_ID_KNOWN ||
-        s.frame_ms > now || now - s.frame_ms > 5000 || s.session != epoch.load())
+    if (s.mode != HB_ID_BACKGROUND || event.session != epoch.load())
         return false;
     for (auto &c : cooldown)
     {
@@ -667,67 +774,41 @@ bool hb_identity_greeting(uint64_t now, char name[HB_ID_NAME])
             c = {};
     }
     for (unsigned i = 0; i < s.profile_count; ++i)
-        if (s.profiles[i].id == s.confirmed_id)
+        if (s.profiles[i].id == event.person_id)
         {
             for (auto &c : cooldown)
-                if (c.id == s.confirmed_id || !c.id)
+                if (c.id == event.person_id || !c.id)
                 {
                     if (c.id && (now < c.ms || now - c.ms < 300000))
                         return false;
-                    c = {s.confirmed_id, now};
+                    c = {event.person_id, now};
                     snprintf(name, HB_ID_NAME, "%s", s.profiles[i].name);
                     return true;
                 }
         }
     return false;
 }
+bool hb_identity_event_read(hb_event_consumer consumer, hb_id_event *out)
+{
+    portENTER_CRITICAL(&event_lock);
+    bool ok = hb_event_pop(&event_bus, consumer, epoch.load(), now_ms(), out);
+    portEXIT_CRITICAL(&event_lock);
+    return ok;
+}
+bool hb_identity_event_current(const hb_id_event *event)
+{
+    return event && event->session == epoch.load() && event->frame_ms <= now_ms() &&
+           now_ms() - event->frame_ms <= 5000;
+}
+void hb_identity_event_diagnostics(uint32_t overflow[HB_EVENT_CONSUMERS],
+                                   uint32_t stale[HB_EVENT_CONSUMERS])
+{
+    portENTER_CRITICAL(&event_lock);
+    memcpy(overflow, event_bus.overflow, sizeof(event_bus.overflow));
+    memcpy(stale, event_bus.stale, sizeof(event_bus.stale));
+    portEXIT_CRITICAL(&event_lock);
+}
 bool hb_identity_event(hb_id_event *out)
 {
-    // One local consumer polls this latest-result interface. It is independent of UI cooldown.
-    static uint32_t sequence, session;
-    static hb_presence_tracker presence{};
-    static hb_presence_value previous = HB_PRESENCE_UNKNOWN;
-    hb_id_status s{};
-    hb_identity_get(&s);
-    if (!out || s.mode != HB_ID_BACKGROUND || !s.completed_ms || s.session != epoch.load() ||
-        s.completed_ms > now_ms() || now_ms() - s.completed_ms > 5000)
-        return false;
-    if (session != s.session)
-    {
-        session = s.session;
-        sequence = 0;
-        previous = HB_PRESENCE_UNKNOWN;
-        hb_presence_reset(&presence);
-    }
-    if (s.detection_valid)
-        hb_presence_observe(&presence, s.sequence, s.frame_ms, s.completed_ms, s.faces > 0,
-                            now_ms());
-    auto occupancy = hb_presence_read(&presence, true, s.ready && s.detection_valid, now_ms());
-    bool entered = occupancy.value == HB_PRESENCE_PRESENT && previous != HB_PRESENCE_PRESENT;
-    bool left = occupancy.value == HB_PRESENCE_ABSENT && previous == HB_PRESENCE_PRESENT;
-    if (occupancy.fresh &&
-        (occupancy.value == HB_PRESENCE_PRESENT || occupancy.value == HB_PRESENCE_ABSENT))
-        previous = occupancy.value;
-    if (!entered && !left &&
-        (sequence == s.sequence || s.match.state == HB_ID_UNAVAILABLE ||
-         (s.match.state == HB_ID_KNOWN && !s.confirmed)))
-        return false;
-    if (!entered && !left)
-        sequence = s.sequence;
-    hb_id_event_kind kind = entered                            ? HB_ID_EVENT_ENTERED
-                            : left                             ? HB_ID_EVENT_LEFT
-                            : s.match.state == HB_ID_KNOWN     ? HB_ID_EVENT_RECOGNIZED
-                            : s.match.state == HB_ID_AMBIGUOUS ? HB_ID_EVENT_AMBIGUOUS
-                                                               : HB_ID_EVENT_UNKNOWN;
-    *out = {(!entered && !left && s.confirmed) ? s.confirmed_id : 0,
-            s.completed_ms,
-            s.session,
-            s.sequence,
-            s.match.state,
-            s.match.best,
-            s.match.second,
-            !entered && !left && s.confirmed,
-            HB_ID_SOURCE_FACE,
-            kind};
-    return true;
+    return hb_identity_event_read(HB_EVENTS_LEGACY, out);
 }

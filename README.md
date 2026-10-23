@@ -113,7 +113,7 @@ The future identity pipeline runs entirely on P4; HA provides no inference.
 * [Flash/PSRAM budget](docs/MEMORY_BUDGET.md)
 * [Roadmap](docs/DEVELOPMENT_PLAN.md)
 * [UBox HTTP contract](docs/UBOX_API.md)
-* [Planned MQTT API](docs/MQTT_API.md)
+* [MQTT identity integration](docs/MQTT_API.md)
 * [Privacy](docs/PRIVACY.md)
 * [User guide](docs/USER_GUIDE.md)
 * [Troubleshooting](docs/TROUBLESHOOTING.md)
@@ -125,7 +125,10 @@ Home Buddy will consume its published API only.
 
 [Implementation and on-device enrollment](docs/FACE_RECOGNITION.md) uses
 ESPDet416, real MNP landmarks, native ROI, MBF embeddings and multi-frame open-set
-matching. Profiles are **RAM-only and lost on reboot**. Standard builds leave model
-execution disabled. The separate recognition build loads generic MBF from local
-microSD, preserving the existing partitions. Hardware accuracy and stability are
-not accepted yet; see [validation](docs/IDENTITY_VALIDATION.md).
+matching. The 0.6.0-dev candidate removes external model storage, adds an onboard
+Flash model package, gated persistent profile storage and Home Assistant MQTT 5.
+Unprovisioned devices remain explicitly RAM-only. The recognition profile requires
+an authorized offline partition migration; it is not a normal OTA update.
+See [iteration 6 report](docs/ITERATION6_REPORT.md), [storage](docs/IDENTITY_FLASH_LAYOUT.md),
+[migration/recovery](docs/FLASH_MIGRATION.md) and [MQTT](docs/MQTT_API.md).
+Physical recognition and end-to-end acceptance are still incomplete.

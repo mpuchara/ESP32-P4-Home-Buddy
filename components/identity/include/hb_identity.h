@@ -3,6 +3,7 @@
 #include "esp_err.h"
 #include "hb_face_quality.h"
 #include "hb_identity_core.h"
+#include "hb_identity_events.h"
 #ifdef __cplusplus
 extern "C"
 {
@@ -48,6 +49,9 @@ extern "C"
         hb_id_mode mode;
         hb_id_match match;
         bool ready, confirmed, verified, official_landmarks, detection_valid;
+        bool persistence_ready;
+        uint32_t model_load_us;
+        char persistence_message[120];
         unsigned samples, faces, profile_count;
         uint32_t session, sequence, detection_us, landmarks_us, embedding_us, total_us;
         uint64_t frame_ms, completed_ms, confirmed_id;
@@ -63,35 +67,13 @@ extern "C"
     } hb_id_status;
     // Bounded command queue; never performs inference in the caller. No LVGL calls in worker.
     esp_err_t hb_identity_command(const hb_id_command *command);
+    // Before UI startup, or from the sole UI command producer. Does not load AI models.
+    esp_err_t hb_identity_start(void);
     void hb_identity_get(hb_id_status *out);
     bool hb_identity_preview(uint16_t *rgb565, size_t pixels, hb_id_status *status);
     // Called from UI thread. Revalidates session/freshness/profile and per-person cooldown.
     bool hb_identity_greeting(uint64_t now_ms, char name[HB_ID_NAME]);
-    // Local in-process event only. No MQTT/network publication.
-    typedef enum
-    {
-        HB_ID_SOURCE_FACE,
-        HB_ID_SOURCE_VOICE,
-        HB_ID_SOURCE_BOTH
-    } hb_id_source;
-    typedef enum
-    {
-        HB_ID_EVENT_RECOGNIZED,
-        HB_ID_EVENT_UNKNOWN,
-        HB_ID_EVENT_AMBIGUOUS,
-        HB_ID_EVENT_ENTERED,
-        HB_ID_EVENT_LEFT
-    } hb_id_event_kind;
-    typedef struct
-    {
-        uint64_t person_id, timestamp_ms;
-        uint32_t session, sequence;
-        hb_id_state state;
-        float similarity, second;
-        bool confirmed;
-        hb_id_source source;
-        hb_id_event_kind kind;
-    } hb_id_event; // Source is FACE; VOICE/BOTH are intentionally not emitted.
+    // Compatibility consumer; independent from greetings and MQTT.
     bool hb_identity_event(hb_id_event *out);
 #ifdef __cplusplus
 }
