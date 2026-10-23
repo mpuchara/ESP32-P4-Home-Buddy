@@ -84,3 +84,13 @@ observe processed-face brightness. Hints are provisional and do not reject a fac
 Detail also changes with beard/glasses/noise/scale, so it is not a focus diagnosis.
 Without a fresh face the page shows unavailable/wait text. Stop or leave to end
 foreground measurement. An active10min background lease still follows its deadline.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[unchanged flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker is opt-in; household profiles are RAM-only and lost
+on reboot. No biometric persistence or network publisher is enabled. Existing
+UBox/Open-Meteo/clock, camera leases and bounded presence diagnostics remain.

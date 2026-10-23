@@ -115,3 +115,13 @@ preview-coordinate mapping. No image copy/storage or new worker/model. Both mode
 and quality complete before timestamp/publication, under the same existing epoch.
 UI displays the largest face and an explicitly provisional hint; metrics never
 filter presence/detection. See FACE_QUALITY.md for arithmetic/coordinate limits.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[unchanged flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker is opt-in; household profiles are RAM-only and lost
+on reboot. No biometric persistence or network publisher is enabled. Existing
+UBox/Open-Meteo/clock, camera leases and bounded presence diagnostics remain.

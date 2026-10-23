@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [diagnostics, bringup, wifi]
+        profile: [diagnostics, bringup, wifi, recognition]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Build pinned firmware

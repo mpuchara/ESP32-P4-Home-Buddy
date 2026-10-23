@@ -141,3 +141,13 @@ expiry release and repeated requests need measured receipts.
 no extra ROI image, histogram or heap allocation. Existing234x416 input is reused.
 64-bit sum products bound arithmetic at maximum generic800x480 ROI. Hardware
 quality_us overhead remains to be measured; no speed or recognition claim.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[unchanged flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker is opt-in; household profiles are RAM-only and lost
+on reboot. No biometric persistence or network publisher is enabled. Existing
+UBox/Open-Meteo/clock, camera leases and bounded presence diagnostics remain.

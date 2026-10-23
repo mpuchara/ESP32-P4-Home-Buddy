@@ -145,6 +145,17 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 0.5.1
+  espressif/human_face_recognition:
+    component_hash: 1c7d89f2bdf59ecf8396d657576cbf88739b20156edf990df0f9859e018c08f8
+    dependencies:
+    - name: espressif/human_face_detect
+      registry_url: https://components.espressif.com
+      require: private
+      version: ~0.5.0
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.3.3
   espressif/wifi_remote_over_eppp:
     component_hash: 1fd6968af20f0b19e421f6b519b0a8caf81d689afc3783b564c28559e45f66ef
     dependencies:
@@ -176,8 +187,9 @@ direct_dependencies:
 - espressif/esp_lcd_touch_gt911
 - espressif/esp_wifi_remote
 - espressif/human_face_detect
+- espressif/human_face_recognition
 - idf
 - lvgl/lvgl
-manifest_hash: 0ae343d61cf4aff51f4ff5187ed549ddb2f025d59607957b5a27eadd4ffb340b
+manifest_hash: ca9a60f54b364aacd4634b04261b3063e8adb43412f2dcc529987f95b3ae1024
 target: esp32p4
 version: 2.0.0

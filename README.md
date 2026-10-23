@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.4.5-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.5.0-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -59,7 +59,7 @@ No browser installer or OTA is provided yet.
 
 Tap the saver to open Wi-Fi, UBox, weather, brightness and diagnostic controls.
 Missing image/time/temperature remain unavailable. Test JPEG uses a committed
-synthetic image; Test greeting explicitly says Test UI. No biometric inference runs.
+synthetic image; Test greeting explicitly says Test UI. Experimental biometric inference runs only after explicit opt-in in the recognition build.
 All settings open directly, without an administrator PIN, at the operator's
 explicit request. Choose a Wi-Fi network and enter its password; UBox settings and weather location are edited in their own screens. Wi-Fi
 passwords stay masked; the UBox token is visible in its edit field as requested.
@@ -120,3 +120,12 @@ The future identity pipeline runs entirely on P4; HA provides no inference.
 
 The independent `mpuchara/HA_UBOX_bridge` repository is read-only reference material.
 Home Buddy will consume its published API only.
+
+## Experimental household identity
+
+[Implementation and on-device enrollment](docs/FACE_RECOGNITION.md) uses
+ESPDet416, real MNP landmarks, native ROI, MBF embeddings and multi-frame open-set
+matching. Profiles are **RAM-only and lost on reboot**. Standard builds leave model
+execution disabled. The separate recognition build loads generic MBF from local
+microSD, preserving the existing partitions. Hardware accuracy and stability are
+not accepted yet; see [validation](docs/IDENTITY_VALIDATION.md).

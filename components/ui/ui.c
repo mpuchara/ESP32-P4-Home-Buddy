@@ -12,6 +12,7 @@
 #include "hb_dashboard.h"
 #include "hb_face.h"
 #include "hb_geometry.h"
+#include "hb_identity.h"
 #include "hb_image.h"
 #include "hb_raw_frame.h"
 #include "hb_services.h"
@@ -77,6 +78,12 @@ static uint32_t present_us;
 static hb_brightness_config brightness_editor;
 static int calibration;
 static float calibration_metric;
+static lv_obj_t *identity_info, *identity_choice, *identity_marks[5], *identity_box;
+static uint64_t identity_selected;
+static bool identity_screen;
+static uint32_t identity_tick;
+static void identity_page(lv_event_t *e);
+static void household_page(lv_event_t *e);
 
 static void flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *data)
 {
@@ -157,12 +164,27 @@ static void close_menu(lv_event_t *event)
     (void)event;
     if (critical)
         return;
+    if (identity_screen)
+    {
+        hb_id_status identity;
+        hb_identity_get(&identity);
+        if (identity.mode == HB_ID_BACKGROUND)
+            identity_screen = false;
+    }
     close_page();
     in_menu = false;
     lv_scr_load(saver);
 }
 static void close_page(void)
 {
+    if (identity_screen)
+    {
+        hb_id_command stop = {.type = HB_ID_CMD_CANCEL};
+        hb_identity_command(&stop);
+    }
+    identity_screen = false;
+    identity_info = identity_choice = identity_box = NULL;
+    memset(identity_marks, 0, sizeof(identity_marks));
     hb_face_enable(false);
     face_label = NULL;
     monitor_info = NULL;
@@ -266,6 +288,225 @@ static void form_error(const char *text)
         lv_label_set_text(page_error, text);
     else
         lv_label_set_text(status, text);
+}
+static void identity_send(lv_event_t *e)
+{
+    hb_id_command command = {.type = (hb_id_command_type)(uintptr_t)lv_event_get_user_data(e),
+                             .person_id = identity_selected};
+    if (field[0])
+        snprintf(command.name, sizeof(command.name), "%s", lv_textarea_get_text(field[0]));
+    if (hb_identity_command(&command) != ESP_OK)
+        form_error("Polecenie nieprzyjęte. Spróbuj ponownie.");
+    else if (keyboard)
+        lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+}
+static void identity_guest(lv_event_t *e)
+{
+    (void)e;
+    hb_id_command command = {.type = HB_ID_CMD_EXPECTED};
+    if (hb_identity_command(&command) != ESP_OK)
+        form_error("Polecenie nieprzyjęte");
+}
+static void identity_select(lv_event_t *e)
+{
+    (void)e;
+    hb_id_status s;
+    hb_identity_get(&s);
+    unsigned index = lv_dropdown_get_selected(identity_choice);
+    identity_selected = index < s.profile_count ? s.profiles[index].id : 0;
+    if (index < s.profile_count && field[0])
+        lv_textarea_set_text(field[0], s.profiles[index].name);
+}
+static void identity_delete(lv_event_t *e)
+{
+    (void)e;
+    uint64_t id = identity_selected;
+    page_base("Usuń domownika i wszystkie jego próbki?");
+    identity_selected = id;
+    label(page, "Potwierdzenie usuwa profil z pamięci RAM.", LV_ALIGN_TOP_LEFT, 24, 120);
+    button(page, "Potwierdzam usunięcie", 24, 200, 350, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_DELETE);
+    button(page, "Anuluj", 420, 200, 300, household_page, NULL);
+    lv_scr_load(page);
+}
+static void household_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Domownicy: RAM-only (dane znikają po restarcie)");
+    hb_id_status s;
+    hb_identity_get(&s);
+    char options[HB_ID_PEOPLE * (HB_ID_NAME + 12)] = "";
+    for (unsigned i = 0; i < s.profile_count; ++i)
+    {
+        char row[HB_ID_NAME + 12];
+        snprintf(row, sizeof(row), "%s%s (%u)", i ? "\n" : "", s.profiles[i].name,
+                 s.profiles[i].samples);
+        strncat(options, row, sizeof(options) - strlen(options) - 1);
+    }
+    identity_choice = lv_dropdown_create(page);
+    lv_obj_set_pos(identity_choice, 24, 70);
+    lv_obj_set_width(identity_choice, 745);
+    lv_dropdown_set_options(identity_choice, options[0] ? options : "Brak domowników");
+    lv_obj_add_event_cb(identity_choice, identity_select, LV_EVENT_VALUE_CHANGED, NULL);
+    identity_selected = s.profile_count ? s.profiles[0].id : 0;
+    field[0] = input(page, "Nazwa (do 60 bajtów)", s.profile_count ? s.profiles[0].name : "", 60,
+                     false, 140);
+    button(page, "Potwierdź dodanie", 24, 210, 230, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_CREATE);
+    button(page, "Zmień nazwę", 282, 210, 230, identity_send, (void *)(uintptr_t)HB_ID_CMD_RENAME);
+    button(page, "Usuń domownika", 540, 210, 230, identity_delete, NULL);
+    button(page, "Rejestruj / dodaj próbki", 24, 280, 350, identity_page, (void *)1);
+    button(page, "Odśwież listę", 420, 280, 350, household_page, NULL);
+    button(page, "Testuj rozpoznawanie", 24, 345, 350, identity_page, (void *)2);
+    identity_info = label(page, s.message, LV_ALIGN_TOP_LEFT, 24, 410);
+    lv_obj_set_width(identity_info, 745);
+    lv_scr_load(page);
+}
+static void identity_page(lv_event_t *e)
+{
+    bool enroll = e && (uintptr_t)lv_event_get_user_data(e) == 1;
+    uint64_t id = identity_selected;
+    page_base(enroll ? "Rejestracja twarzy: 8-15 różnych próbek"
+                     : "Rozpoznawanie twarzy: eksperyment");
+    identity_selected = id;
+    identity_screen = true;
+    diagnostic = true;
+    hb_id_command start = {.type = enroll ? HB_ID_CMD_BEGIN : HB_ID_CMD_TEST, .person_id = id};
+    if (hb_identity_command(&start) != ESP_OK)
+        form_error("Nie można uruchomić sesji");
+    hb_id_command expected = {.type = HB_ID_CMD_EXPECTED, .person_id = id};
+    hb_identity_command(&expected);
+    button(page, enroll ? "Pobierz próbkę" : "Oceń próbę", 205, 68, 180, identity_send,
+           (void *)(uintptr_t)(enroll ? HB_ID_CMD_SAMPLE : HB_ID_CMD_EVALUATE));
+    button(page, enroll ? "Weryfikuj" : "Gość", 398, 68, 180,
+           enroll ? identity_send : identity_guest, (void *)(uintptr_t)HB_ID_CMD_VERIFY);
+    button(page, enroll ? "Potwierdź zapis" : "Wybrana osoba", 590, 68, 190, identity_send,
+           (void *)(uintptr_t)(enroll ? HB_ID_CMD_SAVE : HB_ID_CMD_EXPECTED));
+    button(page, "Test", 205, 125, 180, identity_send, (void *)(uintptr_t)HB_ID_CMD_TEST);
+    button(page, "MSR / ESPDet", 398, 125, 180, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_LANDMARK_METHOD);
+    button(page, "Stop", 590, 125, 190, identity_send, (void *)(uintptr_t)HB_ID_CMD_STOP);
+    preview_pixels = heap_caps_calloc(180 * 318, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (preview_pixels)
+    {
+        camera_image = (lv_img_dsc_t){.header = {.cf = LV_IMG_CF_TRUE_COLOR, .w = 180, .h = 318},
+                                      .data_size = 180 * 318 * 2,
+                                      .data = (const uint8_t *)preview_pixels};
+        camera_photo = lv_img_create(page);
+        lv_obj_set_pos(camera_photo, 12, 70);
+        lv_img_set_src(camera_photo, &camera_image);
+    }
+    identity_box = lv_obj_create(page);
+    lv_obj_set_style_bg_opa(identity_box, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_color(identity_box, lv_color_hex(0x33ff77), 0);
+    lv_obj_set_style_border_width(identity_box, 2, 0);
+    lv_obj_clear_flag(identity_box, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(identity_box, LV_OBJ_FLAG_HIDDEN);
+    for (unsigned i = 0; i < 5; ++i)
+    {
+        identity_marks[i] = lv_obj_create(page);
+        lv_obj_set_size(identity_marks[i], 7, 7);
+        lv_obj_set_style_bg_color(identity_marks[i], lv_color_hex(0xffcc33), 0);
+        lv_obj_clear_flag(identity_marks[i], LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(identity_marks[i], LV_OBJ_FLAG_HIDDEN);
+    }
+    identity_info = label(page, "Oczekiwanie na model lokalny", LV_ALIGN_TOP_LEFT, 205, 188);
+    lv_obj_set_width(identity_info, 575);
+    lv_obj_set_pos(page_error, 205, 390);
+    lv_obj_set_width(page_error, 575);
+    lv_label_set_text(page_error, "RAM-only. Progi niekalibrowane.");
+    button(page, "Włącz tło na 10 min", 205, 420, 280, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_BACKGROUND);
+    // Deliberate background start followed by saver preserves this independent session.
+    button(page, "Wygaszacz UBox", 500, 420, 280, close_menu, NULL);
+    lv_scr_load(page);
+}
+static void identity_update(void)
+{
+    if ((uint32_t)(lv_tick_get() - identity_tick) < 500)
+        return;
+    identity_tick = lv_tick_get();
+    hb_id_status s;
+    hb_identity_get(&s);
+    if (!in_menu && !hb_ui_image_is_test())
+    {
+        char name[HB_ID_NAME];
+        if (hb_identity_greeting((uint64_t)esp_timer_get_time() / 1000, name))
+            hb_ui_show_greeting(name);
+    }
+    if (!identity_info)
+        return;
+    if (!identity_screen)
+    {
+        lv_label_set_text(identity_info, s.message);
+        return;
+    }
+    const char *states[] = {"UNAVAILABLE", "UNKNOWN", "AMBIGUOUS", "KNOWN"};
+    const char *candidate = "brak";
+    for (unsigned i = 0; i < s.profile_count; ++i)
+        if (s.profiles[i].id == s.match.person_id)
+            candidate = s.profiles[i].name;
+    char text[750];
+    snprintf(text, sizeof(text),
+             "MBF: %s | twarze: %u | %s\n%s | %s\nPodobieństwo: %.3f / inna osoba: %.3f\n"
+             "D/L/MBF+align: %u/%u/%u ms | razem %u\n"
+             "KiB PSRAM %u/%u | RAM %u/%u\nQ: %.0f / %.0f / %.0f | próbki: %u\n"
+             "Ocena: TA %u FR %u mylne %u gość %u/%u\n%s",
+             s.ready ? "gotowy" : "brak", s.faces, states[s.match.state], candidate,
+             s.confirmed ? "potwierdzony" : "kandydat", (double)s.match.best,
+             (double)s.match.second, (unsigned)(s.detection_us / 1000),
+             (unsigned)(s.landmarks_us / 1000), (unsigned)(s.embedding_us / 1000),
+             (unsigned)(s.total_us / 1000), (unsigned)(s.psram_free / 1024),
+             (unsigned)(s.psram_largest / 1024), (unsigned)(s.internal_free / 1024),
+             (unsigned)(s.internal_largest / 1024), (double)s.quality.mean,
+             (double)s.quality.contrast, (double)s.quality.detail, s.samples,
+             s.evaluation.true_accept, s.evaluation.false_reject, s.evaluation.confusion,
+             s.evaluation.unknown_accept, s.evaluation.unknown_trials, s.message);
+    lv_label_set_text(identity_info, text);
+    if (preview_pixels)
+    {
+        hb_id_status preview;
+        bool same = hb_identity_preview(preview_pixels, 180 * 318, &preview);
+        if (!same)
+        {
+            hb_camera_frame frame = {0};
+            if (hb_camera_acquire(&frame))
+            {
+                hb_raw_thumbnail_upright(frame.pixels, frame.width, frame.height, preview_pixels,
+                                         180, 318);
+                hb_camera_make_preview(preview_pixels, 180, 318, preview_pixels, 180, 318);
+                hb_camera_release(&frame);
+            }
+        }
+        lv_img_cache_invalidate_src(&camera_image);
+        lv_obj_invalidate(camera_photo);
+        // Native sensor dimensions are represented by the ROI mapping's fixed admitted format.
+        // Reject overlay if the format changes instead of applying guessed coordinates.
+        hb_camera_status cs;
+        hb_camera_get_status(&cs);
+        for (unsigned i = 0; i < 5; ++i)
+        {
+            if (same && cs.width && cs.height && preview.landmarks.p[i].x > 0)
+            {
+                lv_obj_set_pos(identity_marks[i],
+                               12 + preview.landmarks.p[i].x * 180 / cs.height - 3,
+                               70 + preview.landmarks.p[i].y * 318 / cs.width - 3);
+                lv_obj_clear_flag(identity_marks[i], LV_OBJ_FLAG_HIDDEN);
+            }
+            else
+                lv_obj_add_flag(identity_marks[i], LV_OBJ_FLAG_HIDDEN);
+        }
+        if (same && cs.width && cs.height && preview.roi.w > 0)
+        {
+            lv_obj_set_pos(identity_box, 12 + preview.roi.x * 180 / cs.height,
+                           70 + preview.roi.y * 318 / cs.width);
+            lv_obj_set_size(identity_box, preview.roi.w * 180 / cs.height,
+                            preview.roi.h * 318 / cs.width);
+            lv_obj_clear_flag(identity_box, LV_OBJ_FLAG_HIDDEN);
+        }
+        else
+            lv_obj_add_flag(identity_box, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 static void settings(lv_event_t *e)
 {
@@ -1052,6 +1293,7 @@ void hb_ui_temperature(bool available, double value, int64_t timestamp, uint32_t
 static void update(lv_timer_t *timer)
 {
     (void)timer;
+    identity_update();
     camera_brightness_update();
     command c;
     while (xQueueReceive(commands, &c, 0) == pdTRUE)
@@ -1233,8 +1475,10 @@ static void screens(void)
     button(menu, "Skanuj Wi-Fi", 24, 290, 230, scan, NULL);
     button(menu, "System", 282, 290, 230, system_test, NULL);
     button(menu, "Jakość twarzy", 540, 290, 230, quality_page, NULL);
+    button(menu, "Domownicy", 24, 355, 230, household_page, NULL);
+    button(menu, "Rozpoznawanie twarzy", 282, 355, 300, identity_page, NULL);
     button(menu, "Powrót", 620, 410, 150, close_menu, NULL);
-    status = label(menu, "", LV_ALIGN_TOP_LEFT, 24, 355);
+    status = label(menu, "", LV_ALIGN_TOP_LEFT, 24, 412);
     lv_obj_set_width(status, 740);
     lv_timer_create(update, 20, NULL);
     lv_scr_load(saver);

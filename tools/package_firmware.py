@@ -33,6 +33,8 @@ for source_name, name in [
     ("components/face/vendor/DL-FFT-MIT.txt", "licenses/DL-FFT-MIT.txt"),
     ("components/face/vendor/ESP-New-JPEG.txt", "licenses/ESP-New-JPEG.txt"),
     ("components/face/vendor/SOURCE.md", "licenses/Face-source.md"),
+    ("components/identity/vendor/MBF-MIT.txt", "licenses/MBF-MIT.txt"),
+    ("components/identity/vendor/SOURCE.md", "licenses/Identity-source.md"),
     ("dependencies.lock", "dependencies.lock"),
 ]:
     target = output / name

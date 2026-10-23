@@ -27,3 +27,13 @@ Physical flash extraction and microSD access are separate threats: encrypted NVS
 does not automatically encrypt files on SPIFFS or removable media. Production
 security needs verified secure boot/flash encryption provisioning and recovery
 design; do not burn irreversible eFuses during bring-up.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[unchanged flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker is opt-in; household profiles are RAM-only and lost
+on reboot. No biometric persistence or network publisher is enabled. Existing
+UBox/Open-Meteo/clock, camera leases and bounded presence diagnostics remain.

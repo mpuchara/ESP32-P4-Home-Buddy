@@ -818,3 +818,16 @@ not establish focus/identity suitability. Distance-response, explicit full-layou
 acceptance, repeat sessions and long combined load remain pending. Existing presence/monitor calibration and resource gates are retained;
 no image/template logging, enrollment, identity, HA event or exposure change.
 PR1 stays draft/unmerged. Documentation-only receipt [skip ci].
+
+
+## 2026-10-23: 0.5.0-dev experimental local household identity
+
+Implemented ESPDet/native RAW8 ROI -> MNP -> upstream MBF alignment/features,
+RAM-only stable-ID profiles, staged touchscreen enrollment, top-three different-
+person matching, three-frame identity confirmation, bounded opt-in recognition,
+exact-frame diagnostics and internal FACE/presence events. No partition edits or
+biometric persistence. MBF generic file uses local microSD with digest verification.
+Dependency resolver preserved ESP-DL3.3.14 and all existing pins, adding recognition0.3.3.
+Host13/13 and sanitized identity-core tests passed. Final firmware/CI receipts and
+all hardware/security acceptance limits are tracked in IDENTITY_VALIDATION.md.
+No recognition execution/accuracy/latency or new physical UI result is claimed.

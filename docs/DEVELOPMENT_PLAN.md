@@ -60,3 +60,13 @@ second flashlight test anchor was saved. Repeat the day point under representati
 daytime lighting and explicitly save AUTO. Physical reboot restore, changing-light
 stability and extended soak remain pending; do not treat the flashlight as final
 daytime acceptance.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[unchanged flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker is opt-in; household profiles are RAM-only and lost
+on reboot. No biometric persistence or network publisher is enabled. Existing
+UBox/Open-Meteo/clock, camera leases and bounded presence diagnostics remain.

@@ -8,3 +8,8 @@ __pycache__/
 /local/
 /dist/
 *.log
+# Never publish household biometric data or local evaluation captures.
+*.hbface
+*.embedding
+/biometrics/
+/calibration-private/

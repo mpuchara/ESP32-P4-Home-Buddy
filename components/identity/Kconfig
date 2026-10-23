@@ -1,0 +1,20 @@
+menu "Home Buddy local identity (experimental)"
+config HB_IDENTITY_EXPERIMENTAL
+    bool "Enable local RAM-only MBF recognition worker"
+    default n
+    help
+        Explicit development opt-in. Requires a locally provisioned, mounted
+        microSD model. Never downloads models or persists biometric templates.
+config HB_IDENTITY_THRESHOLD_MILLI
+    int "Experimental cosine acceptance threshold (thousandths)"
+    range 0 1000
+    default 700
+config HB_IDENTITY_MARGIN_MILLI
+    int "Experimental different-person margin (thousandths)"
+    range 1 1000
+    default 120
+config HB_IDENTITY_AGREEMENT_MILLI
+    int "Experimental template agreement floor (thousandths)"
+    range 0 1000
+    default 600
+endmenu
