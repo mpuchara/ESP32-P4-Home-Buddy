@@ -513,3 +513,23 @@ staleness, missing-data guards and safe PWM. The finite reference is the5-DN dar
 band boundary, not measured lux or invented anchors. Preview/metric scale, saved
 anchors/schema and UBox processing remain unchanged. UI shows unavailable text
 without0.000 and distinguishes the dark threshold. Actual night save is pending.
+
+0.3.3 local checks: CTest8/8, Python3/3, formatting/whitespace and effective
+configurations passed. All three local profiles built: diagnostics0x378b0,
+bringup0x134740, wifi0x17e0b0bytes. Updated meter/brightness regressions passed
+GCC -Wall -Wextra -Werror under Ubuntu. Final image was flashed/hash-verified on
+COM5; boot confirms0.3.3-dev. In ordinary dark samples at the configured limits,
+light_valid=1, below_range=1, metric=-15.649, actual luminance0, exposure~32078us,
+analog8x/digital1x. Capture continued about30fps. Thus fresh dark-reference
+admission is observed on P4; UI night-save acceptance is still pending operator.
+
+Public-only package dist/iteration3-dark-033 hashes were verified; app SHA256:
+d20a494759674289212a347f7c87dd757a4adf490398e98ed08d86f5f4c085c4.
+No C6 write, bridge change, NVS schema change or manufactured anchor was performed.
+
+Final implementation28bd6c26ec6223b2d40c818321cd1ef8d9712f9a passed all four
+CI jobs: Linux host8suites and diagnostics/bringup/wifi clean build/config/package.
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39899761414
+Documentation-only verification receipt follows with [skip ci]. PR1 stays draft
+and unmerged. Real day/night save/reboot/AUTO transitions remain acceptance items;
+full-size UBox visual acceptance is now operator-confirmed.
