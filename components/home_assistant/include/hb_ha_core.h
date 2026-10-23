@@ -33,6 +33,7 @@ extern "C"
         HB_HA_REJECTED
     } hb_ha_result;
     bool hb_ha_config_valid(const hb_ha_config *cfg, bool require_secret);
+    const char *hb_ha_config_error(const hb_ha_config *cfg, bool require_secret);
     bool hb_ha_url(const hb_ha_config *cfg, bool health_check, char *url, size_t size);
     hb_ha_result hb_ha_classify(int http_status, bool timeout, bool tls_failure);
     const char *hb_ha_result_text(hb_ha_result result);

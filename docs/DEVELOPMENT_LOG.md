@@ -1,5 +1,12 @@
 # 2026-10-23: 0.6.1-dev continuation
 
+HA save correction: removed the erroneous 32-character minimum for a nonempty
+URL-safe Webhook ID (maximum 128 unchanged). No real credential is stored in tests
+or logs. Validation now identifies the offending field; saving hides the keyboard,
+confirms NVS commit plus byte-exact readback, and keeps the form/values on success
+or error. HA settings no longer idle-close while editing. Host suite 16/16 passes,
+including short synthetic IDs, save/load and commit/readback failure injection.
+
 HA form readability correction: the new panel inherited a white background while
 its labels were white. Matched the existing settings dark panel, set checkbox and
 transport colors explicitly, shortened labels to fit the left column and bounded

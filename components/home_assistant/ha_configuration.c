@@ -23,7 +23,14 @@ esp_err_t hb_ha_config_save(const hb_ha_config *v)
     e = nvs_set_blob(h, "config", v, sizeof(*v));
     if (!e)
         e = nvs_commit(h);
+    hb_ha_config verified = {0};
+    size_t size = sizeof(verified);
+    if (!e)
+        e = nvs_get_blob(h, "config", &verified, &size);
+    if (!e && (size != sizeof(verified) || memcmp(&verified, v, sizeof(verified))))
+        e = ESP_ERR_INVALID_STATE;
     nvs_close(h);
+    memset(&verified, 0, sizeof(verified));
     if (!e)
     {
         portENTER_CRITICAL(&lock);

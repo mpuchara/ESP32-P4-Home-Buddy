@@ -5,6 +5,8 @@ static void save_ha(lv_event_t *e)
     (void)e;
     if (critical)
         return;
+    if (keyboard)
+        lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
     config_job job = {.ha = true};
     job.ha_value.schema = 1;
     uint32_t port, cooldown;
@@ -27,14 +29,20 @@ static void save_ha(lv_event_t *e)
     job.ha_value.send_names = lv_obj_has_state(ha_publish, LV_STATE_CHECKED);
     job.ha_value.tls = lv_obj_has_state(ha_tls, LV_STATE_CHECKED);
     job.ha_value.mode = (hb_ha_mode)lv_dropdown_get_selected(ha_mode);
-    if (!hb_ha_config_valid(&job.ha_value, job.ha_value.enabled))
+    const char *error = hb_ha_config_error(&job.ha_value, job.ha_value.enabled);
+    if (error)
     {
-        form_error("Sprawdź host, tryb i sekret. Webhook: 32-128 znaków.");
+        form_error(error);
         memset(&job, 0, sizeof(job));
         return;
     }
     if (xQueueSend(jobs, &job, 0) == pdTRUE)
+    {
         critical = true;
+        form_error("Zapisywanie ustawień HA...");
+    }
+    else
+        form_error("Kolejka zapisu zajęta. Dane są na ekranie; spróbuj ponownie.");
     memset(&job, 0, sizeof(job));
 }
 static lv_obj_t *ha_checkbox(lv_obj_t *parent, const char *text, int y, bool checked)
@@ -59,6 +67,8 @@ static void ha_page(lv_event_t *e)
     if (!hb_config_ready())
         return;
     page_base("Połączenie z Home Assistant");
+    // Do not discard an unfinished credential edit after the normal menu idle timeout.
+    diagnostic = true;
     hb_ha_config cfg;
     hb_ha_config_get(&cfg);
     lv_obj_t *fields = lv_obj_create(page);

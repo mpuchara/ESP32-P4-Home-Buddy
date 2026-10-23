@@ -8,10 +8,15 @@ disabled by default. The fullscreen dashboard and local greeting do not depend o
 
 1. HA: Settings -> Automations & scenes -> Create automation -> Create new.
 2. Add a Webhook trigger. Generate a random secret ID, 32-128 characters using
-   letters, digits, underscore or hyphen. Allow POST; retain local-network-only.
+   letters, digits, underscore or hyphen. Existing nonempty URL-safe IDs shorter
+   than 32 characters are accepted too (device limit 1-128); the former minimum
+   was an incorrect device restriction. Allow POST; retain local-network-only.
 3. Home Buddy: Settings -> Home Assistant. Enter the bare HA host/IP (no scheme
    or path), port (normally 8123), Webhook mode and that ID in the visible credential field.
-   Select HTTPS only for a verified TLS endpoint. Save, then reopen this page.
+   Select HTTPS only for a verified TLS endpoint. Save and wait for the explicit
+   saved-to-device confirmation. The form stays open and does not idle-close into
+   the screensaver. Validation/storage errors retain the edited values and show
+   a specific reason; they are not a successful save.
 4. Test connection performs GET `/`. It verifies host reachability only; it cannot
    verify a webhook ID. Send diagnostic test performs the actual POST with
    `event_type: connection_test`, `method: diagnostic`. Inspect HA automation traces.

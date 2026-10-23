@@ -21,6 +21,19 @@ int main(void)
     assert(!hb_ha_config_valid(&c, true));
     strcpy(c.host, "ha.example");
     strcpy(c.secret, "short");
+    assert(hb_ha_config_valid(&c, true));          // HA accepts nonempty IDs shorter than 32 chars.
+    strcpy(c.secret, "-AbCdE_fGhIjKlMnO-pQrS-tU"); // synthetic, never a real credential
+    assert(hb_ha_config_valid(&c, true));
+    assert(hb_ha_url(&c, false, url, sizeof(url)));
+    assert(strstr(url, "/api/webhook/-AbCdE_fGhIjKlMnO-pQrS-tU"));
+    c.secret[0] = 0;
+    assert(!hb_ha_config_valid(&c, true));
+    assert(strstr(hb_ha_config_error(&c, true), "Webhook ID"));
+    memset(c.secret, 'a', 128);
+    c.secret[128] = 0;
+    assert(hb_ha_config_valid(&c, true));
+    c.secret[128] = 'a';
+    c.secret[129] = 0;
     assert(!hb_ha_config_valid(&c, true));
     strcpy(c.secret, "1234567890123456789012345678901/");
     assert(!hb_ha_config_valid(&c, true));

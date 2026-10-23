@@ -781,11 +781,12 @@ static void config_worker(void *arg)
               : job.weather    ? hb_config_weather_save(&job.weather_value)
               : job.wifi       ? hb_config_save_wifi(job.value.ssid, job.value.wifi_password)
                                : hb_config_save(&job.value);
-        result.type = CMD_SAVED;
+        result.type = job.ha ? CMD_HA_SAVED : CMD_SAVED;
         if (err)
         {
-            result.type = CMD_CONFIG_ERROR;
-            strlcpy(result.text, "Błąd zapisu konfiguracji.", sizeof(result.text));
+            result.type = job.ha ? CMD_HA_CONFIG_ERROR : CMD_CONFIG_ERROR;
+            snprintf(result.text, sizeof(result.text), "Błąd zapisu konfiguracji: %s.",
+                     esp_err_to_name(err));
         }
         xQueueSend(commands, &result, portMAX_DELAY);
         memset(&job, 0, sizeof(job));
@@ -1358,6 +1359,17 @@ static void update(lv_timer_t *timer)
             outdoor = c.temperature;
             measured = c.timestamp;
             freshness = c.max_age;
+        }
+        else if (c.type == CMD_HA_SAVED || c.type == CMD_HA_CONFIG_ERROR)
+        {
+            critical = false;
+            if (ha_info)
+            {
+                if (keyboard)
+                    lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+                form_error(c.type == CMD_HA_SAVED ? "Zapisano ustawienia HA w pamięci urządzenia."
+                                                  : c.text);
+            }
         }
         else if (c.type == CMD_SAVED)
         {

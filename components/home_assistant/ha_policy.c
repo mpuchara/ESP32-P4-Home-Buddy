@@ -3,14 +3,16 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
-bool hb_ha_config_valid(const hb_ha_config *c, bool require_secret)
+const char *hb_ha_config_error(const hb_ha_config *c, bool require_secret)
 {
     if (!c || c->schema != 1 || !c->port || (unsigned)c->mode > HB_HA_REST ||
         c->cooldown_seconds > 3600 || !memchr(c->host, 0, sizeof(c->host)) ||
         !memchr(c->secret, 0, sizeof(c->secret)))
-        return false;
+        return "Nieprawidłowa konfiguracja HA (port, tryb lub długość pól).";
     if (!c->host[0])
-        return !require_secret && !c->enabled;
+        return !require_secret && !c->enabled && !c->secret[0]
+                   ? NULL
+                   : "Host HA jest pusty. Wpisz adres IP lub nazwę hosta.";
     // Deliberately accept only an explicit host, never userinfo/path/query/fragment.
     size_t n = strlen(c->host);
     bool ipv6 = c->host[0] == '[' && n > 2 && c->host[n - 1] == ']';
@@ -18,34 +20,38 @@ bool hb_ha_config_valid(const hb_ha_config *c, bool require_secret)
     {
         unsigned char ch = (unsigned char)c->host[i];
         if (ch >= 128)
-            return false;
+            return "Host HA: użyj adresu IP lub nazwy bez polskich znaków.";
         if (ipv6)
         {
             if (i && i < n - 1 && !isxdigit(ch) && ch != ':' && ch != '.')
-                return false;
+                return "Host IPv6: użyj adresu w nawiasach [adres], bez portu.";
         }
         else if (!isalnum(ch) && ch != '-' && ch != '.')
-            return false;
+            return "Host HA: sam adres IP lub nazwa, bez http://, portu i ścieżki.";
     }
     if (!require_secret && !c->enabled && !c->secret[0])
-        return true;
+        return NULL;
     n = strlen(c->secret);
-    if (c->mode == HB_HA_WEBHOOK && (n < 32 || n > 128))
-        return false;
+    if (c->mode == HB_HA_WEBHOOK && (n < 1 || n > 128))
+        return "Webhook ID: wymagane 1-128 znaków. Wpisz sam ID, nie URL.";
     if (c->mode == HB_HA_REST && (n < 16 || n > 512))
-        return false;
+        return "Token REST: wymagane 16-512 znaków, osobny token HA.";
     for (size_t i = 0; i < n; i++)
     {
         unsigned char ch = (unsigned char)c->secret[i];
         if (c->mode == HB_HA_WEBHOOK)
         {
             if (!isalnum(ch) && ch != '_' && ch != '-')
-                return false;
+                return "Webhook ID: dozwolone litery, cyfry, podkreślenie i myślnik.";
         }
         else if (ch < 33 || ch > 126)
-            return false;
+            return "Token REST zawiera spację lub niedozwolony znak.";
     }
-    return true;
+    return NULL;
+}
+bool hb_ha_config_valid(const hb_ha_config *c, bool require_secret)
+{
+    return hb_ha_config_error(c, require_secret) == NULL;
 }
 bool hb_ha_url(const hb_ha_config *c, bool health, char *out, size_t n)
 {

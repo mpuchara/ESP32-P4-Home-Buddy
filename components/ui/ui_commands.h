@@ -11,7 +11,9 @@ typedef enum
     CMD_TEMPERATURE,
     CMD_PLACES,
     CMD_SAVED,
-    CMD_CONFIG_ERROR
+    CMD_CONFIG_ERROR,
+    CMD_HA_SAVED,
+    CMD_HA_CONFIG_ERROR
 } command_type;
 typedef struct
 {
