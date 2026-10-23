@@ -35,3 +35,8 @@
   camera resources. Manual brightness remains available; a board reboot is needed
   to retry this state. Ordinary3s capture timeouts retry with bounded backoff.
   Keep physical fault recovery acceptance separate from host pool/policy tests.
+
+* Night calibration refused in darkness:0.3.3-dev distinguishes a fresh dark-limit
+  reference from unavailable data. Leave the lens uncovered in real night light,
+  wait for exposure to settle and select Kalibruj noc when ciemno (prog) appears.
+  Negative relative values are normal; missing/stale data has no numeric value.

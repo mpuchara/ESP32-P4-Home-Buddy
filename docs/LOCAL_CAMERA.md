@@ -73,8 +73,9 @@ source, never UBox/Open-Meteo/HA.
 At configurable 1..60s intervals (default5s), sample 32x24 points in the central
 three-quarter ROI. Use unquantized8-bit channels from each2x2 Bayer cell, subtract the source
 table black target16, then trim upper/lower quartiles. Reject >25% saturated
-samples, >=90% near-black samples and invalid exposure/gain metadata. Dim valid
-signals are retained without RGB565 quantization. Metric is
+samples and invalid exposure/gain metadata. Trimmed luminance below5DN is flagged
+below range; the owner can admit a dark reference only at settled configured AE
+limits (see0.3.3 notes). Other dim signals retain their8-bit precision. Metric is
 `log2(trimmed linear RGB luminance / exposure_us / analog_gain / digital_gain)`.
 This is relative illumination, **not lux**. Reflective/colored scenes, occlusion,
 the sensor's spectral response, quantization and low-light noise limit it.
@@ -158,3 +159,13 @@ held readers across shutdown/reuse/saturation,10,000 stop/publish/release cycles
 frozen-frame timeout, counter wrap and bounded/healthy-reset backoff. These tests
 exercise the pool and owner policy, not physical CSI/ISP teardown or injected
 hardware faults. Do not disconnect a powered camera merely to create evidence.
+
+## Dark-limit reference (0.3.3-dev)
+
+The near-black classifier alone remains invalid. After settling at the configured
+exposure/gain ceiling, the owner may turn it into an explicitly flagged upper-bound
+dark reference (<5linearDN), allowing genuine night calibration and AUTO at night.
+Invalid metadata, clipping, missing/stale frames and lower-exposure dark samples do
+not gain admission. Zero stays zero for the exposure controller; only the finite
+relative reference uses the5-DN band edge to avoid log2(0). This is not a claim of
+sensitivity below the RAW8/black-subtraction floor or lens-occlusion discrimination.

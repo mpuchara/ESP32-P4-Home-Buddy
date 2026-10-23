@@ -36,8 +36,13 @@ hb_light_reading hb_light_histogram(const unsigned hist[256], float exposure, fl
     if (!count)
         return out;
     out.luminance = (float)sum / count;
-    if (bright > total / 4 || dark >= total * 9 / 10 || out.luminance <= 0)
+    if (bright > total / 4)
         return out;
+    if (out.luminance < 5.0f)
+    {
+        out.below_range = true;
+        return out;
+    }
     out.metric = log2f(out.luminance / (exposure * again * dgain));
     out.valid = isfinite(out.metric);
     return out;
@@ -60,4 +65,18 @@ hb_light_reading hb_light_measure(const uint16_t *rgb, unsigned w, unsigned h, f
             hist[(54 * r + 183 * g + 19 * b) / 256]++;
         }
     return hb_light_histogram(hist, exposure, again, dgain, metadata);
+}
+
+hb_light_reading hb_light_apply_dark_limit(hb_light_reading r, float exposure, float again,
+                                           float dgain, bool at_limit)
+{
+    if (!r.below_range || r.valid || !at_limit || !isfinite(exposure) || !isfinite(again) ||
+        !isfinite(dgain) || exposure < 1 || exposure > 1000000 || again < 1 || again > 32 ||
+        dgain < 1 || dgain > 32)
+        return r;
+    // The dark classifier uses <5 DN. Report its upper bound, never log2(0).
+    // Keeping luminance unchanged lets AE continue to see the actual dim signal.
+    r.metric = log2f(5.0f / (exposure * again * dgain));
+    r.valid = isfinite(r.metric);
+    return r;
 }

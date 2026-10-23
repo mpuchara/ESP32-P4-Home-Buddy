@@ -498,3 +498,18 @@ transfers and one natural replacement with sampled memory return; it is not a
 long repeated-swap leak/fragmentation soak. Capture stayed around30.1fps, and one
 local light reading was valid. Operator visual/fullscreen/flicker acceptance is
 still pending. No CRC/panic appeared in the collected short samples.
+
+## Operator follow-up and0.3.3-dev night calibration fix, 2026-10-23
+
+Operator confirmed the natural full-resolution UBox image fills the screen with
+correct colors and no visible bars/flicker. This adds visual acceptance to the two
+complete2304x1296 transfers and one sampled natural replacement.
+
+Operator reported that valid flashlight readings were negative, whereas ordinary
+darkness showed0.000 and refused Kalibruj noc. Near-black rejection was conflating
+genuine low illumination with no usable sample. Introduce a flagged dark reference
+only at settled configured AE ceilings with valid metadata; preserve clipping,
+staleness, missing-data guards and safe PWM. The finite reference is the5-DN dark
+band boundary, not measured lux or invented anchors. Preview/metric scale, saved
+anchors/schema and UBox processing remain unchanged. UI shows unavailable text
+without0.000 and distinguishes the dark threshold. Actual night save is pending.

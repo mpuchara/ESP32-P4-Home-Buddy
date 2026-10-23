@@ -43,3 +43,9 @@ minutes. Editing sliders/options or saving does not extend that interval. After
 expiry the service/form returns to AUTO; only pressing TYMCZASOWO again starts a
 new interval. A later ordinary slider adjustment selects MANUAL. Controls ignore
 new edits while the save worker is committing the displayed configuration.
+
+Night calibration in0.3.3-dev: leave the camera uncovered in normal night lighting,
+wait for ciemno (prog) or a valid numeric reading, select Kalibruj noc, move the
+slider to a comfortable level and Zapisz. Do not shine a flashlight to manufacture
+the night point. Negative light values are normal relative logarithmic values.
+Brak aktualnego pomiaru means no usable fresh sample; it no longer displays0.000.

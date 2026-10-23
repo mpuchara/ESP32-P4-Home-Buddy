@@ -349,6 +349,12 @@ static void worker(void *arg)
                     }
                     hb_light_reading light =
                         hb_raw_light(frame.pixels, WIDTH, HEIGHT, exp, ag, dg, meta);
+                    unsigned measured_lines =
+                        meta ? (unsigned)((exposure[0] << 8) | exposure[1]) : 0;
+                    unsigned measured_vts = meta ? (unsigned)((timing[2] << 8) | timing[3]) : 0;
+                    bool at_limit = meta && measured_vts > 19 &&
+                                    measured_lines == measured_vts - 15 && ag == 8.0f;
+                    light = hb_light_apply_dark_limit(light, exp, ag, dg, at_limit);
                     bool publish =
                         now - last_light >= (uint64_t)atomic_load(&sample_seconds) * 1000;
                     portENTER_CRITICAL(&lock);
@@ -366,15 +372,17 @@ static void worker(void *arg)
                     {
                         last_light = now;
                         ESP_LOGI("camera",
-                                 "frames=%u fps=%.1f light_valid=%d metric=%.3f luma=%.1f "
+                                 "frames=%u fps=%.1f light_valid=%d below_range=%d metric=%.3f "
+                                 "luma=%.1f "
                                  "rejected=%.2f exposure_us=%.1f "
                                  "gain=%.2f/%.2f psram=%u largest=%u dma=%u",
                                  (unsigned)sequence,
                                  (double)((float)(sequence - base_sequence) * 1000 /
                                           (now - started + 1)),
-                                 light.valid, (double)light.metric, (double)light.luminance,
-                                 (double)light.rejected_fraction, (double)exp, (double)ag,
-                                 (double)dg, (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                                 light.valid, light.below_range, (double)light.metric,
+                                 (double)light.luminance, (double)light.rejected_fraction,
+                                 (double)exp, (double)ag, (double)dg,
+                                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
                                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM),
                                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL |
                                                                    MALLOC_CAP_DMA));

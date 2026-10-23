@@ -613,7 +613,8 @@ static void calibrate(lv_event_t *e)
     calibration_metric = camera.light.metric;
     brightness_editor.mode = HB_BRIGHT_MANUAL;
     hb_brightness_apply(&brightness_editor);
-    form_error("Pomiar pobrany. Ustaw suwak i wybierz Zapisz.");
+    form_error(camera.light.below_range ? "Próg ciemności pobrany. Ustaw suwak i wybierz Zapisz."
+                                        : "Pomiar pobrany. Ustaw suwak i wybierz Zapisz.");
 }
 static void save_brightness(lv_event_t *e)
 {
@@ -710,6 +711,7 @@ static void brightness_page(lv_event_t *e)
     lv_slider_set_range(fallback, 26, 255);
     lv_slider_set_value(fallback, brightness_editor.fallback_pwm, LV_ANIM_OFF);
     lv_obj_add_event_cb(fallback, fallback_changed, LV_EVENT_VALUE_CHANGED, NULL);
+    form_error("Wartości ujemne są prawidłowe. Noc kalibruj bez latarki.");
     lv_scr_load(page);
 }
 static void camera_brightness_update(void)
@@ -721,6 +723,18 @@ static void camera_brightness_update(void)
     preview_tick = lv_tick_get();
     hb_camera_status camera;
     hb_camera_get_status(&camera);
+    hb_brightness_config current;
+    uint8_t pwm;
+    hb_brightness_get(&current, &pwm);
+    uint64_t now = (uint64_t)esp_timer_get_time() / 1000;
+    bool fresh = camera.running && camera.light.valid && camera.light_ms <= now &&
+                 now - camera.light_ms <= (uint64_t)current.sample_seconds * 3000;
+    char light_text[80];
+    if (fresh)
+        snprintf(light_text, sizeof(light_text), "%s %.3f",
+                 camera.light.below_range ? "ciemno (próg)" : "OK", (double)camera.light.metric);
+    else
+        snprintf(light_text, sizeof(light_text), "brak aktualnego pomiaru");
     if (camera_info)
     {
         if ((uint32_t)(lv_tick_get() - camera_info_tick) >= 1000)
@@ -729,7 +743,7 @@ static void camera_brightness_update(void)
             char text[640];
             snprintf(text, sizeof(text),
                      "ID: 0x%04x  %s\n%u x %u RAW8\nFPS: %.1f  Klatki: %u\nBłędy: %u  Pominięte: "
-                     "%u\nEkspozycja: ~%.0f us\nGain: %.2f / %.2f\nŚwiatło: %s %.3f\nPodgląd: %.1f "
+                     "%u\nEkspozycja: ~%.0f us\nGain: %.2f / %.2f\nŚwiatło: %s\nPodgląd: %.1f "
                      "FPS\nPSRAM: %u B\n%s",
                      camera.sensor_id,
                      camera.quarantined    ? "RESTART"
@@ -738,8 +752,7 @@ static void camera_brightness_update(void)
                                            : "brak",
                      camera.width, camera.height, (double)camera.fps, (unsigned)camera.frames,
                      (unsigned)camera.errors, (unsigned)camera.dropped, (double)camera.exposure_us,
-                     (double)camera.analogue_gain, (double)camera.digital_gain,
-                     camera.light.valid ? "OK" : "brak", (double)camera.light.metric,
+                     (double)camera.analogue_gain, (double)camera.digital_gain, light_text,
                      (double)((float)preview_count * 1000 / (lv_tick_get() - preview_started + 1)),
                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
                      esp_err_to_name(camera.error));
@@ -776,18 +789,15 @@ static void camera_brightness_update(void)
     }
     if (brightness_info)
     {
-        uint8_t pwm;
-        hb_brightness_config current;
-        hb_brightness_get(&current, &pwm);
         if (brightness_editor.mode == HB_BRIGHT_OVERRIDE && current.mode != HB_BRIGHT_OVERRIDE)
             brightness_editor.mode = current.mode;
         lv_label_set_text_fmt(pwm_info, "%u / 255", pwm);
         char text[400];
-        snprintf(text, sizeof(text), "%s | Światło: %s %.3f\nKalibracja: %s | Dzień: %s | Noc: %s",
+        snprintf(text, sizeof(text), "%s | Światło: %s\nKalibracja: %s | Dzień: %s | Noc: %s",
                  current.mode == HB_BRIGHT_AUTO     ? "AUTO"
                  : current.mode == HB_BRIGHT_MANUAL ? "MANUAL"
                                                     : "TYMCZASOWO",
-                 camera.light.valid ? "OK" : "brak", (double)camera.light.metric,
+                 light_text,
                  hb_brightness_calibrated(&brightness_editor) ? "OK"
                                                               : "niepełna / zbyt bliskie punkty",
                  brightness_editor.day.valid ? "zapisany" : "brak",
@@ -948,7 +958,7 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.3.2-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware 0.3.3-dev\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
                  service_state[0], service_state[1], service_state[2],

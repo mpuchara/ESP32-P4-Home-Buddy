@@ -61,3 +61,23 @@ After any reported save failure the user must retry intentionally and verify.
 Operator confirmed physical return to AUTO after five minutes on2026-10-23.
 Post-expiry option edits, real two-anchor calibration and physical restart
 persistence remain pending.
+
+## Very dark room/night reference (0.3.3-dev)
+
+Previously the near-black rejection also blocked genuine night calibration. Now
+near-black frames retain a below-range classification separately from missing or
+clipped data. Only with valid current metadata, settled exposure and the configured
+AE limits (VTS-15 rows,8x analog gain) may the owner publish a dark-limit reference.
+The value is log2(5/(exposure_us*analog_gain*digital_gain)), the upper edge of the
+<5-DN dark band. It is a bounded threshold, not a resolved measurement or lux.
+Measured luminance stays unchanged for AE. Other invalid metadata/clipped/stale
+frames remain unavailable, and underexposed frames below the limits cannot calibrate.
+
+The UI shows ciemno (prog) with the finite threshold; Kalibruj noc can snapshot it.
+Set the comfortable night PWM and explicitly save as before. No flashlight is
+needed for the night point. Day calibration uses actual daytime lighting. Negative
+numbers are normal in the logarithmic relative scale; a larger/less-negative value
+means more inferred light. Unavailable/stale readings show text without fake0.000.
+Very dark conditions cannot be distinguished from an obstructed lens using these
+pixels alone; keep the camera uncovered. Filtering/rate limits remain active.
+Existing anchors/schema are unchanged. Physical night save/restore is still pending.
