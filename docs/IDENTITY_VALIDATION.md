@@ -1,5 +1,8 @@
 > Historical iteration 5 receipts. Superseded storage deployment and outstanding
-> criteria are documented in ITERATION6_REPORT.md. No microSD deployment is supported.
+> criteria are documented in ITERATION7_REPORT.md. No microSD deployment is supported.
+> Current single-factory firmware is installed and its REST diagnostic automation
+> is operator-confirmed. MBF/enrollment/recognized-event hardware acceptance is
+> the active next step; the old unflashed status below is historical only.
 
 # Iteration 5 validation receipts (development)
 

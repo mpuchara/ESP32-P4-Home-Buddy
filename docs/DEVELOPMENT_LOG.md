@@ -1,5 +1,18 @@
 # 2026-10-23: 0.6.1-dev continuation
 
+REST transport acceptance: the operator configured the LAN endpoint and supplied
+an actual HA event showing event_type home_buddy_identity, payload type
+connection_test, method diagnostic and status test (2026-10-23 20:26:07 UTC).
+The operator then confirmed that the event automation/notification works. This
+accepts authenticated device-to-HA diagnostic transport and the harmless action,
+not biometric recognition. Credentials reside only in private device NVS and
+private recovery artifacts; none is committed or embedded in public firmware.
+Firmware f764f3212696c061e92c33a6425f87fb295c4267 passed host plus all four firmware
+CI jobs in run 40008194920. Current local app is 4,383,248 bytes, SHA256
+db2827836af2913d9ef48d14d9ca8e995a915b7641708bc13c32be1d64e7b5f4.
+Next active acceptance: real onboard MBF execution, then consenting on-device
+enrollment and a real confirmed recognized event. Voice remains unimplemented.
+
 HA save correction: removed the erroneous 32-character minimum for a nonempty
 URL-safe Webhook ID (maximum 128 unchanged). No real credential is stored in tests
 or logs. Validation now identifies the offending field; saving hides the keyboard,

@@ -3,6 +3,13 @@
 Each phase needs a buildable commit and evidence in DEVELOPMENT_LOG.md.
 Physical acceptance cannot be inferred from successful compilation.
 
+Active continuation: LAN REST diagnostic delivery and its HA notification are
+operator-confirmed. Continue automatically to real onboard MBF execution, local
+enrollment, confirmed recognized-event delivery, then cancellation/reload/stress
+checks. A connection_test does not count as a biometric recognition. Voice remains
+capacity planning only in this iteration. Secure provisioning needs separate
+authorization; the current profile mode remains visibly RAM-only.
+
 | Phase | Deliverable | Current state |
 |---|---|---|
 | 0 | Research, dependency pins, architecture, budget, CI, skeleton | Initial research/foundation delivered; all CI jobs passed |

@@ -66,6 +66,21 @@ not evidence of physical recognition accuracy or a working HA automation.
 
 ## Physical and CI receipt
 
+Latest firmware: f764f3212696c061e92c33a6425f87fb295c4267, app 4,383,248 bytes,
+SHA256 db2827836af2913d9ef48d14d9ca8e995a915b7641708bc13c32be1d64e7b5f4.
+[CI run 40008194920](https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40008194920)
+passed host and all four firmware profiles; local host suite is now 16/16.
+This supersedes earlier image/version/size receipts below.
+
+REST diagnostic transport accepted by the operator: HA received a real
+home_buddy_identity event with payload connection_test/method diagnostic/status
+test at 2026-10-23 20:26:07 UTC. The operator confirmed the matching automation
+and notification work. Device uses the operator-configured LAN HA endpoint and
+an NVS-stored token, never committed or placed in public firmware. This does not
+accept actual face recognition, enrollment or a recognized-triggered automation.
+Those hardware acceptance steps are now active; no voice implementation starts
+before that acceptance. Secure profile persistence still requires its separate gate.
+
 Later HA form readability fix: explicit dark panel/contrast, shorter labels,
 readable checkbox/transport text and bounded status wrapping. Verified using
 before/after 800x480 LVGL renders of the actual form construction. This updated
@@ -94,5 +109,5 @@ observation to about 108 seconds uptime showed no panic/watchdog or reboot;
 PSRAM settled near 26.3 MB free. This is not a soak/leak test. Visual touchscreen,
 brightness/weather regression, MBF model loading/inference, real enrollment,
 multi-person accuracy and actual recognized
-HA automation remain unaccepted until directly observed. Webhook is entered by
-the operator on the touchscreen; no secrets are requested in chat.
+HA automation remain unaccepted until directly observed. The diagnostic REST
+transport and harmless diagnostic automation are separately accepted above.
