@@ -66,7 +66,7 @@ static void scan(lv_event_t *e);
 static void close_page(void);
 static void update(lv_timer_t *timer);
 static lv_obj_t *camera_info, *camera_photo, *brightness_info, *pwm_info;
-static lv_obj_t *face_label, *face_boxes[HB_FACE_MAX];
+static lv_obj_t *face_label, *presence_label, *face_boxes[HB_FACE_MAX];
 static lv_img_dsc_t camera_image;
 static uint16_t *preview_pixels;
 static bool preview_enabled;
@@ -164,6 +164,7 @@ static void close_page(void)
 {
     hb_face_enable(false);
     face_label = NULL;
+    presence_label = NULL;
     memset(face_boxes, 0, sizeof(face_boxes));
     hb_camera_test_pattern(false);
     camera_info = NULL;
@@ -618,6 +619,8 @@ static void local_camera(lv_event_t *e)
     }
     camera_info = label(page, "Oczekiwanie na kamerę", LV_ALIGN_TOP_LEFT, 430, 130);
     lv_obj_set_width(camera_info, 345);
+    presence_label = label(page, "Obecność: wyłączona", LV_ALIGN_TOP_LEFT, 430, 350);
+    lv_obj_set_width(presence_label, 345);
     label(page, "Obraz lokalny. Bez zapisu i wysyłania.", LV_ALIGN_TOP_LEFT, 24, 450);
     lv_scr_load(page);
 }
@@ -779,9 +782,9 @@ static void camera_brightness_update(void)
             camera_info_tick = lv_tick_get();
             char text[640];
             snprintf(text, sizeof(text),
-                     "ID: 0x%04x  %s\n%u x %u RAW8\nFPS: %.1f  Klatki: %u\nBłędy: %u  Pominięte: "
-                     "%u\nEkspozycja: ~%.0f us\nGain: %.2f / %.2f\nŚwiatło: %s\nPodgląd: %.1f "
-                     "FPS\nPSRAM: %u B\n%s",
+                     "ID: 0x%04x  %s\n%u x %u RAW8 | %.1f FPS\nKlatki: %u  Błędy: %u\nPominięte: "
+                     "%u\nExp: %.0f us G: %.1f/%.1f\nŚwiatło: %s\nPodgląd: %.1f "
+                     "FPS RAM: %u MB\n%s",
                      camera.sensor_id,
                      camera.quarantined    ? "RESTART"
                      : camera.test_pattern ? "TEST"
@@ -791,7 +794,7 @@ static void camera_brightness_update(void)
                      (unsigned)camera.errors, (unsigned)camera.dropped, (double)camera.exposure_us,
                      (double)camera.analogue_gain, (double)camera.digital_gain, light_text,
                      (double)((float)preview_count * 1000 / (lv_tick_get() - preview_started + 1)),
-                     (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                     (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / (1024 * 1024)),
                      esp_err_to_name(camera.error));
             lv_label_set_text(camera_info, text);
         }
@@ -843,6 +846,21 @@ static void camera_brightness_update(void)
                      (unsigned)(face.inference_us / 1000));
         if (strcmp(lv_label_get_text(face_label), caption))
             lv_label_set_text(face_label, caption);
+        char occupancy[128];
+        hb_presence_status p = face.presence;
+        const char *value = p.value == HB_PRESENCE_PRESENT  ? "TAK"
+                            : p.value == HB_PRESENCE_ABSENT ? "NIE"
+                            : p.value == HB_PRESENCE_OFF    ? "wyłączona"
+                                                            : "nieustalona";
+        if (p.fresh && p.misses)
+            snprintf(occupancy, sizeof(occupancy), "Obecność: %s\nBrak twarzy: %u/4 (min. 5 s)",
+                     value, p.misses);
+        else if (p.fresh && p.value != HB_PRESENCE_PRESENT)
+            snprintf(occupancy, sizeof(occupancy), "Obecność: %s\nWykrycia: %u/2", value, p.hits);
+        else
+            snprintf(occupancy, sizeof(occupancy), "Obecność: %s", value);
+        if (presence_label && strcmp(lv_label_get_text(presence_label), occupancy))
+            lv_label_set_text(presence_label, occupancy);
         bool visible = preview_enabled && !camera.test_pattern && hb_face_fresh(&face, now);
         for (unsigned i = 0; i < HB_FACE_MAX; i++)
         {
@@ -1028,7 +1046,7 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.4.2-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware 0.4.3-dev\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
                  service_state[0], service_state[1], service_state[2],

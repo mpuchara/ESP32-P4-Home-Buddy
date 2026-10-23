@@ -56,3 +56,13 @@ green boxes are diagnostic detections. Press again or leave the page to stop.
 The menu still times out after30s without touch. No identity is assigned and no
 photo is saved/sent. AI: brak pamieci means admission refused; normal camera/UBox
 remain available. Restore normal lighting after testing; no flashlight needed.
+
+
+0.4.3 presence test: enable Test twarzy and remain facing the camera until
+Obecnosc: TAK (two consecutive results). A brief missed face should retain TAK.
+Move fully outside the camera view for more than5s of continued analysis: after
+at least four negative results expect NIE. Return and expect TAK after two
+positive analyses. If analysis becomes unavailable for more than3s, expect
+nieustalona rather than NIE. Closing the page ends the diagnostic; reentry starts
+without saved presence. The30s menu inactivity timeout remains; touch an unused
+area to keep the page open during a longer test. No HA action is triggered.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 #include "esp_err.h"
+#include "hb_presence.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -27,6 +28,7 @@ extern "C"
         uint32_t sequence, inference_us, count;
         uint64_t frame_ms, completed_ms;
         hb_face_box boxes[HB_FACE_MAX];
+        hb_presence_status presence;
     } hb_face_status;
     esp_err_t hb_face_enable(bool enabled);
     void hb_face_get(hb_face_status *status);

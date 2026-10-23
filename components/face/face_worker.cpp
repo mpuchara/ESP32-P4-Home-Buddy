@@ -20,6 +20,7 @@ static portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;
 static std::atomic<bool> requested{false}, started{false};
 static std::atomic<unsigned> epoch{0};
 static hb_face_status status{};
+static hb_presence_tracker presence{};
 static uint64_t now_ms()
 {
     return esp_timer_get_time() / 1000;
@@ -36,6 +37,7 @@ static void fail(esp_err_t error)
 {
     requested.store(false);
     portENTER_CRITICAL(&lock);
+    hb_presence_reset(&presence);
     status.error = error;
     status.count = 0;
     portEXIT_CRITICAL(&lock);
@@ -175,16 +177,27 @@ static void worker(void *)
             if (hb_face_map_box(&b))
                 result.boxes[result.count++] = b;
         }
-        if (requested.load() && epoch.load() == ticket)
+        hb_presence_status occupancy{};
+        portENTER_CRITICAL(&lock);
+        bool published = requested.load() && epoch.load() == ticket;
+        if (published)
         {
-            portENTER_CRITICAL(&lock);
             status = result;
-            portEXIT_CRITICAL(&lock);
-            ESP_LOGI("face", "sequence=%u count=%u inference_us=%u psram=%u largest=%u dma=%u",
+            hb_presence_observe(&presence, seq, stamp, result.completed_ms, result.count > 0,
+                                now_ms());
+            occupancy = hb_presence_read(&presence, true, true, now_ms());
+        }
+        portEXIT_CRITICAL(&lock);
+        if (published)
+        {
+            ESP_LOGI("face",
+                     "sequence=%u count=%u inference_us=%u psram=%u largest=%u dma=%u presence=%u "
+                     "hits=%u misses=%u",
                      (unsigned)seq, (unsigned)result.count, (unsigned)result.inference_us,
                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
                      (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM),
-                     (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
+                     (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA),
+                     (unsigned)occupancy.value, occupancy.hits, occupancy.misses);
         }
         last_sequence = seq;
         hb_compute_leave();
@@ -198,10 +211,8 @@ esp_err_t hb_face_enable(bool enabled)
     epoch.fetch_add(1);
     requested.store(enabled);
     portENTER_CRITICAL(&lock);
-    status.count = 0;
-    status.frame_ms = 0;
-    if (enabled)
-        status.error = ESP_OK;
+    status = {};
+    hb_presence_reset(&presence);
     portEXIT_CRITICAL(&lock);
     if (enabled && !started.exchange(true))
     {
@@ -220,6 +231,8 @@ void hb_face_get(hb_face_status *out)
         return;
     portENTER_CRITICAL(&lock);
     *out = status;
-    portEXIT_CRITICAL(&lock);
     out->enabled = requested.load();
+    out->presence =
+        hb_presence_read(&presence, out->enabled, out->ready && out->error == ESP_OK, now_ms());
+    portEXIT_CRITICAL(&lock);
 }

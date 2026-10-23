@@ -655,3 +655,22 @@ JPEG decoded/covered in142ms. Full-size UBox simultaneous model allocation,
 long fragmentation tests and labelled accuracy/false-positive evaluation remain
 unverified. No biometric image/template or private log is committed. PR1 remains
 draft/unmerged. Documentation-only receipt [skip ci].
+
+
+## 0.4.3 diagnostic temporal presence, 2026-10-23
+
+Continue clean464b71c with a scalar, fixed-memory presence tracker on accepted
+ESPDet416 results. Two distinct consecutive positives enter PRESENT; consecutive
+negative results need both four analyses and5s since the first negative capture
+to enter ABSENT. >3s without accepted completion gives UNKNOWN and clears old
+streaks on recovery. Stop/re-enable/error reset; timestamp/duplicate/sequence-wrap
+rules reject recycled/out-of-order evidence. Pure status reads cannot add votes.
+
+Diagnostic LVGL page shows stable presence separately from fresh boxes. Compress
+camera diagnostic text to reserve space for the new two-line status. Existing
+30s idle timeout and page-scoped AI remain. Publication now checks epoch inside
+the status critical section, preventing cancelled results entering reset state.
+No persistent records, identities, greetings, background AI or HA events.
+
+Initial local10/10 host suites, Python3/3 and format checks pass. Physical transition
+behavior/layout and firmware build/CI are pending; no occupancy accuracy claim.

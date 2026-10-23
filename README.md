@@ -3,10 +3,10 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.4.2-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.4.3-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
-Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
+Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
 
 ## Hardware and status
 
@@ -104,6 +104,7 @@ PPA rotates 800×480 logical RGB565 to the 480×800 native DSI framebuffers.
 The future identity pipeline runs entirely on P4; HA provides no inference.
 
 * [Local camera and face AI foundation](docs/LOCAL_CAMERA.md)
+* [Diagnostic presence policy](docs/PRESENCE.md)
 * [Brightness calibration](docs/BRIGHTNESS.md)
 * [Architecture](docs/ARCHITECTURE.md)
 * [Hardware and pinout](docs/HARDWARE.md)

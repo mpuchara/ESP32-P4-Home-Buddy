@@ -120,3 +120,10 @@ input, and29,328 (0.4.1) /29,784 (0.4.2) internal bytes. Shared heap deltas incl
 concurrent activity. In the0.4.1 diagnostic sample free PSRAM was24,742,992 with
 largest17,825,792; a later idle sample returned to26,723,652/largest23,592,960.
 This is a short observed return, not a repeated combined allocation/leak soak.
+
+
+0.4.3 temporal presence adds only fixed scalar tracker/status fields and no
+additional image/model/history allocation. Existing worker stack, lazy resources,
+JPEG serialization and all admission/delta guards are retained. Runtime overhead
+and combined long-run fragmentation remain to be measured, not inferred from
+host policy test speed.

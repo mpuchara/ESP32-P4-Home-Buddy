@@ -88,3 +88,13 @@ checked separately so the measured ~800ms model run does not expire on arrival. 
 and frees model/input on exit. A compute-budget mutex serializes expensive model
 work and JPEG decode outside LVGL. See FACE_DETECTION.md for admission limits and
 failure limitations. No local identities, remote inference or new persistence.
+
+
+## Temporal presence diagnostic, 0.4.3
+
+A fixed-size face evidence tracker is updated atomically with accepted model
+results. Status reads derive UNKNOWN after a 3s completion gap, without inventing
+negative evidence. Publication checks the epoch under the same lock to prevent
+cancelled work entering a new session. The camera page displays stable presence
+separately from expiring boxes. See PRESENCE.md for two-hit/four-miss +5s rules.
+This diagnostic remains page-scoped; HA/identity/always-on integration is pending.
