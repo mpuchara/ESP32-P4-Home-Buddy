@@ -43,3 +43,12 @@ recovery and repeated LVGL cycles. Preserve naturally available2304x1296 and
 cold-power/long-WiFi/72h soak as pending until observed. Source/build/host results
 do not substitute for those checks. Face enrollment/HA events follow camera/light;
 speaker work follows face. No C6 writes or bridge modifications.
+
+## Acceptance update, 2026-10-23
+
+Physical five-minute temporary override returned to AUTO per operator. Natural
+UBox2304x1296 complete transfer, hardware decode and800x480 cover are now observed
+on0.3.2-dev. Full-size visual/repeated-replacement acceptance, real day/night
+anchors/reboot persistence, injected camera recovery and cold-power/72h tests
+remain pending. Camera pool/recovery regression now joins8host suites; all CI
+profiles pass for implementation19e88f0. No model/inference milestone is claimed.

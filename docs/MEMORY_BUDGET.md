@@ -87,3 +87,18 @@ Final upright short sample at158..178seconds: PSRAM26,723,652bytes and largest
 22,544,384 unchanged between samples; DMA265,431 then265,219bytes. Preview toggle
 allocation/release and full-resolution JPEG peak are not inferred from these
 idle samples. No AI/audio admission is implied.
+
+## Natural2304x1296 UBox with RAW8 capture, 0.3.2-dev
+
+Original cached image746,465bytes was completely downloaded and decoded/covered
+in218ms on P4 while the local camera continued around30fps. Decoded RGB565 buffer
+5,971,968bytes, final output768,000. At the image-worker allocation log: internal
+free290,651/largest180,224; PSRAM free17,897,292/largest17,825,792. After cleanup,
+PSRAM returned to26,723,652; largest block was17,825,792. Aggregate free return
+is not proof of repeated-swap fragmentation safety. This is a natural3MP sample,
+not worst-case2MiB compressed/4MP decoded admission or future AI/audio capacity.
+
+Second natural2304x1296 frame:739,606bytes,295ms; at allocation log PSRAM
+17,127,240/largest11,796,480, internal289,555/largest180,224. After replacing the
+old displayed image, free PSRAM returned to26,723,652/largest23,592,960. Two full
+frames/one replacement are observed, not a sustained repeated-swap/AI admission test.

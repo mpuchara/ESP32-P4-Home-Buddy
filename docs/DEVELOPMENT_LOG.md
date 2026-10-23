@@ -465,3 +465,36 @@ host fault testing. Thirty seconds of continued frame progress restores5s retry.
 A quarantined driver is visibly marked RESTART; planned retries are not claimed
 when driver lifetime is uncertain. Original capture buffers, raw orientation,
 local light, backlight anchors and UBox/Open-Meteo remain independent.
+
+0.3.2 verification: CTest8/8 and Python project checks3/3 passed locally, as did
+formatting, whitespace, actionlint and all three effective-profile checks. The
+recovery suite also passed GCC -Wall -Wextra -Werror under Ubuntu. Local firmware
+sizes: diagnostics0x378b0, bringup0x134470, wifi0x17dde0bytes. P4 COM5 image was
+flashed/hash-verified and boot log confirms0.3.2-dev. No C6 firmware write, bridge
+change, fabricated light anchors or private image publication.
+
+A naturally available original UBox2304x1296 image was received after initial
+network retries: HTTP200, expected=received746465bytes, complete=1, decodeESP_OK.
+Hardware JPEG decode plus cover took218ms; aligned decoded buffer5,971,968bytes,
+output768,000bytes. At the logged allocation point: internal free290,651bytes,
+largest180,224; PSRAM free17,897,292, largest17,825,792. The local camera continued
+around30fps, with free PSRAM26,723,652 after decode cleanup. This verifies complete
+full-resolution download/decode/cover on the P4; operator visual acceptance,
+repeated full-size replacement and long-run fragmentation remain separate checks.
+No forced LTE capture or new bridge endpoint was used.
+
+Final implementation19e88f082fd80f7b662d70c135844c217d1b0c9d passed all four CI
+jobs (host8suites plus diagnostics/bringup/wifi clean builds/config/packages):
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39898488143
+Public-only package dist/iteration3-recovery-032 has SHA256SUMS; app SHA256:
+e1eaeaec9965180cc8d357b7a8e8de9051acc7356e76a68c9419629b7f3eda4c.
+The following acceptance receipt is documentation-only [skip ci]. PR1 stays draft.
+
+A second naturally updated2304x1296 image followed at about137s: complete739,606
+bytes, HTTP200 accepted,295ms decode+cover. During its allocation log, PSRAM
+17,127,240/largest11,796,480, internal289,555/largest180,224. After replacement,
+free PSRAM returned to26,723,652 and largest23,592,960. This establishes two full
+transfers and one natural replacement with sampled memory return; it is not a
+long repeated-swap leak/fragmentation soak. Capture stayed around30.1fps, and one
+local light reading was valid. Operator visual/fullscreen/flicker acceptance is
+still pending. No CRC/panic appeared in the collected short samples.

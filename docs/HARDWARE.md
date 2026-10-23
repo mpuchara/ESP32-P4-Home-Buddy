@@ -101,3 +101,12 @@ green/pale/noisy images. Operator accepted RAW8 colors/detail; native module hea
 points right, so portrait preview now rotates CCW90. Operator confirmed upright head in landscape device orientation. No model/inference or actual day/night calibration is accepted yet.
 No separate ALS was identified in inspected documentation/BSP; no arbitrary
 ALS driver is enabled. See LOCAL_CAMERA.md for source wiring and limits.
+
+## 0.3.2-dev natural full-source acceptance, 2026-10-23
+
+P4 decoded/covered a naturally available2304x1296 cached UBox JPEG: complete
+746,465bytes, HTTP200 accepted,218ms decode+cover to800x480. Camera RAW8 capture
+continued about30fps. This closes full-size transfer/decode/cover acceptance;
+visual colors/fullscreen/flicker, repeated full-size swaps and sustained heap
+fragmentation remain separate operator/soak checks. Camera fault recovery policy
+is host-tested; physical injected CSI/ISP teardown failures are not claimed.
