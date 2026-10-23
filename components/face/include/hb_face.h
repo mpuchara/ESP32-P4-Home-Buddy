@@ -25,7 +25,7 @@ extern "C"
         bool enabled, ready;
         esp_err_t error;
         uint32_t sequence, inference_us, count;
-        uint64_t frame_ms;
+        uint64_t frame_ms, completed_ms;
         hb_face_box boxes[HB_FACE_MAX];
     } hb_face_status;
     esp_err_t hb_face_enable(bool enabled);

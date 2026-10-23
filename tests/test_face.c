@@ -29,19 +29,31 @@ int main(void)
     b = (hb_face_box){0, 0, 40, 40, NAN};
     CHECK(!hb_face_clip(&b));
     CHECK(!hb_face_clip(NULL));
-    hb_face_status s = {
-        .enabled = true, .ready = true, .error = ESP_OK, .frame_ms = 1000, .count = 4};
-    CHECK(hb_face_fresh(&s, 1750));
-    CHECK(!hb_face_fresh(&s, 1751));
+    hb_face_status s = {.enabled = true,
+                        .ready = true,
+                        .error = ESP_OK,
+                        .frame_ms = 1000,
+                        .completed_ms = 1800,
+                        .count = 4};
+    CHECK(hb_face_fresh(&s, 1800)); // 800 ms inference must be visible on completion.
+    CHECK(hb_face_fresh(&s, 3000));
+    CHECK(!hb_face_fresh(&s, 3001)); // completed result expiry
+    CHECK(!hb_face_fresh(&s, 1799)); // future completion
+    s.completed_ms = 3400;
+    CHECK(hb_face_fresh(&s, 3500));
+    CHECK(!hb_face_fresh(&s, 3501)); // absolute source age cap
+    s.completed_ms = 999;
+    CHECK(!hb_face_fresh(&s, 1800)); // completion cannot precede capture
+    s.completed_ms = 1800;
     CHECK(!hb_face_fresh(&s, 999));
     s.count = 5;
-    CHECK(!hb_face_fresh(&s, 1000));
+    CHECK(!hb_face_fresh(&s, 1800));
     s.count = 0;
     s.enabled = false;
-    CHECK(!hb_face_fresh(&s, 1000));
+    CHECK(!hb_face_fresh(&s, 1800));
     s.enabled = true;
     s.error = ESP_FAIL;
-    CHECK(!hb_face_fresh(&s, 1000));
+    CHECK(!hb_face_fresh(&s, 1800));
     b = (hb_face_box){0, 0, 233, 415, 0.8f};
     CHECK(hb_face_map_box(&b));
     CHECK(b.x1 == 0 && b.y1 == 0 && b.x2 == 179 && b.y2 == 317);

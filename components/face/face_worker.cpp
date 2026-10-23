@@ -162,6 +162,7 @@ static void worker(void *)
         result.ready = true;
         result.error = ESP_OK;
         result.frame_ms = stamp;
+        result.completed_ms = now_ms();
         result.sequence = seq;
         result.inference_us = (uint32_t)(esp_timer_get_time() - begin);
         for (auto &r : results)

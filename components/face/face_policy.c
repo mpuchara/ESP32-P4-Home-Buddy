@@ -22,8 +22,9 @@ bool hb_face_clip(hb_face_box *b)
 }
 bool hb_face_fresh(const hb_face_status *s, uint64_t now)
 {
-    return s && s->enabled && s->ready && s->error == ESP_OK && s->frame_ms <= now &&
-           now - s->frame_ms <= 750 && s->count <= HB_FACE_MAX;
+    return s && s->enabled && s->ready && s->error == ESP_OK && s->frame_ms > 0 &&
+           s->frame_ms <= s->completed_ms && s->completed_ms <= now && now - s->frame_ms <= 2500 &&
+           now - s->completed_ms <= 1200 && s->count <= HB_FACE_MAX;
 }
 
 bool hb_face_map_box(hb_face_box *b)

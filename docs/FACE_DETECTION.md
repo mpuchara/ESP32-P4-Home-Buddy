@@ -1,4 +1,4 @@
-# Experimental local face detection, 0.4.1-dev
+# Experimental local face detection, 0.4.2-dev
 
 Kamera lokalna -> Test twarzy explicitly enables local detection. Up to four green
 rectangles and model inference milliseconds are shown. Closing/timing out the page,
@@ -12,7 +12,8 @@ Native RAW8 GBRG latest-frame lease -> CCW90 portrait 234x416 RGB565LE -> existi
 appearance-only white balance/sRGB -> ESPDet Pico Face 416x416. The SDK letterboxes
 the portrait input without stretching and maps detections back to that input.
 Home Buddy scales coordinates to the 180x318 diagnostic preview with integer bounds
-checks. Results expire after 750 ms, are capped at four, require score >= 0.7 and
+checks. Results expire 1200 ms after completion with a 2500 ms absolute source-age cap.
+They are capped at four, require score >= 0.7 and
 are cancelled across enable/disable epochs. The worker targets a 500 ms start-to-start period (at most 2 Hz).
 The displayed time excludes our thumbnail conversion. Capture FPS is independent.
 
@@ -58,3 +59,15 @@ extreme coordinates, expiry and disable. They do not run the neural network.
 0.4.1 build/physical receipts are recorded in DEVELOPMENT_LOG.md as obtained.
 Remaining: detection stability in the operator's room, actual load memory, latency,
 cleanup, combined full-size UBox load and sustained/fault tests.
+
+
+## Measured latency and 0.4.2 UI correction
+
+On this board ESPDet416 takes about 757-803 ms in the captured sample, with a
+1,862,120-byte PSRAM and 29,328-byte internal load delta including input. The old
+750 ms source-only expiry hid completed detections and showed AI: czekam. The
+operator confirmed that symptom. 0.4.2 separately bounds completed-result age
+(1200 ms) and source age (2500 ms), with capture<=completion<=now checks. A newly
+completed zero-face result clears rectangles immediately; there is no successful-
+detection hold across a newer miss. These are display diagnostics, not presence
+or identity events. Host tests reproduce 800 ms inference and both age limits.

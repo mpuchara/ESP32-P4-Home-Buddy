@@ -603,3 +603,15 @@ Sensor AE, exposure limits and calibrated light/brightness path remain unchanged
 Improvement in this room is pending a physical comparison, not claimed from the
 upstream benchmark. Dependencies/source pins remain unchanged; selected weights
 and their checked hash are updated. No enrollment or automation events added.
+
+
+## 0.4.2 completion-aware diagnostic freshness fix, 2026-10-23
+
+Actual ESPDet416 load delta: PSRAM1,862,120/internal29,328 bytes including194,688
+input. Inference samples757-803 ms; the network usually returns one face in the
+sample, while operator reports only AI: czekam. Cause: the old750ms source age
+expired before inference completed. Add completion timestamp and require capture
+<=completion<=now, completed age<=1200ms and absolute source age<=2500ms. A newer
+zero result clears boxes immediately; this is not identity/presence hysteresis.
+Host tests reproduce800ms processing, completion expiry, absolute expiry and
+invalid/future completion. User-visible improvement/cleanup remain pending.
