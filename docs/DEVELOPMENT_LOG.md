@@ -545,3 +545,17 @@ point is provisional, not representative daytime calibration. Actual daytime
 anchor, explicitly persisted AUTO mode and physical restart restore remain to be
 verified. No firmware/configuration write was performed by the agent for this
 receipt; operator-selected values remain unchanged. Documentation-only [skip ci].
+
+##0.4.0-dev experimental face diagnostic, 2026-10-23
+
+Continued clean6e8e231 on draft PR1. Audited pinned Espressif model/runtime files
+and licenses. Added explicit local detection toggle, bounded4boxes, coordinate
+clipping/expiry/cancellation, correct portrait->4:3 input and lazy model resources.
+The model runs outside LVGL with raw leases released first. Added static compute
+mutex for JPEG/model work, conservative admission and cleanup. No identities,
+profiles, templates, HA events, cloud inference or runtime model download.
+
+Nine local host suites and static project checks pass; the face policy additionally
+passes GCC -Wall -Wextra -Werror under Ubuntu. They test admission/geometry/expiry,
+not neural accuracy. Wi-Fi app initially builds0x38d8b0bytes. Hardware model load
+and detection acceptance are pending explicit Test twarzy activation.

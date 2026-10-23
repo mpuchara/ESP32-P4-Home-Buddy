@@ -40,3 +40,9 @@
   reference from unavailable data. Leave the lens uncovered in real night light,
   wait for exposure to settle and select Kalibruj noc when ciemno (prog) appears.
   Negative relative values are normal; missing/stale data has no numeric value.
+
+* Face diagnostic: use good normal lighting and a front-facing face close enough
+  for the low-resolution detector. No boxes is not evidence of an unknown identity.
+  AI: brak pamieci is a fail-closed admission; exit/retry after current network work.
+  Old boxes expire and page close disables inference. Preserve UBox/brightness
+  diagnostics if the experimental model cannot run. See FACE_DETECTION.md.

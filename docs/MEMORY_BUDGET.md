@@ -102,3 +102,14 @@ Second natural2304x1296 frame:739,606bytes,295ms; at allocation log PSRAM
 17,127,240/largest11,796,480, internal289,555/largest180,224. After replacing the
 old displayed image, free PSRAM returned to26,723,652/largest23,592,960. Two full
 frames/one replacement are observed, not a sustained repeated-swap/AI admission test.
+
+##0.4.0 diagnostic detection budget
+
+Wi-Fi app initial build0x38d8b0bytes fits unchanged6MiB slots; no partition update.
+MSR/MNP weights are191,216bytes before pack/alignment; input canvas269,664bytes.
+Model arenas/parameters and temporary candidates are additional. An8KiB worker
+stack is created only after explicit activation. Model/input free on exit; the
+worker remains. Loading/inference use conservative aggregate/largest-block
+admission and serialize with JPEG decode. Heap-delta guards are not a hard private
+allocator budget. Actual combined hardware allocation/latency/release receipts
+follow separately; do not infer future recognition/audio capacity from free bytes.

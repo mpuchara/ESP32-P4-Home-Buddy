@@ -110,3 +110,10 @@ continued about30fps. This closes full-size transfer/decode/cover acceptance;
 visual colors/fullscreen/flicker, repeated full-size swaps and sustained heap
 fragmentation remain separate operator/soak checks. Camera fault recovery policy
 is host-tested; physical injected CSI/ISP teardown failures are not claimed.
+
+##0.4.0 diagnostic extension
+
+The existing physical OV02C10/RAW8 path and CCW90 mounting remain. ESP-DL MSR/MNP
+is an optional diagnostic consumer on the same P4, not a second camera driver.
+Initial compile fits6MiB app slots without silicon/peripheral/partition changes.
+On-device model timing, memory and visible detections remain to be measured.

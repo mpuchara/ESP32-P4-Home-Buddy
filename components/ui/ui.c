@@ -10,6 +10,7 @@
 #include "hb_camera.h"
 #include "hb_camera_preview.h"
 #include "hb_dashboard.h"
+#include "hb_face.h"
 #include "hb_geometry.h"
 #include "hb_image.h"
 #include "hb_raw_frame.h"
@@ -65,6 +66,7 @@ static void scan(lv_event_t *e);
 static void close_page(void);
 static void update(lv_timer_t *timer);
 static lv_obj_t *camera_info, *camera_photo, *brightness_info, *pwm_info;
+static lv_obj_t *face_label, *face_boxes[HB_FACE_MAX];
 static lv_img_dsc_t camera_image;
 static uint16_t *preview_pixels;
 static bool preview_enabled;
@@ -160,6 +162,9 @@ static void close_menu(lv_event_t *event)
 }
 static void close_page(void)
 {
+    hb_face_enable(false);
+    face_label = NULL;
+    memset(face_boxes, 0, sizeof(face_boxes));
     hb_camera_test_pattern(false);
     camera_info = NULL;
     brightness_info = NULL;
@@ -542,18 +547,38 @@ static void preview_toggle(lv_event_t *e)
         preview_count = 0;
         preview_started = lv_tick_get();
     }
-    if (!preview_enabled && camera_photo)
-        lv_obj_add_flag(camera_photo, LV_OBJ_FLAG_HIDDEN);
+    if (!preview_enabled)
+    {
+        hb_face_enable(false);
+        if (camera_photo)
+            lv_obj_add_flag(camera_photo, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 static void pattern_toggle(lv_event_t *e)
 {
     (void)e;
+    hb_face_enable(false);
     hb_camera_status camera;
     hb_camera_get_status(&camera);
     hb_camera_test_pattern(!camera.test_pattern);
     preview_enabled = true;
     preview_count = 0;
     preview_started = lv_tick_get();
+}
+static void face_toggle(lv_event_t *e)
+{
+    (void)e;
+    hb_face_status state;
+    hb_face_get(&state);
+    if (hb_face_enable(!state.enabled) != ESP_OK)
+        form_error("Brak pamięci na zadanie AI.");
+    if (!state.enabled)
+    {
+        hb_camera_test_pattern(false);
+        preview_enabled = true;
+        preview_count = 0;
+        preview_started = lv_tick_get();
+    }
 }
 static void local_camera(lv_event_t *e)
 {
@@ -566,7 +591,9 @@ static void local_camera(lv_event_t *e)
     camera_info_tick = 0;
     button(page, "Podgląd wł. / wył.", 24, 70, 250, preview_toggle, NULL);
     button(page, "Test kolorów", 290, 70, 220, pattern_toggle, NULL);
-    button(page, "Wygaszacz UBox", 500, 405, 270, close_menu, NULL);
+    lv_obj_t *face_button = button(page, "Test twarzy", 526, 70, 244, face_toggle, NULL);
+    face_label = lv_obj_get_child(face_button, 0);
+    button(page, "Wygaszacz UBox", 500, 425, 270, close_menu, NULL);
     preview_pixels = heap_caps_malloc(180 * 318 * 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (preview_pixels)
     {
@@ -578,6 +605,16 @@ static void local_camera(lv_event_t *e)
         lv_obj_set_pos(camera_photo, 120, 125);
         lv_img_set_src(camera_photo, &camera_image);
         lv_obj_add_flag(camera_photo, LV_OBJ_FLAG_HIDDEN);
+    }
+    for (unsigned i = 0; i < HB_FACE_MAX; i++)
+    {
+        face_boxes[i] = lv_obj_create(page);
+        lv_obj_set_style_bg_opa(face_boxes[i], LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_color(face_boxes[i], lv_color_hex(0x33ff77), 0);
+        lv_obj_set_style_border_width(face_boxes[i], 2, 0);
+        lv_obj_set_style_radius(face_boxes[i], 0, 0);
+        lv_obj_clear_flag(face_boxes[i], LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(face_boxes[i], LV_OBJ_FLAG_HIDDEN);
     }
     camera_info = label(page, "Oczekiwanie na kamerę", LV_ALIGN_TOP_LEFT, 430, 130);
     lv_obj_set_width(camera_info, 345);
@@ -787,6 +824,39 @@ static void camera_brightness_update(void)
             }
         }
     }
+    if (face_label)
+    {
+        hb_face_status face;
+        hb_face_get(&face);
+        char caption[80];
+        if (face.error != ESP_OK)
+            snprintf(caption, sizeof(caption), "%s",
+                     face.error == ESP_ERR_NO_MEM ? "AI: brak pamięci" : "AI: błąd");
+        else if (!face.enabled)
+            snprintf(caption, sizeof(caption), "Test twarzy");
+        else if (!face.ready)
+            snprintf(caption, sizeof(caption), "AI: start...");
+        else if (!hb_face_fresh(&face, now))
+            snprintf(caption, sizeof(caption), "AI: czekam...");
+        else
+            snprintf(caption, sizeof(caption), "Twarze: %u / %u ms", (unsigned)face.count,
+                     (unsigned)(face.inference_us / 1000));
+        if (strcmp(lv_label_get_text(face_label), caption))
+            lv_label_set_text(face_label, caption);
+        bool visible = preview_enabled && !camera.test_pattern && hb_face_fresh(&face, now);
+        for (unsigned i = 0; i < HB_FACE_MAX; i++)
+        {
+            if (visible && i < face.count)
+            {
+                hb_face_box b = face.boxes[i];
+                lv_obj_set_pos(face_boxes[i], 120 + b.x1, 125 + b.y1);
+                lv_obj_set_size(face_boxes[i], b.x2 - b.x1 + 1, b.y2 - b.y1 + 1);
+                lv_obj_clear_flag(face_boxes[i], LV_OBJ_FLAG_HIDDEN);
+            }
+            else
+                lv_obj_add_flag(face_boxes[i], LV_OBJ_FLAG_HIDDEN);
+        }
+    }
     if (brightness_info)
     {
         if (brightness_editor.mode == HB_BRIGHT_OVERRIDE && current.mode != HB_BRIGHT_OVERRIDE)
@@ -958,7 +1028,7 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.3.3-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware 0.4.0-dev\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
                  service_state[0], service_state[1], service_state[2],

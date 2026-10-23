@@ -28,6 +28,11 @@ for source_name, name in [
     ("components/camera/vendor/SOURCE.md", "licenses/GUITION-camera-source.md"),
     ("components/esp_driver_cam/SOURCE.md", "licenses/IDF-CSI-adapter-source.md"),
     ("assets/fonts/OFL-NotoSans.txt", "licenses/NotoSans-OFL.txt"),
+    ("components/face/vendor/ESP-DL-MIT.txt", "licenses/ESP-DL-MIT.txt"),
+    ("components/face/vendor/Human-Face-MIT.txt", "licenses/Human-Face-MIT.txt"),
+    ("components/face/vendor/DL-FFT-MIT.txt", "licenses/DL-FFT-MIT.txt"),
+    ("components/face/vendor/ESP-New-JPEG.txt", "licenses/ESP-New-JPEG.txt"),
+    ("components/face/vendor/SOURCE.md", "licenses/Face-source.md"),
     ("dependencies.lock", "dependencies.lock"),
 ]:
     target = output / name

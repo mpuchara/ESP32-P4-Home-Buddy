@@ -78,3 +78,12 @@ without disturbing UBox. A separate 100ms brightness worker owns existing PWM;
 calibration/modes persist only on explicit config-worker saves in hb_display,
 independent from existing main/weather records. See LOCAL_CAMERA.md and BRIGHTNESS.md
 for metadata, memory, failure boundaries and acceptance limits.
+
+## Diagnostic face consumer,0.4.0-dev
+
+One lazy face worker consumes camera leases, preprocesses an upright4:3 RGB565
+canvas and runs pinned local MSR/MNP. UI only selects the diagnostic and displays
+bounded/expiring box metadata. The worker releases source leases before inference
+and frees model/input on exit. A compute-budget mutex serializes expensive model
+work and JPEG decode outside LVGL. See FACE_DETECTION.md for admission limits and
+failure limitations. No local identities, remote inference or new persistence.

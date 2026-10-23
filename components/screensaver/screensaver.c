@@ -3,11 +3,12 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "hb_compute_budget.h"
 #include "hb_dashboard.h"
 #include "hb_image.h"
 #include <stdlib.h>
 #include <string.h>
-esp_err_t hb_image_decode(const uint8_t *data, size_t n, uint16_t **pixels)
+static esp_err_t decode(const uint8_t *data, size_t n, uint16_t **pixels)
 {
     uint16_t w = 0, h = 0;
     uint32_t stride, rows;
@@ -69,4 +70,16 @@ done:
     free(input);
     jpeg_del_decoder_engine(decoder);
     return e;
+}
+
+esp_err_t hb_image_decode(const uint8_t *data, size_t n, uint16_t **pixels)
+{
+    if (!pixels)
+        return ESP_ERR_INVALID_ARG;
+    *pixels = NULL;
+    if (!hb_compute_enter(1000))
+        return ESP_ERR_TIMEOUT;
+    esp_err_t result = decode(data, n, pixels);
+    hb_compute_leave();
+    return result;
 }

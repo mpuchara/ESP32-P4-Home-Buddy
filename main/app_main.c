@@ -11,6 +11,7 @@
 #include "hb_board.h"
 #include "hb_brightness_service.h"
 #include "hb_camera.h"
+#include "hb_compute_budget.h"
 #include "hb_config.h"
 #include "hb_services.h"
 #include "hb_ubox.h"
@@ -24,6 +25,7 @@ static const char *TAG = "home_buddy";
 
 void app_main(void)
 {
+    hb_compute_start();
     esp_chip_info_t chip;
     esp_chip_info(&chip);
     uint32_t flash = 0;

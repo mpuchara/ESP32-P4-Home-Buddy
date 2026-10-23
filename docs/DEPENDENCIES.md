@@ -62,3 +62,12 @@ The native CSI adapter requires the exact pinned IDF source hash and applies onl
 output DMA length/cache invalidation corrections in the build directory. It adds
 no registry dependency or external runtime; source/Apache receipt is distributed
 with packages. See components/esp_driver_cam/SOURCE.md.
+
+## Experimental face diagnostic pins
+
+ESP-DL3.3.14, human_face_detect0.5.1, DL-FFT0.8.0 and ESP-New-JPEG1.0.2 are in the
+lockfile. Main direct dependencies use exact versions. Existing board/LVGL/C6 pins
+are unchanged. Model hashes, source commits and retained licenses are documented
+in components/face/vendor/SOURCE.md. ESP-New-JPEG permission is Espressif-product
+restricted; do not label it unqualified MIT. Model rodata is built into the P4 app.
+Compatibility is being tested on IDF5.5.1/rev1; upstream timing is not our result.
