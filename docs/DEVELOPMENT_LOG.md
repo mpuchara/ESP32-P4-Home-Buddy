@@ -533,3 +533,15 @@ https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39899761414
 Documentation-only verification receipt follows with [skip ci]. PR1 stays draft
 and unmerged. Real day/night save/reboot/AUTO transitions remain acceptance items;
 full-size UBox visual acceptance is now operator-confirmed.
+
+## 0.3.3 operator calibration follow-up, 2026-10-23
+
+Operator confirmed Kalibruj noc saved a comfortable night level without error.
+The form showed MANUAL, as designed for live slider selection. A second day/test
+anchor was saved using a flashlight; after selecting AUTO, the display visibly
+dimmed in the still-dark room. This physically accepts night-save,
+two-anchor save workflow and AUTO dimming for those test anchors. The flashlight
+point is provisional, not representative daytime calibration. Actual daytime
+anchor, explicitly persisted AUTO mode and physical restart restore remain to be
+verified. No firmware/configuration write was performed by the agent for this
+receipt; operator-selected values remain unchanged. Documentation-only [skip ci].

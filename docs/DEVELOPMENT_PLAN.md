@@ -52,3 +52,11 @@ on0.3.2-dev. Full-size visual/repeated-replacement acceptance, real day/night
 anchors/reboot persistence, injected camera recovery and cold-power/72h tests
 remain pending. Camera pool/recovery regression now joins8host suites; all CI
 profiles pass for implementation19e88f0. No model/inference milestone is claimed.
+
+## Brightness acceptance update, 2026-10-23
+
+Night-anchor save and AUTO dimming were operator-confirmed on0.3.3-dev after a
+second flashlight test anchor was saved. Repeat the day point under representative
+daytime lighting and explicitly save AUTO. Physical reboot restore, changing-light
+stability and extended soak remain pending; do not treat the flashlight as final
+daytime acceptance.

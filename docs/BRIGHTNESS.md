@@ -80,4 +80,8 @@ numbers are normal in the logarithmic relative scale; a larger/less-negative val
 means more inferred light. Unavailable/stale readings show text without fake0.000.
 Very dark conditions cannot be distinguished from an obstructed lens using these
 pixels alone; keep the camera uncovered. Filtering/rate limits remain active.
-Existing anchors/schema are unchanged. Physical night save/restore is still pending.
+Existing anchors/schema are unchanged. Operator confirmed physical night-anchor
+save, a second test anchor made with a flashlight, and AUTO dimming in darkness.
+MANUAL during calibration is intentional for immediate slider preview. The flashlight
+day point is provisional; repeat it in normal daytime lighting. Select AUTO and
+explicitly save for mode persistence. Physical reboot restore remains unverified.
