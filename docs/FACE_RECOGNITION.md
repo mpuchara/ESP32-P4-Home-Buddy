@@ -102,9 +102,9 @@ redundant. Invalid geometry/no face/multiple faces are rejected. Use small head
 turns, glasses and varied lighting; the sample count/diversity rule is an initial
 engineering choice, not an established optimum. Verification requires three
 matching staged templates and rejects a conflict with a different stored person.
-Cancellation leaves committed templates unchanged. A new successful enrollment
-replaces the previous template set atomically in RAM; 'add samples' means a new
-complete diverse session, not an unlimited append operation.
+Cancellation leaves committed templates unchanged. An additional-samples session starts with the committed templates in staging,
+adds diverse new samples up to the 15-template bound, then verifies and commits
+the complete set atomically in RAM. Cancellation never changes the committed set.
 
 Menu -> Rozpoznawanie twarzy shows the exact inference preview/ROI/landmarks,
 quality measurements, candidate versus confirmation, top person and different-person

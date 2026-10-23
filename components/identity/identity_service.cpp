@@ -358,10 +358,8 @@ static void worker(void *)
             case HB_ID_CMD_BEGIN:
                 capture = verify = false;
                 state.sequence = 0;
-                memset(enrollment, 0, sizeof(*enrollment));
-                if (hb_id_find(database, c.person_id))
+                if (hb_id_enroll_begin(database, enrollment, c.person_id))
                 {
-                    enrollment->target_id = c.person_id;
                     state.mode = HB_ID_ENROLL;
                     until = now_ms() + 600000;
                     message(state, "Rejestracja w RAM: pobierz 8-15 różnych próbek");

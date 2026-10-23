@@ -8,7 +8,8 @@ through rename/delete of other entries during this RAM database's lifetime;
 profiles themselves do not survive reboot. Deleted IDs are not reassigned when
 an array slot is reused. A model namespace is checked before matching/mutation.
 
-Pending templates live in separate staging. Verification plus explicit save commits
+Pending templates live in separate staging. Additional-sample sessions copy the
+committed set into staging before appending, up to 15 templates total. Verification plus explicit save commits
 the complete set together in the single owner worker. Cancel/failed verification
 leaves committed vectors unchanged. Delete clears the whole person's entry.
 

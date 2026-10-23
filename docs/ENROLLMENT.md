@@ -10,9 +10,9 @@
 6. Explicitly confirm saving. Cancellation leaves the prior committed set intact.
 
 Samples are locally generated MBF vectors; no PC, cloud, phone app or photo file
-is used. All data is RAM-only and disappears after restart. A repeated session
-replaces the complete prior set only after new verification and confirmation;
-it does not append indefinitely. Duplicate similarity >0.995 and sample counts
+is used. All data is RAM-only and disappears after restart. A repeated session copies the existing set into staging and adds diverse new
+samples up to 15 total, committing only after fresh verification and confirmation.
+Cancellation leaves the existing samples intact. Duplicate similarity >0.995 and sample counts
 are initial engineering settings, awaiting camera calibration.
 
 Rename preserves the ID; delete requires a separate deliberate confirmation and

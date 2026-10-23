@@ -45,6 +45,8 @@ extern "C"
         unsigned count;
         hb_id_embedding templates[HB_ID_TEMPLATES];
         uint64_t last_greeting_ms;
+        uint32_t last_sample_sequence;
+        uint64_t last_sample_ms;
     } hb_id_person;
     typedef struct
     {
@@ -110,6 +112,7 @@ extern "C"
                        const hb_id_policy *policy);
     bool hb_id_enroll_sample(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
                              bool alignment, uint32_t seq, uint64_t ms);
+    bool hb_id_enroll_begin(hb_id_database *db, hb_id_enrollment *en, uint64_t person_id);
     bool hb_id_enroll_verify(hb_id_enrollment *en, const hb_id_embedding *e, uint32_t seq,
                              uint64_t ms, const hb_id_policy *policy);
     bool hb_id_enroll_commit(hb_id_database *db, hb_id_enrollment *en);

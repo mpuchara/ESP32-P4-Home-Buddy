@@ -382,6 +382,24 @@ bool hb_id_confirm(hb_id_tracker *t, hb_id_match m, uint32_t session, uint32_t s
         ++t->hits;
     return t->hits >= p->confirmations;
 }
+bool hb_id_enroll_begin(hb_id_database *db, hb_id_enrollment *en, uint64_t id)
+{
+    if (!en)
+        return false;
+    memset(en, 0, sizeof(*en));
+    hb_id_person *person = hb_id_find(db, id);
+    if (!person || person->count > HB_ID_TEMPLATES)
+        return false;
+    for (unsigned i = 0; i < person->count; ++i)
+        if (!hb_id_embedding_valid(&person->templates[i]))
+            return false;
+    en->target_id = id;
+    en->count = person->count;
+    en->last_sequence = person->last_sample_sequence;
+    en->last_ms = person->last_sample_ms;
+    memcpy(en->samples, person->templates, person->count * sizeof(hb_id_embedding));
+    return true;
+}
 bool hb_id_enroll_sample(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
                          bool alignment, uint32_t seq, uint64_t ms)
 {
@@ -426,6 +444,8 @@ bool hb_id_enroll_commit(hb_id_database *db, hb_id_enrollment *en)
     // Commit all samples together. Cancellation before this call leaves existing templates intact.
     memcpy(p->templates, en->samples, en->count * sizeof(hb_id_embedding));
     p->count = en->count;
+    p->last_sample_sequence = en->last_sequence;
+    p->last_sample_ms = en->last_ms;
     memset(en, 0, sizeof(*en));
     return true;
 }

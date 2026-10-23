@@ -165,10 +165,19 @@ static void enrollment(void)
     uint64_t id = en->target_id;
     assert(hb_id_enroll_commit(db, en));
     assert(hb_id_find(db, id)->count == 8 && !en->count);
-    en->target_id = id;
+    assert(hb_id_enroll_begin(db, en, id));
+    assert(en->count == 8 && en->last_sequence == 8);
+    assert(!hb_id_enroll_sample(en, &e, 1, true, 10, 10000)); // existing template stays redundant
+    e = vector(0, 0.95f);
+    e.v[1] = 0;
+    e.v[9] = sqrtf(1 - 0.95f * 0.95f);
     assert(hb_id_enroll_sample(en, &e, 1, true, 10, 10000));
-    memset(en, 0, sizeof(*en)); // cancel leaves committed database intact
-    assert(hb_id_find(db, id)->count == 8);
+    assert(en->count == 9 && hb_id_find(db, id)->count == 8);
+    memset(en, 0, sizeof(*en)); // cancel append leaves committed templates intact
+    assert(hb_id_enroll_begin(db, en, id) && en->count == 8);
+    assert(hb_id_enroll_sample(en, &e, 1, true, 11, 11000));
+    assert(hb_id_enroll_verify(en, &e, 12, 12000, &policy));
+    assert(hb_id_enroll_commit(db, en) && hb_id_find(db, id)->count == 9);
     assert(hb_id_delete(db, id));
     assert(!hb_id_enroll_commit(db, en));
     free(en);
