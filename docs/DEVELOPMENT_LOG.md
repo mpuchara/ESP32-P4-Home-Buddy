@@ -442,3 +442,26 @@ package jobs. https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39842
 Package hashes were rechecked. Documentation-only receipt follows with [skip ci].
 PR1 remains draft/unmerged; real two-anchor calibration, physical reboot persistence,
 cold-power and extended stability/72-hour acceptance are still pending.
+
+## Operator acceptance, 2026-10-23
+
+Operator confirmed that0.3.1-dev temporary brightness returned to AUTO after the
+five-minute interval on the physical unit. The reply did not separately confirm
+editing Pomiar/Przejscie after expiry; retain that physical check as pending.
+Real day/night anchors, reboot persistence and extended stability remain pending.
+
+## 0.3.2-dev camera recovery hardening
+
+On successful driver stop, invalidate the published latest frame and abort pending
+writers while retaining external reader leases. A restart cannot hand new readers
+a pre-recovery frame. Existing consumers may release safely; their storage stays
+ineligible for DMA while held. Failed-length/duplicate completion does not count
+as a published frame. The CSI adapter remains mandatory; the pinned SDK reports
+configured completion size, so these checks alone do not detect every corrupt
+hardware/MIPI payload.
+
+Extract the owner's3s progress watchdog and5..300s retry policy for deterministic
+host fault testing. Thirty seconds of continued frame progress restores5s retry.
+A quarantined driver is visibly marked RESTART; planned retries are not claimed
+when driver lifetime is uncertain. Original capture buffers, raw orientation,
+local light, backlight anchors and UBox/Open-Meteo remain independent.

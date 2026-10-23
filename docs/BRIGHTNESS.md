@@ -58,4 +58,6 @@ admission, no flash writes during control ticks, expiry and stale edits/saves.
 This emulates storage/task boundaries; it does not prove real NVS rollback on
 commit error, physical flash durability, concurrency or an actual board reboot.
 After any reported save failure the user must retry intentionally and verify.
-Real two-anchor calibration and physical restart/expiry acceptance remain pending.
+Operator confirmed physical return to AUTO after five minutes on2026-10-23.
+Post-expiry option edits, real two-anchor calibration and physical restart
+persistence remain pending.

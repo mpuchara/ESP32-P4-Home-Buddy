@@ -65,3 +65,21 @@ bool hb_frame_release(hb_frame_pool *p, hb_frame_lease l)
     s->references--;
     return true;
 }
+
+bool hb_frame_complete(hb_frame_pool *p, int slot, size_t received, size_t expected)
+{
+    if (!expected || received != expected)
+    {
+        hb_frame_abort(p, slot);
+        return false;
+    }
+    return hb_frame_publish(p, slot);
+}
+void hb_frame_pool_stop(hb_frame_pool *p)
+{
+    if (p->latest >= 0)
+        p->slot[p->latest].references--;
+    p->latest = -1;
+    for (int i = 0; i < HB_CAMERA_SLOTS; i++)
+        hb_frame_abort(p, i);
+}

@@ -732,9 +732,10 @@ static void camera_brightness_update(void)
                      "%u\nEkspozycja: ~%.0f us\nGain: %.2f / %.2f\nŚwiatło: %s %.3f\nPodgląd: %.1f "
                      "FPS\nPSRAM: %u B\n%s",
                      camera.sensor_id,
-                     camera.test_pattern ? "TEST"
-                     : camera.running    ? "OK"
-                                         : "brak",
+                     camera.quarantined    ? "RESTART"
+                     : camera.test_pattern ? "TEST"
+                     : camera.running      ? "OK"
+                                           : "brak",
                      camera.width, camera.height, (double)camera.fps, (unsigned)camera.frames,
                      (unsigned)camera.errors, (unsigned)camera.dropped, (double)camera.exposure_us,
                      (double)camera.analogue_gain, (double)camera.digital_gain,
@@ -947,7 +948,7 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.3.1-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware 0.3.2-dev\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
                  service_state[0], service_state[1], service_state[2],

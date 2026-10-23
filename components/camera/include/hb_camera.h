@@ -21,13 +21,14 @@ typedef struct
 {
     uint16_t sensor_id;
     unsigned width, height;
-    uint32_t frames, dropped, errors, restarts;
+    uint32_t frames, dropped, errors, restarts, retry_seconds;
     float fps, exposure_us, analogue_gain, digital_gain;
     uint64_t light_ms;
     hb_light_reading light;
     esp_err_t error;
     bool running;
     bool test_pattern;
+    bool quarantined;
 } hb_camera_status;
 esp_err_t hb_camera_start(void);
 void hb_camera_get_status(hb_camera_status *status);

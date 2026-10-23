@@ -9,6 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "hb_camera.h"
+#include "hb_camera_health.h"
 #include "hb_raw_frame.h"
 #include "vendor/ov02c10_mode.h"
 #include <math.h>
@@ -58,9 +59,8 @@ static bool next_buffer(esp_cam_ctlr_handle_t handle, esp_cam_ctlr_trans_t *tran
     {
         trans->buffer = storage[i];
         trans->buflen = FRAME_BYTES;
-        // IDF 5.5.1 invalidates received_size BEFORE filling it on completion.
-        // Supplying the known full-frame length prevents stale CPU cache reads.
-        trans->received_size = FRAME_BYTES;
+        // The pinned CSI adapter invalidates the full output buffer on completion.
+        trans->received_size = 0;
     }
     // If all slots are leased, IDF uses its own bounded discard buffer.
     portEXIT_CRITICAL_ISR(&lock);
@@ -74,15 +74,13 @@ static bool finished(esp_cam_ctlr_handle_t handle, esp_cam_ctlr_trans_t *trans, 
     for (int i = 0; i < HB_CAMERA_SLOTS; i++)
         if (trans->buffer == storage[i])
         {
-            if (trans->received_size == FRAME_BYTES)
+            if (hb_frame_complete(&pool, i, trans->received_size, FRAME_BYTES))
             {
                 frame_time[i] = (uint64_t)esp_timer_get_time() / 1000;
                 frame_seq[i] = ++status.frames;
-                hb_frame_publish(&pool, i);
             }
             else
             {
-                hb_frame_abort(&pool, i);
                 status.errors++;
             }
             break;
@@ -240,6 +238,8 @@ static void stop_driver(void)
     portENTER_CRITICAL(&lock);
     status.running = false;
     status.light.valid = false;
+    status.test_pattern = false;
+    status.fps = 0;
     portEXIT_CRITICAL(&lock);
     if (sensor)
         write_reg(0x0100, 0);
@@ -263,20 +263,19 @@ static void stop_driver(void)
     isp_enabled = false;
     // Keep the three allocations stable across recovery: consumers may still hold leases.
     portENTER_CRITICAL(&lock);
-    for (int i = 0; i < HB_CAMERA_SLOTS; i++)
-        hb_frame_abort(&pool, i);
+    hb_frame_pool_stop(&pool);
     portEXIT_CRITICAL(&lock);
 }
 static void worker(void *arg)
 {
     (void)arg;
-    unsigned backoff = 5;
+    hb_camera_health health;
+    hb_camera_health_init(&health);
     bool startup_pattern = true;
     for (;;)
     {
         esp_err_t e = initialize();
-        uint64_t started = (uint64_t)esp_timer_get_time() / 1000, last_frame = started,
-                 last_light = 0;
+        uint64_t started = (uint64_t)esp_timer_get_time() / 1000, last_light = 0;
         uint64_t last_control = 0, changed = started;
         bool pattern = false;
         bool pattern_reported = false;
@@ -284,8 +283,10 @@ static void worker(void *arg)
         portENTER_CRITICAL(&lock);
         base_sequence = status.frames;
         status.error = e;
+        status.retry_seconds = 0;
         portEXIT_CRITICAL(&lock);
-        uint32_t sequence = 0;
+        hb_camera_health_start(&health, started, base_sequence);
+        uint32_t sequence = base_sequence;
         while (e == ESP_OK)
         {
             uint64_t now = (uint64_t)esp_timer_get_time() / 1000;
@@ -310,11 +311,7 @@ static void worker(void *arg)
             hb_camera_frame frame = {0};
             if (hb_camera_acquire(&frame))
             {
-                if (frame.sequence != sequence)
-                {
-                    last_frame = now;
-                    sequence = frame.sequence;
-                }
+                sequence = frame.sequence;
                 if (pattern && !pattern_reported && frame.timestamp_ms >= changed + 200)
                 {
                     // Numeric synthetic-pattern diagnostics only; never log a room frame.
@@ -419,26 +416,31 @@ static void worker(void *arg)
                 }
                 hb_camera_release(&frame);
             }
-            if (now - last_frame > 3000)
+            if (e == ESP_OK && hb_camera_health_timeout(&health, now, sequence))
                 e = ESP_ERR_TIMEOUT;
             vTaskDelay(pdMS_TO_TICKS(100));
         }
         portENTER_CRITICAL(&lock);
         status.error = e;
         status.errors++;
-        status.restarts++;
         portEXIT_CRITICAL(&lock);
-        ESP_LOGW("camera", "capture unavailable: %s; retry in %us", esp_err_to_name(e), backoff);
         stop_driver();
         if (isp_quarantined)
         {
+            portENTER_CRITICAL(&lock);
+            status.quarantined = true;
+            portEXIT_CRITICAL(&lock);
             ESP_LOGE("camera", "Driver lifetime uncertain; camera quarantined until reboot; "
                                "dashboard/manual brightness remain available");
             vTaskDelete(NULL);
         }
+        uint32_t backoff = hb_camera_health_retry(&health);
+        portENTER_CRITICAL(&lock);
+        status.retry_seconds = backoff;
+        status.restarts++;
+        portEXIT_CRITICAL(&lock);
+        ESP_LOGW("camera", "capture unavailable: %s; retry in %us", esp_err_to_name(e), backoff);
         vTaskDelay(pdMS_TO_TICKS(backoff * 1000));
-        if (backoff < 300)
-            backoff = backoff > 150 ? 300 : backoff * 2;
     }
 }
 esp_err_t hb_camera_start(void)

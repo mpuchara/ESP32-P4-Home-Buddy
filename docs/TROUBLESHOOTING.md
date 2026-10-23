@@ -30,3 +30,8 @@
 * AUTO disabled: calibrate two valid points at least0.5 relative stops apart.
   Rejected/old samples cannot calibrate. A camera fault holds last safe brightness;
   use MANUAL at any time. Calibration NVS is separate, never erase Wi-Fi/weather.
+
+* Camera ID status RESTART: an uncertain native driver lifetime has quarantined
+  camera resources. Manual brightness remains available; a board reboot is needed
+  to retry this state. Ordinary3s capture timeouts retry with bounded backoff.
+  Keep physical fault recovery acceptance separate from host pool/policy tests.

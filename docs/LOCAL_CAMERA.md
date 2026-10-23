@@ -136,3 +136,25 @@ with the device used in landscape. Black target subtraction precedes preview whi
 The light metric uses linear channels before either display operation. Synthetic
 quadrants verify rotation direction and unchanged source data. This is a bounded
 2x2 demosaic, not a calibrated photographic ISP or an AI accuracy measurement.
+
+## Recovery admission (0.3.2-dev)
+
+After successful DMA/controller shutdown, stop invalidates the published latest
+frame and aborts pending writers without invalidating externally held leases.
+After restart, a new acquisition waits for a new completed frame. Previously
+acquired buffers remain immutable and must still be released; held slots are not
+reused. If all readers hold frames, the bounded discard path remains available.
+Length-invalid or duplicate completions cannot advance the published counter.
+The SDK reports configured output size, so this is not payload integrity proof.
+
+The owner watchdog detects3s without sequence progress; repeated init/timeouts
+retry after5,10,20,40,80,160,300s (then300s). Thirty seconds of ongoing frame
+progress restores the initial5s retry. Uncertain ISP/cleanup lifetime still
+quarantines the camera until board reboot; diagnostics marks RESTART and does not
+advertise another camera retry. Manual brightness and dashboard stay independent.
+
+Host regressions cover invalid/duplicate completion, old-publication invalidation,
+held readers across shutdown/reuse/saturation,10,000 stop/publish/release cycles,
+frozen-frame timeout, counter wrap and bounded/healthy-reset backoff. These tests
+exercise the pool and owner policy, not physical CSI/ISP teardown or injected
+hardware faults. Do not disconnect a powered camera merely to create evidence.

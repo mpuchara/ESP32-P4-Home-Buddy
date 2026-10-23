@@ -72,3 +72,13 @@ else()
  target_link_libraries(test_brightness_service PRIVATE m)
 endif()
 add_test(NAME brightness_service COMMAND test_brightness_service)
+
+add_executable(test_camera_recovery test_camera_recovery.c
+ ../components/camera/frame_pool.c ../components/camera/camera_health.c)
+target_include_directories(test_camera_recovery PRIVATE ../components/camera/include)
+if(MSVC)
+ target_compile_options(test_camera_recovery PRIVATE /W4 /WX)
+else()
+ target_compile_options(test_camera_recovery PRIVATE -Wall -Wextra -Werror)
+endif()
+add_test(NAME camera_recovery COMMAND test_camera_recovery)
