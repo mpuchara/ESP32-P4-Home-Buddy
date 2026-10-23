@@ -12,7 +12,7 @@ Physical acceptance cannot be inferred from successful compilation.
 | 4 | Exact camera driver, frame capture, illumination metric, two-anchor calibration | OV02C10 ID and ~30fps capture verified; RAW8 colors/detail/upright operator-confirmed; real calibration and stability pending |
 | 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | 0.4.2 ESPDet416 detection is operator-accepted as more stable (700-800ms), including reopen. Alignment/embeddings/enrollment remain pending |
 | 6 | ES8311/PCM/VAD, local speaker embeddings and on-device enrollment | Pending |
-| 7 | Temporal fusion, greetings, independent cooldowns, MQTT Discovery/events/HA examples | 0.4.3 page-scoped face presence diagnostic; fusion, identity/greeting/events remain pending |
+| 7 | Temporal fusion, greetings, independent cooldowns, MQTT Discovery/events/HA examples | 0.4.3 page-scoped presence transitions/layout operator-accepted; fusion, identity/greeting/events remain pending |
 | 8 | Secure persistent storage, migrations, deletion, OTA/recovery | Pending |
 | 9 | Profiling, fault injection, reconnect, recovery and 72-hour physical soak | Pending |
 

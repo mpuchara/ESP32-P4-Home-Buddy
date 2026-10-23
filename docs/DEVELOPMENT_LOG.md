@@ -674,3 +674,31 @@ No persistent records, identities, greetings, background AI or HA events.
 
 Initial local10/10 host suites, Python3/3 and format checks pass. Physical transition
 behavior/layout and firmware build/CI are pending; no occupancy accuracy claim.
+
+
+## 0.4.3 build/boot verification receipt, 2026-10-23
+
+Implementation7cc3c7d66092c78f7503c22aae301130e8dc271a passes all four CI jobs:
+Linux host10suites; diagnostics/bringup/wifi clean build/config/package.
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39926305385
+All three local profiles and effective configurations pass: diagnostics0x378d0,
+bringup0x3a11d0, wifi0x3ea9d0 bytes, unchanged6MiB slots. Python3/3, formatting,
+whitespace and GCC -Wall -Wextra -Werror temporal policy tests pass. Dependency
+lock unchanged. Public-only dist/iteration4-presence-043{,-bringup,-diagnostics}
+packages retain licenses and60 verified hashes. Final Wi-Fi app SHA256:
+70f8c1f16e54fe73464fddf0a91c39c8286a3f652b42747529d13cb545d397a0.
+
+This image was flashed/hash-verified on COM5 and reset. Boot confirms0.4.3-dev,
+Wi-Fi association and camera around30fps. Passive samples show cached UBox304
+accepted and idle PSRAM26,723,652/largest23,592,960 bytes. No active face/presence
+session was captured in these passive samples. After the build/boot checks, the
+operator explicitly confirms the requested workflow: two detections -> TAK,
+brief turn/miss tolerated, leaving the frame for>5s -> NIE, return -> TAK, and
+readable new labels. This physically accepts those transitions and layout; exact
+hardware boundary timing, longer inference/cleanup and repeated sessions on0.4.3
+remain separate checks. The30s inactivity timeout remains.
+Do not infer labelled occupancy accuracy from temporal host tests.
+
+No continuous background detector, identity, enrollment, HA event or automatic
+greeting; no C6/bridge/settings-schema/calibration change. PR1 remains draft and
+unmerged. This is a documentation-only receipt [skip ci].

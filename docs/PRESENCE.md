@@ -56,3 +56,12 @@ actual Home Assistant automation, validate representative lighting/occlusion,
 labelled false-positive/negative cases, availability and a deliberate event policy.
 Household identification still requires alignment/embedding/enrollment; no identity
 or occupancy accuracy is inferred from this diagnostic.
+
+
+Final source7cc3c7d66092c78f7503c22aae301130e8dc271a: host10/10, Python3/3,
+all local profiles/configurations and four CI jobs pass (run39926305385). Image
+flashed/hash-verified on COM5; boot/camera/network are sampled with AI disabled.
+Operator subsequently confirms TAK, a tolerated brief miss, NIE after leaving
+for>5s, TAK on return and readable labels. These transitions/layout are physically
+accepted; exact timing boundaries, repeated sessions and long soak remain open. See the final0.4.3
+receipt in DEVELOPMENT_LOG.md; successful compilation is not physical acceptance.
