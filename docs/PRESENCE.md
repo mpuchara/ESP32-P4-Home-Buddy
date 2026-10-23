@@ -108,6 +108,8 @@ manual stop/release, repeat starts and actual10-minute expiry need hardware rece
 0.4.4 source299f7dd021efdce7eb557dbf55cf1bec9ee9a4db passes host11/11, all three
 local builds/configuration checks and four CI jobs39937908256. Final Wi-Fi image
 is flashed/hash-verified on COM5; boot,30fps capture and natural full-size UBox
-are sampled with monitoring inactive. Background behavior/stop/10-minute expiry
-are explicitly pending physical acceptance. Final artifact receipt is in
+are sampled with monitoring inactive. Operator subsequently confirms the countdown continues after more than20s on
+the saver and reopening, manual stop works and labels are readable. Automatic
+10-minute expiry, measured heap release and simultaneous model/full-size JPEG
+remain pending physical acceptance. Final artifact receipt is in
 DEVELOPMENT_LOG.md, including the superseding diagnostics-final package.

@@ -751,3 +751,17 @@ and confirm readable layout. Host deadline tests do not prove RTOS/device timing
 Default monitoring OFF, no persistent config/NVS/calibration/C6/bridge change,
 identity, HA event or automatic greeting. PR1 remains draft/unmerged. This is a
 documentation-only receipt [skip ci].
+
+
+## 0.4.4 operator background-trial follow-up, 2026-10-23
+
+Operator confirms starting the countdown, returning to the UBox screensaver for
+more than20s, reopening Obecnosc w tle with the countdown still running, then
+Zatrzymaj switching the trial off. All labels are readable. This physically
+accepts the bounded trial's survival across page/saver navigation,
+ongoing countdown display, manual stop UI and layout. The reply does not explicitly
+confirm presence accuracy during background operation, heap release or a new
+full-size JPEG decode concurrent with inference; do not infer those observations.
+Actual10-minute expiry, reboot default-OFF, repeat starts and longer combined
+stress remain pending. No firmware write/configuration change for this receipt.
+Documentation-only [skip ci]; existing code CI remains unchanged and green.
