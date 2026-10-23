@@ -66,6 +66,7 @@ static void scan(lv_event_t *e);
 static void close_page(void);
 static void update(lv_timer_t *timer);
 static lv_obj_t *camera_info, *camera_photo, *brightness_info, *pwm_info;
+static lv_obj_t *monitor_info;
 static lv_obj_t *face_label, *presence_label, *face_boxes[HB_FACE_MAX];
 static lv_img_dsc_t camera_image;
 static uint16_t *preview_pixels;
@@ -164,6 +165,7 @@ static void close_page(void)
 {
     hb_face_enable(false);
     face_label = NULL;
+    monitor_info = NULL;
     presence_label = NULL;
     memset(face_boxes, 0, sizeof(face_boxes));
     hb_camera_test_pattern(false);
@@ -558,6 +560,7 @@ static void preview_toggle(lv_event_t *e)
 static void pattern_toggle(lv_event_t *e)
 {
     (void)e;
+    hb_face_monitor(false);
     hb_face_enable(false);
     hb_camera_status camera;
     hb_camera_get_status(&camera);
@@ -571,15 +574,38 @@ static void face_toggle(lv_event_t *e)
     (void)e;
     hb_face_status state;
     hb_face_get(&state);
-    if (hb_face_enable(!state.enabled) != ESP_OK)
+    if (hb_face_enable(!state.diagnostic_enabled) != ESP_OK)
         form_error("Brak pamięci na zadanie AI.");
-    if (!state.enabled)
+    if (!state.diagnostic_enabled)
     {
         hb_camera_test_pattern(false);
         preview_enabled = true;
         preview_count = 0;
         preview_started = lv_tick_get();
     }
+}
+static void monitor_action(lv_event_t *e)
+{
+    bool enabled = (bool)(uintptr_t)lv_event_get_user_data(e);
+    if (enabled)
+        hb_camera_test_pattern(false);
+    if (hb_face_monitor(enabled) != ESP_OK)
+        form_error("Nie można uruchomić testu obecności.");
+}
+static void monitor_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Obecność: test pracy w tle");
+    button(page, "Uruchom 10 minut", 24, 70, 350, monitor_action, (void *)1);
+    button(page, "Zatrzymaj", 410, 70, 350, monitor_action, NULL);
+    monitor_info = label(page, "Test jest wyłączony", LV_ALIGN_TOP_LEFT, 24, 145);
+    lv_obj_set_width(monitor_info, 740);
+    label(page, "Test działa po wyjściu do wygaszacza. Restart kończy test.", LV_ALIGN_TOP_LEFT, 24,
+          350);
+    label(page, "Obecność na podstawie twarzy. Bez zapisu i wysyłania zdjęć.", LV_ALIGN_TOP_LEFT,
+          24, 385);
+    button(page, "Wygaszacz UBox", 500, 425, 270, close_menu, NULL);
+    lv_scr_load(page);
 }
 static void local_camera(lv_event_t *e)
 {
@@ -756,7 +782,7 @@ static void brightness_page(lv_event_t *e)
 }
 static void camera_brightness_update(void)
 {
-    if (!camera_info && !brightness_info)
+    if (!camera_info && !brightness_info && !monitor_info)
         return;
     if ((uint32_t)(lv_tick_get() - preview_tick) < 100)
         return;
@@ -827,6 +853,25 @@ static void camera_brightness_update(void)
             }
         }
     }
+    if (monitor_info)
+    {
+        hb_face_status face;
+        hb_face_get(&face);
+        const char *value = face.presence.value == HB_PRESENCE_PRESENT  ? "TAK"
+                            : face.presence.value == HB_PRESENCE_ABSENT ? "NIE"
+                            : face.presence.value == HB_PRESENCE_OFF    ? "wyłączona"
+                                                                        : "nieustalona";
+        char text[400];
+        unsigned seconds = (face.monitor_remaining_ms + 999) / 1000;
+        snprintf(text, sizeof(text),
+                 "Test w tle: %s\nPozostało: %u:%02u\nObecność: %s\nAnaliza: %u ms | %s\nPamięć "
+                 "PSRAM: %u MB",
+                 face.monitor_remaining_ms ? "WŁĄCZONY" : "wyłączony", seconds / 60, seconds % 60,
+                 value, (unsigned)(face.inference_us / 1000), esp_err_to_name(face.error),
+                 (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / (1024 * 1024)));
+        if (strcmp(lv_label_get_text(monitor_info), text))
+            lv_label_set_text(monitor_info, text);
+    }
     if (face_label)
     {
         hb_face_status face;
@@ -835,7 +880,7 @@ static void camera_brightness_update(void)
         if (face.error != ESP_OK)
             snprintf(caption, sizeof(caption), "%s",
                      face.error == ESP_ERR_NO_MEM ? "AI: brak pamięci" : "AI: błąd");
-        else if (!face.enabled)
+        else if (!face.diagnostic_enabled)
             snprintf(caption, sizeof(caption), "Test twarzy");
         else if (!face.ready)
             snprintf(caption, sizeof(caption), "AI: start...");
@@ -861,7 +906,8 @@ static void camera_brightness_update(void)
             snprintf(occupancy, sizeof(occupancy), "Obecność: %s", value);
         if (presence_label && strcmp(lv_label_get_text(presence_label), occupancy))
             lv_label_set_text(presence_label, occupancy);
-        bool visible = preview_enabled && !camera.test_pattern && hb_face_fresh(&face, now);
+        bool visible = preview_enabled && face.diagnostic_enabled && !camera.test_pattern &&
+                       hb_face_fresh(&face, now);
         for (unsigned i = 0; i < HB_FACE_MAX; i++)
         {
             if (visible && i < face.count)
@@ -1046,7 +1092,7 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.4.3-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware 0.4.4-dev\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
                  service_state[0], service_state[1], service_state[2],
@@ -1119,6 +1165,7 @@ static void screens(void)
     button(menu, "Test dotyku", 540, 136, 230, touch_test, NULL);
     button(menu, "Wyświetlacz", 24, 204, 230, brightness_page, NULL);
     button(menu, "Kamera lokalna", 282, 204, 230, local_camera, NULL);
+    button(menu, "Obecność w tle", 540, 204, 230, monitor_page, NULL);
     button(menu, "Skanuj Wi-Fi", 24, 290, 230, scan, NULL);
     button(menu, "System", 282, 290, 230, system_test, NULL);
     button(menu, "Powrót", 620, 410, 150, close_menu, NULL);

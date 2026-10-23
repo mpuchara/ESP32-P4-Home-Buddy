@@ -98,3 +98,13 @@ negative evidence. Publication checks the epoch under the same lock to prevent
 cancelled work entering a new session. The camera page displays stable presence
 separately from expiring boxes. See PRESENCE.md for two-hit/four-miss +5s rules.
 This diagnostic remains page-scoped; HA/identity/always-on integration is pending.
+
+
+## Background diagnostic owner, 0.4.4
+
+The face worker combines page demand with a RAM-only10-minute lease. Effective
+OFF/ON transitions own epoch reset and temporal reset; changing owners while
+continuously ON preserves evidence. Worker tick and locked publication expire
+leases without LVGL participation; reads never renew demand. Background-only
+start period1500ms, foreground500ms. No extra model/frame worker, persistence,
+network endpoint or HA event. Existing admission and JPEG serialization apply.

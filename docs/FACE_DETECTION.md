@@ -90,3 +90,9 @@ Final image was flashed/hash-verified on COM5. Operator confirms improved detect
 and successful reopening. Occasional waiting captions remain; these explicitly
 mean no fresh completed result, not a negative detection or a presence event.
 Long combined tests and identity/presence behavior remain future work.
+
+
+0.4.4 adds a separate explicit10-minute background diagnostic owner, described in
+PRESENCE.md. Closing the camera page now removes only foreground demand; a live
+background lease continues on the saver. Color-pattern selection cancels both.
+There is still one lazy model/input, no default-on monitoring or identity events.

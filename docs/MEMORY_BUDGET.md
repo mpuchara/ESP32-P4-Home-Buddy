@@ -127,3 +127,11 @@ additional image/model/history allocation. Existing worker stack, lazy resources
 JPEG serialization and all admission/delta guards are retained. Runtime overhead
 and combined long-run fragmentation remain to be measured, not inferred from
 host policy test speed.
+
+
+0.4.4 adds only scalar demand/countdown fields and one diagnostic LVGL page. The
+background test reuses the existing model/input/task without a second arena or
+frame. Lazy model/input stay allocated while either owner is active; page close
+frees preview widgets/buffer while retaining a live monitor's model. Existing
+admission and load-delta guards are unchanged. Combined natural JPEG allocations,
+expiry release and repeated requests need measured receipts.

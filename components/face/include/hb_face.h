@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 #include "esp_err.h"
+#include "hb_face_demand.h"
 #include "hb_presence.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -23,14 +24,17 @@ extern "C"
     } hb_face_box;
     typedef struct
     {
-        bool enabled, ready;
+        bool enabled, ready, diagnostic_enabled;
+        uint32_t monitor_remaining_ms;
         esp_err_t error;
         uint32_t sequence, inference_us, count;
         uint64_t frame_ms, completed_ms;
         hb_face_box boxes[HB_FACE_MAX];
         hb_presence_status presence;
     } hb_face_status;
+    // The page and bounded background test are independent owners of one worker.
     esp_err_t hb_face_enable(bool enabled);
+    esp_err_t hb_face_monitor(bool enabled);
     void hb_face_get(hb_face_status *status);
     // Pure admission and bounds helpers are also used by host regression tests.
     bool hb_face_admit(uint32_t psram_free, uint32_t psram_largest, uint32_t internal_free,

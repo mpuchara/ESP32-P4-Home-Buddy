@@ -21,9 +21,23 @@ static std::atomic<bool> requested{false}, started{false};
 static std::atomic<unsigned> epoch{0};
 static hb_face_status status{};
 static hb_presence_tracker presence{};
+static hb_face_demand demand{};
 static uint64_t now_ms()
 {
     return esp_timer_get_time() / 1000;
+}
+// Called under the status lock, including before publishing completed work.
+static void sync_demand(uint64_t now)
+{
+    hb_face_demand_expire(&demand, now);
+    bool active = hb_face_demand_active(&demand, now);
+    if (active != requested.load())
+    {
+        requested.store(active);
+        epoch.fetch_add(1);
+        status = {};
+        hb_presence_reset(&presence);
+    }
 }
 static bool admission(bool loading)
 {
@@ -35,8 +49,9 @@ static bool admission(bool loading)
 }
 static void fail(esp_err_t error)
 {
-    requested.store(false);
     portENTER_CRITICAL(&lock);
+    demand = {};
+    sync_demand(now_ms());
     hb_presence_reset(&presence);
     status.error = error;
     status.count = 0;
@@ -50,6 +65,10 @@ static void worker(void *)
     uint32_t last_sequence = 0;
     for (;;)
     {
+        portENTER_CRITICAL(&lock);
+        sync_demand(now_ms());
+        uint32_t period = hb_face_demand_period(&demand);
+        portEXIT_CRITICAL(&lock);
         if (!requested.load())
         {
             if ((model || pixels) && hb_compute_enter(0))
@@ -178,7 +197,10 @@ static void worker(void *)
                 result.boxes[result.count++] = b;
         }
         hb_presence_status occupancy{};
+        uint32_t monitor_left = 0;
+        bool diagnostic_owner = false;
         portENTER_CRITICAL(&lock);
+        sync_demand(now_ms());
         bool published = requested.load() && epoch.load() == ticket;
         if (published)
         {
@@ -186,44 +208,63 @@ static void worker(void *)
             hb_presence_observe(&presence, seq, stamp, result.completed_ms, result.count > 0,
                                 now_ms());
             occupancy = hb_presence_read(&presence, true, true, now_ms());
+            monitor_left = hb_face_demand_remaining(&demand, now_ms());
+            diagnostic_owner = demand.diagnostic;
         }
         portEXIT_CRITICAL(&lock);
         if (published)
         {
             ESP_LOGI("face",
                      "sequence=%u count=%u inference_us=%u psram=%u largest=%u dma=%u presence=%u "
-                     "hits=%u misses=%u",
+                     "hits=%u misses=%u diag=%u monitor_ms=%u period_ms=%u",
                      (unsigned)seq, (unsigned)result.count, (unsigned)result.inference_us,
                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
                      (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM),
                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA),
-                     (unsigned)occupancy.value, occupancy.hits, occupancy.misses);
+                     (unsigned)occupancy.value, occupancy.hits, occupancy.misses,
+                     (unsigned)diagnostic_owner, (unsigned)monitor_left, (unsigned)period);
         }
         last_sequence = seq;
         hb_compute_leave();
         // Keep start-to-start cadence; a slower model must not add a second idle gap.
         uint64_t elapsed = now_ms() - cycle_start;
-        vTaskDelay(pdMS_TO_TICKS(elapsed < 500 ? 500 - elapsed : 1));
+        vTaskDelay(pdMS_TO_TICKS(elapsed < period ? period - elapsed : 1));
     }
 }
-esp_err_t hb_face_enable(bool enabled)
+static esp_err_t ensure_worker(bool enabled)
 {
-    epoch.fetch_add(1);
-    requested.store(enabled);
-    portENTER_CRITICAL(&lock);
-    status = {};
-    hb_presence_reset(&presence);
-    portEXIT_CRITICAL(&lock);
     if (enabled && !started.exchange(true))
     {
         if (xTaskCreate(worker, "face_diagnostic", 8192, nullptr, 1, nullptr) != pdPASS)
         {
             started.store(false);
-            requested.store(false);
+            fail(ESP_ERR_NO_MEM);
             return ESP_ERR_NO_MEM;
         }
     }
     return ESP_OK;
+}
+esp_err_t hb_face_enable(bool enabled)
+{
+    portENTER_CRITICAL(&lock);
+    sync_demand(now_ms());
+    demand.diagnostic = enabled;
+    sync_demand(now_ms());
+    bool active = requested.load();
+    portEXIT_CRITICAL(&lock);
+    return ensure_worker(active);
+}
+esp_err_t hb_face_monitor(bool enabled)
+{
+    portENTER_CRITICAL(&lock);
+    sync_demand(now_ms());
+    bool valid = hb_face_demand_monitor(&demand, enabled, now_ms());
+    sync_demand(now_ms());
+    bool active = requested.load();
+    portEXIT_CRITICAL(&lock);
+    if (!valid)
+        return ESP_ERR_INVALID_ARG;
+    return ensure_worker(active);
 }
 void hb_face_get(hb_face_status *out)
 {
@@ -231,8 +272,11 @@ void hb_face_get(hb_face_status *out)
         return;
     portENTER_CRITICAL(&lock);
     *out = status;
-    out->enabled = requested.load();
+    uint64_t now = now_ms();
+    out->enabled = hb_face_demand_active(&demand, now);
+    out->diagnostic_enabled = demand.diagnostic;
+    out->monitor_remaining_ms = hb_face_demand_remaining(&demand, now);
     out->presence =
-        hb_presence_read(&presence, out->enabled, out->ready && out->error == ESP_OK, now_ms());
+        hb_presence_read(&presence, out->enabled, out->ready && out->error == ESP_OK, now);
     portEXIT_CRITICAL(&lock);
 }

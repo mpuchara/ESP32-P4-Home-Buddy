@@ -702,3 +702,23 @@ Do not infer labelled occupancy accuracy from temporal host tests.
 No continuous background detector, identity, enrollment, HA event or automatic
 greeting; no C6/bridge/settings-schema/calibration change. PR1 remains draft and
 unmerged. This is a documentation-only receipt [skip ci].
+
+
+## 0.4.4 bounded background diagnostic, 2026-10-23
+
+Continue clean6c7f12a. Iteration3 requires face processing to remain diagnostic,
+so add an explicit10-minute RAM-only background test, not default-on production
+presence or HA actions. A monotonic lease and independent page owner share one
+worker/model; close cancels page only. Effective demand transitions reset epoch
+and presence; uninterrupted ownership handoffs preserve them. Expiry is checked
+by worker and inside publication lock; status reads never renew it. Start after
+unprocessed expiry first clears old demand. Errors cancel both owners.
+
+Add Obecnosc w tle page with explicit start/stop, countdown and status. Keep saver
+unchanged. Background-only start period1500ms, foreground500ms; existing resource
+admission, compute mutex, image limits and calibration remain. Color test cancels
+both owners. Logs add scalar owner/countdown/period for physical verification.
+
+Local11/11 host suites, Python3/3 and format pass. face_demand covers ownership,
+exact expiry/renewal, default OFF, overflow and clock anomalies. Builds, CI,
+physical background inference/JPEG coexistence and expiry remain pending.

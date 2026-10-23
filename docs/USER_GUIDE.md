@@ -66,3 +66,12 @@ positive analyses. If analysis becomes unavailable for more than3s, expect
 nieustalona rather than NIE. Closing the page ends the diagnostic; reentry starts
 without saved presence. The30s menu inactivity timeout remains; touch an unused
 area to keep the page open during a longer test. No HA action is triggered.
+
+
+0.4.4 background trial: open Obecnosc w tle -> Uruchom10minut, then Wygaszacz UBox.
+Return to the same page to inspect countdown and presence. Zatrzymaj ends the
+background trial; simply returning to the menu does not. The trial expires after
+10min and is off after reboot. A new explicit start renews10min; page visits do not.
+A concurrently enabled foreground Test twarzy can continue after the lease ends,
+and closing that page keeps a still-live background trial. Test kolorow cancels
+both. No local image, greeting or HA action is added to the saver.
