@@ -150,6 +150,9 @@ static void events(void)
                      .kind = HB_ID_EVENT_RECOGNIZED};
     assert(hb_event_push(&bus, e));
     assert(!hb_event_push(&bus, e));
+    e.kind = (hb_id_event_kind)-1;
+    assert(!hb_event_push(&bus, e));
+    e.kind = HB_ID_EVENT_RECOGNIZED;
     hb_id_event out;
     assert(hb_event_pop(&bus, HB_EVENTS_GREETING, 1, 300, &out) && out.person_id == 42);
     assert(hb_event_pop(&bus, HB_EVENTS_MQTT, 1, 300, &out) && out.event_id == 1);

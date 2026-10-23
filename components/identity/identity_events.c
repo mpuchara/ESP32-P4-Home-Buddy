@@ -8,7 +8,7 @@ void hb_event_bus_init(hb_event_bus *bus)
 }
 bool hb_event_push(hb_event_bus *b, hb_id_event e)
 {
-    if (!b || e.kind > HB_ID_EVENT_LEFT || e.source != HB_ID_SOURCE_FACE || !e.session ||
+    if (!b || (unsigned)e.kind > HB_ID_EVENT_LEFT || e.source != HB_ID_SOURCE_FACE || !e.session ||
         !e.sequence || !e.frame_ms || e.timestamp_ms < e.frame_ms ||
         e.timestamp_ms - e.frame_ms > 5000 ||
         (e.kind == HB_ID_EVENT_RECOGNIZED &&
