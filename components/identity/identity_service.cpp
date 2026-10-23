@@ -32,6 +32,7 @@ static QueueHandle_t jobs;
 static SemaphoreHandle_t guard;
 static hb_id_status published{};
 static std::atomic<uint32_t> epoch{1};
+static std::atomic<bool> stop_requested{false};
 static hb_id_database *database;
 static hb_id_enrollment *enrollment;
 static uint16_t *published_preview;
@@ -321,6 +322,17 @@ static void worker(void *)
 #endif
     for (;;)
     {
+        if (stop_requested.exchange(false))
+        {
+            memset(enrollment, 0, sizeof(*enrollment));
+            state.mode = HB_ID_STOP;
+            state.confirmed = false;
+            state.confirmed_id = 0;
+            state.match = {HB_ID_UNAVAILABLE, 0, -1, -1};
+            capture = verify = false;
+            hb_id_tracker_reset(&tracker, epoch.load());
+            message(state, "Rozpoznawanie zatrzymane");
+        }
         hb_id_command c{};
         while (xQueueReceive(jobs, &c, 0) == pdTRUE)
         {
@@ -415,7 +427,15 @@ static void worker(void *)
         }
         state.samples = enrollment->count;
         state.verified = enrollment->verified;
-        state.session = epoch.load();
+        uint32_t current_session = epoch.load();
+        if (state.session != current_session)
+        {
+            state.confirmed = false;
+            state.confirmed_id = 0;
+            state.match = {HB_ID_UNAVAILABLE, 0, -1, -1};
+            hb_id_tracker_reset(&tracker, current_session);
+        }
+        state.session = current_session;
         if (state.mode != HB_ID_STOP && now_ms() >= until)
         {
             state.mode = HB_ID_STOP;
@@ -578,6 +598,13 @@ esp_err_t hb_identity_command(const hb_id_command *c)
     }
     if (c->type != HB_ID_CMD_EVALUATE)
         epoch.fetch_add(1); // Cancel in-flight publication immediately, even if queue is full.
+    if (c->type == HB_ID_CMD_STOP || c->type == HB_ID_CMD_CANCEL)
+    {
+        // Safety stop cannot be refused by a full command queue. Later explicit starts may resume.
+        xQueueReset(jobs);
+        stop_requested.store(true);
+        return ESP_OK;
+    }
     return xQueueSend(jobs, c, 0) == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
 }
 void hb_identity_get(hb_id_status *out)
