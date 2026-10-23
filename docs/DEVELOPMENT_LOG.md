@@ -7,7 +7,8 @@ the status label width. Manual LVGL 800x480 renders reproduce the invisible labe
 before and show legible fields/options/test actions after. Recognition firmware,
 font/partition checks and package integrity checks pass. Updated app is 4,382,192
 bytes (SHA256 8b45c8004f67c56600cda54963fddf2ee7d1b2c25bc03359f26730053b66f2c5).
-USB application-only installation uses the already verified single-factory table.
+USB application-only installation matched the single-factory table and completed
+with exit 0, including verify_flash. Only application bytes at 0x20000 were written.
 
 Supersedes the iteration-6 dual-OTA and MQTT deployment decisions. One factory
 application, onboard MBF, protected profile gate and future voice capacity; native

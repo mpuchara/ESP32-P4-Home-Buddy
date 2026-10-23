@@ -72,6 +72,8 @@ before/after 800x480 LVGL renders of the actual form construction. This updated
 recognition app is 4,382,192 bytes, SHA256
 8b45c8004f67c56600cda54963fddf2ee7d1b2c25bc03359f26730053b66f2c5;
 app headroom 2,957,840 bytes. Earlier image sizes above remain baseline receipts.
+Application-only P4 COM5 update completed with exit 0 and verify_flash passed;
+the installed table matched and only 0x20000 application bytes were written.
 
 2026-10-23: [implementation CI run](https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39988036946)
 passed host and all four firmware profiles on d938878. Subsequent tooling/document
@@ -91,6 +93,6 @@ HTTP 304 and successful decode after initial network recovery. Short serial
 observation to about 108 seconds uptime showed no panic/watchdog or reboot;
 PSRAM settled near 26.3 MB free. This is not a soak/leak test. Visual touchscreen,
 brightness/weather regression, MBF model loading/inference, real enrollment,
-multi-person accuracy, application-only physical upgrade and actual recognized
+multi-person accuracy and actual recognized
 HA automation remain unaccepted until directly observed. Webhook is entered by
 the operator on the touchscreen; no secrets are requested in chat.
