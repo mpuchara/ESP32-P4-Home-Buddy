@@ -13,7 +13,7 @@ appearance-only white balance/sRGB -> ESPDet Pico Face 416x416. The SDK letterbo
 the portrait input without stretching and maps detections back to that input.
 Home Buddy scales coordinates to the 180x318 diagnostic preview with integer bounds
 checks. Results expire after 750 ms, are capped at four, require score >= 0.7 and
-are cancelled across enable/disable epochs. The worker waits 500 ms after each run.
+are cancelled across enable/disable epochs. The worker targets a 500 ms start-to-start period (at most 2 Hz).
 The displayed time excludes our thumbnail conversion. Capture FPS is independent.
 
 0.4.0 used MSR 160x120 with a 4:3 canvas; the portrait occupied only about 68x120

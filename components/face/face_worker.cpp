@@ -128,6 +128,7 @@ static void worker(void *)
             hb_compute_leave();
             continue;
         }
+        uint64_t cycle_start = now_ms();
         hb_camera_status camera{};
         hb_camera_get_status(&camera);
         hb_camera_frame frame{};
@@ -186,7 +187,9 @@ static void worker(void *)
         }
         last_sequence = seq;
         hb_compute_leave();
-        vTaskDelay(pdMS_TO_TICKS(500));
+        // Keep start-to-start cadence; a slower model must not add a second idle gap.
+        uint64_t elapsed = now_ms() - cycle_start;
+        vTaskDelay(pdMS_TO_TICKS(elapsed < 500 ? 500 - elapsed : 1));
     }
 }
 esp_err_t hb_face_enable(bool enabled)
