@@ -30,9 +30,11 @@ The default models/SPIFFS partition is not treated as a compatible model image.
 
 ## Candidate map (build-tested, NOT installed)
 
-Bootloader at 0x2000; candidate partition table at 0x10000. A security-assessment
-build measured 0x85a0 (34,208) bytes, which FAILED the old 0x8000 table boundary.
-The relocated table leaves room for that measured security bootloader. This
+Bootloader at 0x2000; candidate partition table at 0x10000. A Flash-encryption-only
+build measured 0x85a0 (34,208) bytes and FAILED the old 0x8000 table boundary.
+The subsequent effective Secure Boot v2 + Flash encryption build measured 0xb000
+(45,056) bytes and PASSED at 0x10000, leaving 12 KiB. These are unsigned assessment
+builds; signed recovery remains a separate acceptance step. This
 assessment never flashed or provisioned a device; signed recovery remains pending. Data alignment is 4 KiB;
 application alignment is 64 KiB. Ends are exclusive; total Flash 0x1000000.
 

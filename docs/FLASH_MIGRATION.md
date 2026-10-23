@@ -83,8 +83,10 @@ model during inference or assume app rollback restores model weights.
 
 Use the exact ESP-IDF 5.5.1 P4 security documentation and the actual board's ROM
 recovery capabilities. Prepare a signed bootloader/app build and measure bootloader
-growth before approving its layout. The assessment build measured a 0x85a0-byte security bootloader and FAILED the
-old 0x8000 table boundary. The candidate therefore explicitly uses 0x10000 and
+growth before approving its layout. The initial Flash-encryption-only build measured 0x85a0 and FAILED the
+old 0x8000 table boundary. The effective Secure Boot v2 + Flash encryption
+assessment measured 0xb000 (45,056 bytes) and PASSED at 0x10000 with 12 KiB spare.
+Signing was disabled, no key was generated, and no provisioning was performed. The candidate therefore explicitly uses 0x10000 and
 relocates NVS/OTA/PHY; its unsigned bootloader size check is tested separately.
 Signed/encryption-release builds must still be measured and recovered on hardware
 before security authorization. No security-assessment binary is included in the

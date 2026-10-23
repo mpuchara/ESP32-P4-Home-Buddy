@@ -11,8 +11,9 @@ subtracts/divides by 127.5, runs the quantized model and returns 512 L2-normaliz
 float features. The wrapper checks type/dimension/finiteness/norm before matching.
 
 The generic model is prepared off-device, but all personal embeddings are generated
-on P4. `tools/prepare_identity_model.py` copies only generic weights and MIT notice.
-MicroSD slot 0 mounts without formatting on explicit recognition start. Model and
+on P4. `tools/prepare_identity_model.py` packages verified generic weights as PDL3 for
+the onboard human_face_feat partition, plus the MIT notice. No external storage
+is mounted. Version/size/full-package SHA256 are verified before ESP-DL. Model and
 scratch are lazily loaded/unloaded under the existing compute mutex. Failed model
 admission/read returns unavailable. Allocation assertions inside upstream code
 remain a physical stress-test risk; no isolated-failure acceptance is claimed.

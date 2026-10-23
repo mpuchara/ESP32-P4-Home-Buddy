@@ -32,7 +32,7 @@ design; do not burn irreversible eFuses during bring-up.
 ## 0.5.0-dev local identity experiment
 
 See [face recognition implementation and limitations](FACE_RECOGNITION.md),
-[unchanged flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
 The experimental MBF worker remains opt-in. The 0.6.0-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity

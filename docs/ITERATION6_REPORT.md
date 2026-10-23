@@ -35,9 +35,12 @@ bounded queues and cancellation epochs are retained.
 | encrypted profiles | 0xe20000 | 0x80000 |
 | reserve | 0xea0000 | 0x160000 |
 
-The security assessment found the encrypted/Secure Boot bootloader is 34,208 bytes
-(0x85a0), exceeding the old maximum 24,576 bytes at table offset 0x8000. The revised
-0x10000 boundary PASSED the offline bootloader size check. No assessment binary
+The initial Flash-encryption-only assessment measured 34,208 bytes (0x85a0) and
+failed the old 24,576-byte limit at table offset 0x8000. A second build with
+effective SECURE_BOOT=y, SECURE_BOOT_V2_ENABLED=y and SECURE_FLASH_ENC_ENABLED=y
+measured 45,056 bytes (0xb000), leaving 12,288 bytes before the revised 0x10000
+table boundary. SECURE_BOOT_BUILD_SIGNED_BINARIES was disabled: no signing key
+was generated or used. This offline bootloader size check PASSED. No assessment binary
 is an authorized provisioned recovery image. NVS/OTA/PHY relocation is intentional
 and requires the reviewed migration procedure. Defaults for other profiles retain
 the original table at 0x8000; recognition explicitly chooses the candidate.
@@ -48,7 +51,10 @@ the original table at 0x8000; recognition explicitly chooses the candidate.
 - MBF: 3,522,832 bytes, requested raw SHA256 preserved.
 - PDL3 model image: 3,522,944 bytes; 671,360 model-partition bytes remain.
 - Actual MBF compression: zlib9 2,638,927; XZ 2,582,280 bytes; neither fits old models.
-- Final application sizes and validation receipts are recorded below after builds.
+- Final recognition application: **4,438,640 bytes**; **804,240 bytes** remain
+  in each 5 MiB OTA slot (15.34%). This exceeds the 256 KiB engineering growth
+  guard but does not guarantee future voice/release features will fit.
+- Application SHA256: ec2f80d2064e1ec4274ce11ef4e675cd036ca22344b45fe457ec0f110de1cf17.
 - Reserve: 1,441,792 bytes. This is NOT enough for the researched 2,844,528-byte
   Espressif speaker model. No voice implementation was added. Onboard-only future
   layouts and recovery tradeoffs are in IDENTITY_FLASH_LAYOUT.md.
@@ -115,7 +121,33 @@ gate, stable identifiers and reboot restoration. The injected checksum tests the
 transaction protocol; firmware uses mbedTLS SHA256. These are not hardware power
 loss, encryption, TLS/authentication, real HA restart or inference acceptance tests.
 
-Final build/config/packaging and CI receipts: pending final recording.
+Code commit: `b4f8bc5cf420527ea7298396d89f6ec0cf10827d` (implementation
+98c7726 plus invalid-event-type boundary guard). [CI run 39983216326](https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39983216326)
+completed **successfully** for this exact SHA: host plus diagnostics, bringup,
+wifi and recognition firmware. A manually dispatched earlier run/duplicate was
+cancelled once native PR CI appeared; cancelled superseded runs are not passes.
+
+| Local profile | Application bytes | Build / effective configuration |
+|---|---:|---|
+| diagnostics | 227,536 | PASS |
+| bringup | 3,907,360 | PASS |
+| wifi | 4,204,368 | PASS |
+| recognition | 4,438,640 | PASS |
+
+Local Windows host suite 15/15 and WSL GCC ASan/UBSan storage/event/identity
+checks passed. Python model/layout suite 3/3 (actual pinned model present) and
+project/dependency/font checks 3/3 passed; formatting and whitespace checks passed.
+Recognition packaging verified every SHA256SUMS entry, model image/offsets and
+absence of private files. Its sdkconfig confirms Flash encryption, Secure Boot
+and profile persistence are NOT enabled in the distributable development image.
+
+Review package: dist/home-buddy-0.6.0-dev-b4f8bc5-review.zip, 16,402,652 bytes;
+SHA256 b2c0d31e25afcf6f856c459f804e79c036913309cebccd050dec4d4951d0b099.
+It contains only public firmware/model/license/build files and the migration warning.
+Private backup and relocation images are deliberately separate. No production
+release was created. Subsequent receipt-only documentation edits do not change
+the tested code; see the code SHA above rather than treating a skip-CI receipt as
+an independently tested firmware commit.
 
 ## 7. Physical preflight completed, acceptance still required
 

@@ -831,3 +831,18 @@ Dependency resolver preserved ESP-DL3.3.14 and all existing pins, adding recogni
 Host13/13 and sanitized identity-core tests passed. Final firmware/CI receipts and
 all hardware/security acceptance limits are tracked in IDENTITY_VALIDATION.md.
 No recognition execution/accuracy/latency or new physical UI result is claimed.
+
+
+## 2026-10-23: Iteration 6, onboard-only development candidate
+
+Code b4f8bc5 implements verified onboard MBF loading, gated two-bank profile
+persistence, independent bounded identity events and MQTT 5 Home Assistant.
+CI run 39983216326 passed host and all four firmware profiles for that exact SHA.
+Local host 15/15, real-model Python validation, ASan/UBSan and four build/config
+checks passed. Recognition image: 4,438,640 bytes; model PDL3: 3,522,944 bytes.
+The security bootloader assessment requires table offset 0x10000, with private
+NVS/PHY relocation. Full backup and relocation preparation were read-only.
+No new device flash, migration, erase, eFuse/security provisioning, C6 update,
+merge or production release. Hardware MBF/accuracy/memory, persistence security,
+MQTT/TLS/HA and rollback acceptance remain incomplete. This supersedes historical
+microSD deployment instructions above. Full receipts: ITERATION6_REPORT.md.
