@@ -8,7 +8,7 @@
 #include <string.h>
 typedef struct
 {
-    uint8_t flash[2 * HB_PROFILE_BANK];
+    uint8_t flash[HB_PROFILE_PARTITION];
     int operation, fail_at;
     bool torn;
 } device;
@@ -155,24 +155,24 @@ static void events(void)
     e.kind = HB_ID_EVENT_RECOGNIZED;
     hb_id_event out;
     assert(hb_event_pop(&bus, HB_EVENTS_GREETING, 1, 300, &out) && out.person_id == 42);
-    assert(hb_event_pop(&bus, HB_EVENTS_MQTT, 1, 300, &out) && out.event_id == 1);
-    assert(!hb_event_pop(&bus, HB_EVENTS_MQTT, 1, 300, &out));
+    assert(hb_event_pop(&bus, HB_EVENTS_HA, 1, 300, &out) && out.event_id == 1);
+    assert(!hb_event_pop(&bus, HB_EVENTS_HA, 1, 300, &out));
     e.person_id = 43;
     assert(hb_event_push(&bus, e));
     e.person_id = 42;
     assert(!hb_event_push(&bus, e)); // same encounter, even after another confirmed person
-    assert(hb_event_pop(&bus, HB_EVENTS_MQTT, 1, 300, &out) && out.person_id == 43);
+    assert(hb_event_pop(&bus, HB_EVENTS_HA, 1, 300, &out) && out.person_id == 43);
     assert(!hb_event_pop(&bus, HB_EVENTS_LEGACY, 2, 300, &out)); // cancellation
     for (unsigned i = 2; i < 40; i++)
     {
         e.session = i;
         assert(hb_event_push(&bus, e));
     }
-    assert(bus.overflow[HB_EVENTS_MQTT] > 0);
-    assert(hb_event_pop(&bus, HB_EVENTS_MQTT, 39, 300, &out) && out.session == 39);
+    assert(bus.overflow[HB_EVENTS_HA] > 0);
+    assert(hb_event_pop(&bus, HB_EVENTS_HA, 39, 300, &out) && out.session == 39);
     e.session = 40;
     assert(hb_event_push(&bus, e));
-    assert(!hb_event_pop(&bus, HB_EVENTS_MQTT, 40, 5200, &out));
+    assert(!hb_event_pop(&bus, HB_EVENTS_HA, 40, 5200, &out));
     e.session = 41;
     e.confirmed = false;
     assert(!hb_event_push(&bus, e));

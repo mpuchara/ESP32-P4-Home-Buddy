@@ -28,33 +28,12 @@ experimental BSP. The wifi profile additionally initializes C6.
 For reproducibility use a fresh build directory and its own sdkconfig. Changing
 SDKCONFIG_DEFAULTS does not override values in an existing sdkconfig.
 
-## First installation
+## USB installation and recovery
 
-List ports with `python -m serial.tools.list_ports -v`. For this session, P4 is COM5.
-Close monitors before opening the port from another program.
-
-```powershell
-New-Item -ItemType Directory -Force local
-python -m esptool --chip esp32p4 --port COM5 --before usb_reset flash_id
-python -m esptool --chip esp32p4 --port COM5 --before usb_reset read_flash 0 0x1000000 local/original-p4-flash.bin
-Get-FileHash local/original-p4-flash.bin -Algorithm SHA256
-idf.py -B build-bringup -p COM5 flash monitor
-```
-
-Keep the full backup private and copy it somewhere durable before cleaning local
-build files. Verify backup length is 16,777,216 bytes. Do not publish it.
-Flashing a new partition table can invalidate existing vendor configuration;
-the backup allows whole-image recovery. Never use erase_flash during routine updates.
-No operation above writes C6.
-
-## Restore original P4 image
-
-Use only your own verified full backup for the same device and correct flash size.
-```powershell
-python -m esptool --chip esp32p4 --port COM5 --before usb_reset write_flash 0 local/original-p4-flash.bin
-```
-If USB cannot connect, enter P4 ROM download mode with its BOOT/reset procedure
-from the actual board manual, then retry. Do not confuse the P4 and C6 BOOT pins.
+Use [USB_FLASHING.md](USB_FLASHING.md) for the current single-factory build,
+verified package, application-only/model/full modes and private backups.
+Never use an old build directory containing a dual-OTA sdkconfig. Full installation
+is a layout migration, not an ordinary application update. Do not erase the chip.
 
 ## Host tests
 
@@ -72,7 +51,7 @@ Host font tests require the resolved managed LVGL component; run a firmware
 configure/build first, or pass -D LVGL_SOURCE_DIR=/path/to/lvgl-8.3.11 to CMake.
 CI fetches LVGL commit 396f70508480f79725fc1354cd290cc83f69b2ef for these tests.
 Development formatting uses clang-format 19.1.7 and .clang-format; generated and
-vendored files are excluded. CI validates all three firmware profiles.
+vendored files are excluded. CI validates all four firmware profiles.
 
 Dashboard tests also require cJSON 1.7.18. With an installed IDF use:
 `cmake -S tests -B build-host -D CJSON_SOURCE_DIR=/path/to/esp-idf/components/json/cJSON`.

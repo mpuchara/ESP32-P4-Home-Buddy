@@ -2,7 +2,7 @@
 #pragma once
 #include "hb_brightness.h"
 #include "hb_config.h"
-#include "hb_mqtt.h"
+#include "hb_ha.h"
 typedef enum
 {
     CMD_IMAGE,
@@ -29,8 +29,8 @@ typedef struct
     bool wifi;
     bool weather;
     bool brightness;
-    bool mqtt;
-    hb_mqtt_config mqtt_value;
+    bool ha;
+    hb_ha_config ha_value;
     hb_brightness_config brightness_value;
     hb_weather_config_t weather_value;
     hb_config_t value;

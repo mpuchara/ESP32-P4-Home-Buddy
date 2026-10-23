@@ -18,7 +18,7 @@ explicitly labeled RAM-only mode. No personal data is uploaded anywhere.
 
 ## Transaction format
 
-512 KiB contains two raw 256 KiB erase-aligned banks. Each bank holds a 128-byte
+The 1 MiB partition uses its first 512 KiB for two raw 256 KiB erase-aligned banks. Each bank holds a 128-byte
 header and a 246,640-byte P4 ABI snapshot. Header fields include magic, schema,
 payload size/dimension, generation, payload SHA256, exact model namespace and a
 second SHA256 protecting header metadata. The schema pins the little-endian P4
@@ -48,7 +48,7 @@ state, which is the documented tradeoff of recovery after corruption.
 Each bank leaves 15,376 bytes after header/snapshot. At most 120 face vectors
 (245,760 bytes) plus metadata fit. Do not claim this also fits voice templates.
 The store alternates banks and writes only on explicit create/rename/save/delete,
-never every frame, greeting or MQTT publish. This spreads erase cycles over two
+never every frame, greeting or HTTP publish. This spreads erase cycles over two
 banks but is NOT a general wear-levelled filesystem; Flash endurance still limits
 write frequency. Capacity is checked before any erase. PSRAM scratch storage is
 bounded to one extra database snapshot and is zeroed after each transaction.
@@ -57,4 +57,14 @@ Host fault injection covers erase/write/read boundaries and torn writes, capacit
 corruption fallback, create/rename/delete, maximum templates, stable IDs and reboot
 restoration. Its injected checksum tests the transaction protocol; the device uses
 mbedTLS SHA256. Host tests do not establish encryption/provisioning or physical
-power-loss acceptance. See FLASH_MIGRATION.md and ITERATION6_REPORT.md.
+power-loss acceptance. See FLASH_MIGRATION.md and ITERATION7_REPORT.md.
+
+The remaining 512 KiB is untouched and reserved for a future independently
+versioned voice-template database. No voice format/dimensions are selected yet.
+For two 256 KiB voice banks, each proposed serialized snapshot plus header must
+fit 262,144 bytes, including eight people, all templates and metadata. Measure
+that actual format before activation. Face data uses 245,760 feature bytes plus
+880 ABI metadata bytes; each bank leaves 15,376 bytes. Raw encrypted Flash uses
+same-size blocks, not filesystem per-record overhead; header/payload writes are
+16-byte aligned. Security key storage is separate in nvs_keys. Larger voice
+requirements need an explicit schema/layout migration, not unbounded allocation.

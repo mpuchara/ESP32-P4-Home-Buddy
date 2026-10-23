@@ -1,3 +1,11 @@
+# 2026-10-23: 0.6.1-dev continuation
+
+Supersedes the iteration-6 dual-OTA and MQTT deployment decisions. One factory
+application, onboard MBF, protected profile gate and future voice capacity; native
+HA Webhook/REST and masked touchscreen configuration. See ITERATION7_REPORT.md
+for current code, automated receipts and separate physical/security acceptance.
+Earlier entries below are historical and retain their original version context.
+
 # Development log
 
 ## 2026-10-22: initial foundation

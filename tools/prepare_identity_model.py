@@ -24,7 +24,7 @@ def main():
     validate_image(target.read_bytes())
     shutil.copyfile(component / "LICENSE", args.destination / "MBF-MIT.txt")
     (args.destination / "model-manifest.json").write_text(json.dumps(dict(
-        schema=1, partition="human_face_feat", offset="0xa20000", image_bytes=IMAGE_SIZE,
+        schema=1, partition="human_face_feat", offset="0x720000", image_bytes=IMAGE_SIZE,
         package_version="v1.0", image_sha256=IMAGE_SHA, raw_sha256=RAW_SHA,
         requires_authorized_partition_migration=True), indent=2), encoding="utf-8")
     print("Verified onboard Flash image staged. No device writes performed.")

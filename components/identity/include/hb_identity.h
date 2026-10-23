@@ -73,7 +73,7 @@ extern "C"
     bool hb_identity_preview(uint16_t *rgb565, size_t pixels, hb_id_status *status);
     // Called from UI thread. Revalidates session/freshness/profile and per-person cooldown.
     bool hb_identity_greeting(uint64_t now_ms, char name[HB_ID_NAME]);
-    // Compatibility consumer; independent from greetings and MQTT.
+    // Compatibility consumer; independent from greetings and HA HTTP.
     bool hb_identity_event(hb_id_event *out);
 #ifdef __cplusplus
 }

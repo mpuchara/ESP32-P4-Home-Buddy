@@ -11,7 +11,7 @@ root = Path(__file__).resolve().parents[1]
 files = [
     "home_buddy.bin", "home_buddy.elf", "home_buddy.map",
     "bootloader/bootloader.bin", "partition_table/partition-table.bin",
-    "ota_data_initial.bin", "flasher_args.json", "flash_args",
+    "flasher_args.json", "flash_args",
 ]
 output.mkdir(parents=True, exist_ok=False)
 hashes = []
@@ -30,6 +30,9 @@ for name in files:
     hashes.append(f"{hashlib.sha256(target.read_bytes()).hexdigest()}  {name}")
 for source_name, name in [
     ("LICENSE", "licenses/Apache-2.0.txt"),
+    ("tools/flash_usb.py", "tools/flash_usb.py"),
+    ("tools/flash_layout.py", "tools/flash_layout.py"),
+    ("tools/identity_model_image.py", "tools/identity_model_image.py"),
     ("components/board/vendor/LICENSE", "licenses/ultramcu-MIT.txt"),
     ("components/camera/vendor/LICENSE", "licenses/GUITION-camera-Apache-2.0.txt"),
     ("components/camera/vendor/SOURCE.md", "licenses/GUITION-camera-source.md"),
@@ -51,8 +54,15 @@ for source_name, name in [
 if config.get("HB_IDENTITY_EXPERIMENTAL"):
     (output / "MIGRATION_REQUIRED.txt").write_text(
         "Development candidate only. Full flash_args writes a NEW partition table.\n"
-        "Do not use as an ordinary OTA or run idf.py flash on the existing layout.\n"
+        "Factory single-image layout. Application-only USB update preserves models/profiles.\n"
         "Requires explicit authorization and docs/FLASH_MIGRATION.md preflight.\n"
         "No encrypted profile provisioning or eFuse operation is authorized by this package.\n", encoding="utf-8")
     hashes.append(f"{hashlib.sha256((output / 'MIGRATION_REQUIRED.txt').read_bytes()).hexdigest()}  MIGRATION_REQUIRED.txt")
+metadata = {"schema": 1, "layout": "single-factory-v1", "partition_table_offset": 0x10000,
+            "application_offset": 0x20000, "application_size": 0x700000,
+            "model_offset": 0x720000, "model_size": 0x400000,
+            "security_enabled": bool(config.get("SECURE_FLASH_ENC_ENABLED") or config.get("SECURE_BOOT")),
+            "recognition": bool(config.get("HB_IDENTITY_EXPERIMENTAL"))}
+(output / "usb-package.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+hashes.append(f"{hashlib.sha256((output / 'usb-package.json').read_bytes()).hexdigest()}  usb-package.json")
 (output / "SHA256SUMS").write_text("\n".join(hashes) + "\n", encoding="utf-8")

@@ -1,6 +1,6 @@
 # Local household recognition, 0.6.0-dev
 
-This is an **experimental implementation**, not completed hardware acceptance. Internal Flash loading, gated profile persistence and MQTT infrastructure are implemented. See ITERATION6_REPORT.md for current receipts.
+This is an **experimental implementation**, not completed hardware acceptance. Internal Flash loading, gated profile persistence and HTTP infrastructure are implemented. See ITERATION7_REPORT.md for current receipts.
 The baseline is development branch commit `223a4ff1977b6bcb3bdb73f013b59801b6d30c7d`.
 Remote branch heads were checked before development; main contained only the initial commit.
 No device was flashed, no partition table was changed, no C6 update was performed.
@@ -155,12 +155,12 @@ Existing NVS settings remain in their original region. Settings NVS is plaintext
 in this development configuration; biometric persistence is blocked instead of
 silently writing a plaintext database.
 
-A bounded 16-event ring has separate greeting, MQTT and compatibility cursors,
+A bounded 16-event ring has separate greeting, HA HTTP and compatibility cursors,
 with overflow/stale counters, cancellation epoch and five-second source age limits.
 Only FACE is emitted. VOICE/BOTH are reserved, with conflict handling requirements
 in hb_identity_future.h. Each encounter suppresses repeated classifications;
-MQTT and greetings have independent cooldowns. This buffer is not lossless.
-No embeddings or images are serialized to MQTT. Recognition is not liveness or
+HTTP and greetings have independent cooldowns. This buffer is not lossless.
+No embeddings or images are serialized to HTTP. Recognition is not liveness or
 sufficient authorization for door unlocking/alarm disarming.
 
 ## Deployment and acceptance
@@ -182,7 +182,7 @@ and obtain explicit authorization. The three standard profiles retain the origin
 partition map and leave experimental model execution disabled.
 
 See [actual validation](ITERATION6_REPORT.md). Physical MBF execution, accuracy,
-secure persistence, MQTT broker/TLS and HA automation acceptance remain pending.
+secure persistence, HTTP/TLS and HA automation acceptance remain pending.
 The ten-minute background lease is deliberately retained during validation.
 
 ## Inspected primary sources

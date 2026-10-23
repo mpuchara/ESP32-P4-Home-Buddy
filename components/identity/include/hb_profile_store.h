@@ -8,6 +8,7 @@ extern "C"
 // Two 256 KiB erase-aligned banks. Caller serializes operations in identity worker.
 #define HB_PROFILE_BANK 0x40000U
 #define HB_PROFILE_HEADER 128U
+#define HB_PROFILE_PARTITION 0x100000U
     typedef struct
     {
         void *context;

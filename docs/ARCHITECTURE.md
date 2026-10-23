@@ -33,8 +33,8 @@ LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from L
   separate weather record. TLS CA/hostname verification,8192-byte JSON cap, depth8,
  20-second total deadline. Current Celsius is fetched every600seconds, expires
   after3600seconds and is rejected before time sync or for a future timestamp.
-  Weather uses no MQTT subscription. The identity-only MQTT client/menu is separate
-  (MQTT_API.md). Model weather is not a sensor reading.
+  Weather uses no broker. The identity HTTP client/menu is separate
+  (HOME_ASSISTANT_HTTP.md). Model weather is not a sensor reading.
 
 ## Buffer ownership
 
@@ -61,7 +61,7 @@ visible in its edit field per operator request; Wi-Fi passwords remain masked.
 
 The previous identity, local-camera, audio and profile architecture remains a
 future milestone, not implemented behavior. Secure boot, encrypted persistent
-storage, migrations, OTA rollback and 72-hour acceptance remain open.
+storage, migrations, USB recovery and 72-hour acceptance remain open.
 
 ## JPEG color boundary
 
@@ -123,7 +123,7 @@ filter presence/detection. See FACE_QUALITY.md for arithmetic/coordinate limits.
 See [face recognition implementation and limitations](FACE_RECOGNITION.md),
 [onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
-The experimental MBF worker remains opt-in. The 0.6.0-dev candidate uses onboard
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
-MQTT. Unprovisioned hardware remains RAM-only. See ITERATION6_REPORT.md and
+HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.

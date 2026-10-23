@@ -1,0 +1,71 @@
+# 0.6.1-dev single-image / HA HTTP continuation
+
+This report supersedes iteration 6 deployment decisions. Builds/tests below are
+not evidence of physical recognition accuracy or a working HA automation.
+
+1. **Source revision:** the implementation commit is the latest commit touching
+   components/home_assistant/ha_http_client.c (`git log -1 --format=%H --` that
+   path). A later documentation receipt commit may be the branch head. PR #2 stays
+   draft on codex/local-face-recognition, based on codex/initial-hardware-foundation.
+2. **Implemented:** preserves onboard ESPDet416/MNP/alignment/MBF, enrollment,
+   transactions and bounded event bus; replaces MQTT with separate Webhook/REST
+   HTTP task and masked touchscreen settings. Preserves fullscreen UBox, clock,
+   weather, brightness and independent greeting. No OTA, SD, external inference,
+   voice implementation, broker or HA custom integration.
+3. **Flash map:** table 0x10000; NVS 0x11000/24 KiB; PHY 0x19000/4 KiB;
+   encrypted NVS-key reserve 0x1a000/4 KiB; factory 0x20000/7 MiB;
+   MBF 0x720000/4 MiB; encrypted-flag profiles 0xb20000/1 MiB;
+   future sv_model_3s 0xc20000/3 MiB; reserve 0xf20000/896 KiB.
+   Exact ranges and gaps: SINGLE_IMAGE_FLASH_LAYOUT.md. No OTA metadata.
+4. **Firmware:** locally built recognition image 4,382,064 bytes, SHA256
+   4704c52a0f255a11d39eafda5f60aeb7b3b5edacdb04e1cb6374daf18a0d78e8.
+   App growth headroom 2,957,968 bytes, above enforced 256 KiB floor.
+5. **MBF:** raw 3,522,832 bytes; locked PDL3 package 3,522,944 bytes, SHA256
+   f8aa1d21c47814bf324b78ec3a050f993dfa38b1f6a582b6afb5ce0264daf294.
+   Standard Flash-partition loader follows pinned-image/hash validation.
+6. **Voice:** 3,145,728-byte partition. Actual upstream 3s asset 2,844,528 bytes;
+   locked packer output 2,844,624, leaving 301,104 bytes. One asset fits, both
+   3s/6s do not. Runtime/operator compatibility is unverified. Future integration
+   must explicitly select 3s and replace upstream dual-model flash defaults.
+7. **Free space:** app 2,957,968; MBF 671,360; separately reserved 917,504 bytes.
+   Future voice region remains unprovisioned. Profile first 512 KiB holds two
+   256 KiB face banks, each with 246,640-byte snapshot +128-byte header and
+   15,376-byte headroom; second 512 KiB is future voice storage, no format yet.
+   Reserved partitions are not interchangeable general free heap/filesystem.
+8. **USB:** USB_FLASHING.md gives build/package, application-only/model/full
+   commands and ROM recovery. Package validates hashes and image bounds; normal
+   updates check installed table and exclude models/profiles/settings. Full mode
+   requires new private full backup, security query and explicit layout flag.
+9. **Webhook:** HOME_ASSISTANT_HTTP.md gives graphical automation setup, local
+   POST-only trigger, secret entry on Home Buddy, diagnostic branch and actual
+   recognition test. GET reachability and POST 2xx do not establish HA action success.
+10. **REST:** same document covers separate HA Long-Lived Access Token, Bearer
+    header, GET /api/ test, actual POST /api/events/home_buddy_identity and event
+    automation trigger. UBox credentials are never reused.
+11. **Helper:** graphical Text helper and recognized-only input_text.set_value
+    action. This is not an auto-registered device sensor. Optional inbound status
+    endpoint evaluated and deferred; /api/status is not implemented.
+12. **Automated validation:** local recognition firmware builds; effective config,
+    budget enforcement and three USB dry-run modes pass. Host C suite 15/15;
+    project checks 3/3; Python model/USB tests 5/5. Fault injection preserves
+    transaction recovery and event overflow/session semantics. HTTP tests cover
+    payload escaping, URLs, credentials, status classification, cooldown and
+    freshness; they do not substitute for real ESP TLS/network fault injection.
+13. **CI:** see PR checks for this implementation revision. Historical iteration-6
+    success is not counted as current CI. Current run result will be recorded in
+    the physical/CI receipt below.
+14. **Physical:** migration and USB/boot/MBF/HA results are recorded below when
+    actually observed. Operator must enter the webhook on the screen and perform
+    real enrollment/recognition. A connection_test is not biometric acceptance.
+15. **Security/migration:** necessary layout migration authorized by owner; no
+    eFuses, secure boot provisioning, C6 flash or production release authorized.
+    Unsecured hardware remains explicitly RAM-only. Secure persistent activation,
+    signed USB recovery, encrypted credentials, real power-loss/deletion tests,
+    multi-person open-set accuracy, long stress/leak/watchdog and harmless real HA
+    recognition automation acceptance remain separate requirements.
+
+## Physical and CI receipt
+
+Pending live verification at initial implementation commit. No security
+provisioning performed. Full Flash backups and credentials are private and never
+included in the repository or public firmware package.

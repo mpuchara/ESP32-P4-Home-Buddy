@@ -385,6 +385,16 @@ class Models
             message(s, "Nieprawidłowa normalizacja wektora MBF");
             return false;
         }
+        static uint64_t last_diagnostic_ms;
+        if (!last_diagnostic_ms || now_ms() - last_diagnostic_ms >= 10000)
+        {
+            last_diagnostic_ms = now_ms();
+            ESP_LOGI("identity",
+                     "MBF_EXEC_OK seq=%u D/L/MBF/total_us=%u/%u/%u/%u embedding_dim=%d load_us=%u",
+                     (unsigned)s.sequence, (unsigned)s.detection_us, (unsigned)s.landmarks_us,
+                     (unsigned)s.embedding_us, (unsigned)s.total_us, HB_ID_DIM,
+                     (unsigned)s.model_load_us);
+        }
         message(s, "Kandydat z nowej klatki; progi eksperymentalne");
         return true;
     }

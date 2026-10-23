@@ -12,8 +12,8 @@ Physical acceptance cannot be inferred from successful compilation.
 | 4 | Exact camera driver, frame capture, illumination metric, two-anchor calibration | OV02C10 ID and ~30fps capture verified; RAW8 colors/detail/upright operator-confirmed; real calibration and stability pending |
 | 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | 0.4.2 ESPDet416 detection is operator-accepted as more stable (700-800ms), including reopen. 0.4.5 scalar face-quality readouts operator-confirmed; alignment/embeddings/enrollment remain pending |
 | 6 | ES8311/PCM/VAD, local speaker embeddings and on-device enrollment | Pending |
-| 7 | Temporal fusion, greetings, independent cooldowns, MQTT Discovery/events/HA examples | 0.4.3 temporal presence accepted; 0.4.4 background navigation/countdown/manual stop/layout operator-accepted; 10min expiry pending. Identity/greeting/events remain pending |
-| 8 | Secure persistent storage, migrations, deletion, OTA/recovery | Pending |
+| 7 | Temporal fusion, greetings, independent cooldowns, Webhook/REST events and HA helper examples | 0.4.3 temporal presence accepted; 0.4.4 background navigation/countdown/manual stop/layout operator-accepted; 10min expiry pending. Identity/greeting/events remain pending |
+| 8 | Secure persistent storage, migrations, deletion, USB recovery | Pending |
 | 9 | Profiling, fault injection, reconnect, recovery and 72-hour physical soak | Pending |
 
 ## Next acceptance gates
@@ -67,7 +67,7 @@ daytime acceptance.
 See [face recognition implementation and limitations](FACE_RECOGNITION.md),
 [onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
-The experimental MBF worker remains opt-in. The 0.6.0-dev candidate uses onboard
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
-MQTT. Unprovisioned hardware remains RAM-only. See ITERATION6_REPORT.md and
+HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.

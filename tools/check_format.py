@@ -5,7 +5,7 @@ import clang_format
 
 root = Path(__file__).resolve().parents[1]
 paths = list((root / "main").glob("*.c")) + list((root / "tests").glob("*.c"))
-for component in ("board", "ui", "core", "connectivity", "configuration", "screensaver", "ubox_client", "services", "camera", "brightness", "face", "compute_budget", "identity", "ha_mqtt"):
+for component in ("board", "ui", "core", "connectivity", "configuration", "screensaver", "ubox_client", "services", "camera", "brightness", "face", "compute_budget", "identity", "home_assistant"):
     base = root / "components" / component
     paths.extend(p for p in base.glob("*.c") if not p.name.startswith("hb_font_"))
     paths.extend(base.glob("*.cpp"))

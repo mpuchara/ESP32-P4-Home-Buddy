@@ -53,7 +53,7 @@ idf.py -B build-bringup -p COM5 flash monitor
 ```
 
 COM5 is this session's port, not a fixed requirement. See [recovery](docs/BUILD.md).
-No browser installer or OTA is provided yet.
+USB is the supported update path; this architecture has no OTA.
 
 ## Current interface
 
@@ -113,7 +113,7 @@ The future identity pipeline runs entirely on P4; HA provides no inference.
 * [Flash/PSRAM budget](docs/MEMORY_BUDGET.md)
 * [Roadmap](docs/DEVELOPMENT_PLAN.md)
 * [UBox HTTP contract](docs/UBOX_API.md)
-* [MQTT identity integration](docs/MQTT_API.md)
+* [Home Assistant Webhook / REST](docs/HOME_ASSISTANT_HTTP.md)
 * [Privacy](docs/PRIVACY.md)
 * [User guide](docs/USER_GUIDE.md)
 * [Troubleshooting](docs/TROUBLESHOOTING.md)
@@ -125,10 +125,10 @@ Home Buddy will consume its published API only.
 
 [Implementation and on-device enrollment](docs/FACE_RECOGNITION.md) uses
 ESPDet416, real MNP landmarks, native ROI, MBF embeddings and multi-frame open-set
-matching. The 0.6.0-dev candidate removes external model storage, adds an onboard
-Flash model package, gated persistent profile storage and Home Assistant MQTT 5.
-Unprovisioned devices remain explicitly RAM-only. The recognition profile requires
-an authorized offline partition migration; it is not a normal OTA update.
-See [iteration 6 report](docs/ITERATION6_REPORT.md), [storage](docs/IDENTITY_FLASH_LAYOUT.md),
-[migration/recovery](docs/FLASH_MIGRATION.md) and [MQTT](docs/MQTT_API.md).
-Physical recognition and end-to-end acceptance are still incomplete.
+matching. The 0.6.1-dev candidate uses one 7 MiB factory application, dedicated
+onboard MBF storage, a 1 MiB gated profile area and 3 MiB reserved for future voice.
+Unprovisioned devices remain explicitly RAM-only. HA uses native Webhook or REST
+events without a broker. No microSD, external inference or OTA.
+See [current report](docs/ITERATION7_REPORT.md), [Flash map](docs/SINGLE_IMAGE_FLASH_LAYOUT.md),
+[USB updates/recovery](docs/USB_FLASHING.md), [migration](docs/FLASH_MIGRATION.md)
+and [HA setup](docs/HOME_ASSISTANT_HTTP.md). Physical acceptance is tracked separately.

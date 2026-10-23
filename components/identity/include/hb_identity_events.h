@@ -37,7 +37,7 @@ extern "C"
     typedef enum
     {
         HB_EVENTS_GREETING,
-        HB_EVENTS_MQTT,
+        HB_EVENTS_HA,
         HB_EVENTS_LEGACY
     } hb_event_consumer;
     typedef struct

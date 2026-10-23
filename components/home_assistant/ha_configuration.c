@@ -1,30 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
-#include "hb_mqtt.h"
+#include "hb_ha.h"
 #include "nvs.h"
 #include <string.h>
 static portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;
-static hb_mqtt_config current = {.schema = 1, .port = 1883, .cooldown_seconds = 60};
-static bool valid(const hb_mqtt_config *v)
-{
-    return v && v->schema == 1 && v->port && v->cooldown_seconds <= 3600 &&
-           memchr(v->host, 0, sizeof(v->host)) && memchr(v->username, 0, sizeof(v->username)) &&
-           memchr(v->password, 0, sizeof(v->password)) && (!v->enabled || v->host[0]) &&
-           !strpbrk(v->host, "/@?# \r\n\\");
-}
-void hb_mqtt_config_get(hb_mqtt_config *out)
+static hb_ha_config current = {.schema = 1, .port = 8123, .cooldown_seconds = 60};
+void hb_ha_config_get(hb_ha_config *out)
 {
     portENTER_CRITICAL(&lock);
     *out = current;
     portEXIT_CRITICAL(&lock);
 }
-esp_err_t hb_mqtt_config_save(const hb_mqtt_config *v)
+esp_err_t hb_ha_config_save(const hb_ha_config *v)
 {
-    if (!valid(v))
+    if (!hb_ha_config_valid(v, v && v->enabled))
         return ESP_ERR_INVALID_ARG;
     nvs_handle_t h;
-    esp_err_t e = nvs_open("hb_mqtt", NVS_READWRITE, &h);
+    esp_err_t e = nvs_open("hb_ha", NVS_READWRITE, &h);
     if (e)
         return e;
     e = nvs_set_blob(h, "config", v, sizeof(*v));
@@ -39,19 +32,19 @@ esp_err_t hb_mqtt_config_save(const hb_mqtt_config *v)
     }
     return e;
 }
-esp_err_t hb_mqtt_config_load(void)
+esp_err_t hb_ha_config_load(void)
 {
     nvs_handle_t h;
-    esp_err_t e = nvs_open("hb_mqtt", NVS_READONLY, &h);
+    esp_err_t e = nvs_open("hb_ha", NVS_READONLY, &h);
     if (e == ESP_ERR_NVS_NOT_FOUND)
         return ESP_OK;
     if (e)
         return e;
-    hb_mqtt_config v;
+    hb_ha_config v;
     size_t size = sizeof(v);
     e = nvs_get_blob(h, "config", &v, &size);
     nvs_close(h);
-    if (!e && (size != sizeof(v) || !valid(&v)))
+    if (!e && (size != sizeof(v) || !hb_ha_config_valid(&v, v.enabled)))
         e = ESP_ERR_INVALID_STATE;
     if (!e)
     {

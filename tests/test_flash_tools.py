@@ -30,18 +30,16 @@ def layout(path, table_offset=0x8000):
 
 class FlashTools(unittest.TestCase):
     def test_layout(self):
-        rows = layout(ROOT / "partitions.identity.csv", 0x10000)
+        rows = layout(ROOT / "partitions.csv", 0x10000)
         p = {r[0]: r for r in rows}
-        self.assertEqual(p["ota_0"][3:5], (0x20000, 0x500000))
-        self.assertEqual(p["ota_1"][3:5], (0x520000, 0x500000))
-        self.assertEqual(p["human_face_feat"][3:5], (0xA20000, 0x400000))
-        self.assertEqual(p["profiles"][3:5], (0xE20000, 0x80000))
+        self.assertEqual(p["factory"][3:5], (0x20000, 0x700000))
+        self.assertEqual([r[0] for r in rows if r[1]=="app"], ["factory"])
+        self.assertNotIn("otadata",p)
+        self.assertEqual(p["human_face_feat"][3:5], (0x720000, 0x400000))
+        self.assertEqual(p["profiles"][3:5], (0xB20000, 0x100000))
         self.assertIn("encrypted", p["profiles"][5])
         self.assertGreater(p["human_face_feat"][4], IMAGE_SIZE)
-        old = {r[0]: r for r in layout(ROOT / "partitions.csv")}
-        for name, offset in (("nvs", 0x11000), ("otadata", 0x17000), ("phy_init", 0x19000)):
-            self.assertEqual(old[name][4], p[name][4])
-            self.assertEqual(p[name][3], offset)
+        self.assertEqual(p["sv_model_3s"][3:5],(0xC20000,0x300000))
         self.assertIn("encrypted", p["nvs_keys"][5])
 
     def test_bad_layout(self):

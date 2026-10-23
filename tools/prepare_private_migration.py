@@ -1,7 +1,8 @@
-"""Prepare private relocated settings from a verified backup. NEVER writes a device.
+"""Deprecated read-only helper for historical backups.
 
-Output must stay outside the repository. Never upload it or add it to a public
-firmware package. Explicit authorization is still required to apply any migration.
+New single-image installation uses flash_usb.py --mode full, which takes a fresh
+private backup, verifies the installed layout and relocates settings itself.
+This helper never writes a device and is retained for old recovery receipts.
 """
 import argparse
 import hashlib

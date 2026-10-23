@@ -14,7 +14,7 @@ and has a separate persistent configuration; see BRIGHTNESS.md.
 3. Pogoda: enter a locality name, tap Szukaj, choose the correct country/region
    result from the dropdown, then Zapisz. ASCII spelling is accepted by geocoding;
    you need not type Polish accents. No default location is assumed. Empty the
-   city field and Save to disable weather. Weather requires no MQTT/broker setup. Identity MQTT has a separate Home Assistant menu; see MQTT_API.md.
+   city field and Save to disable weather. Weather requires no MQTT/broker setup. Identity HTTP has a separate Home Assistant menu; see HOME_ASSISTANT_HTTP.md.
 4. The device requests Open-Meteo current temperature at2m every10minutes over
    verified HTTPS. These are weather-model data, not a local sensor measurement.
    Data older than1hour become unavailable. Source attribution appears in Pogoda.
@@ -91,7 +91,7 @@ foreground measurement. An active10min background lease still follows its deadli
 See [face recognition implementation and limitations](FACE_RECOGNITION.md),
 [onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
-The experimental MBF worker remains opt-in. The 0.6.0-dev candidate uses onboard
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
-MQTT. Unprovisioned hardware remains RAM-only. See ITERATION6_REPORT.md and
+HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.

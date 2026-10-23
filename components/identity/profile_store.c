@@ -31,7 +31,7 @@ static hb_store_result admission(const hb_profile_io *io)
         return HB_STORE_LOCKED;
     if (!io->read || !io->write || !io->erase || !io->sha256)
         return HB_STORE_IO;
-    return io->size == 2 * HB_PROFILE_BANK ? HB_STORE_OK : HB_STORE_CAPACITY;
+    return io->size == HB_PROFILE_PARTITION ? HB_STORE_OK : HB_STORE_CAPACITY;
 }
 bool hb_profile_database_valid(const hb_id_database *db)
 {

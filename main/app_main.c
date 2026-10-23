@@ -4,7 +4,6 @@
 #include "esp_flash.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
-#include "esp_ota_ops.h"
 #include "esp_psram.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -14,8 +13,8 @@
 #include "hb_camera.h"
 #include "hb_compute_budget.h"
 #include "hb_config.h"
+#include "hb_ha.h"
 #include "hb_identity.h"
-#include "hb_mqtt.h"
 #include "hb_services.h"
 #include "hb_ubox.h"
 #include "hb_ui.h"
@@ -87,7 +86,7 @@ void app_main(void)
     {
         hb_services_start();
         hb_ubox_start();
-        if (hb_mqtt_start() != ESP_OK)
+        if (hb_ha_start() != ESP_OK)
             ESP_LOGW(TAG, "Home Assistant configuration/start failed");
     }
 #else
@@ -95,28 +94,6 @@ void app_main(void)
 #endif
     for (;;)
     {
-#if CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE && CONFIG_HB_BOARD_PROFILE_CONFIRMED
-        static bool accepted;
-        if (!accepted && esp_timer_get_time() > 60000000 && config_err == ESP_OK && ui_ready)
-        {
-            esp_ota_img_states_t ota_state;
-            const esp_partition_t *running = esp_ota_get_running_partition();
-            esp_err_t ota_status = esp_ota_get_state_partition(running, &ota_state);
-            if (ota_status == ESP_ERR_NOT_FOUND ||
-                (ota_status == ESP_OK && ota_state != ESP_OTA_IMG_PENDING_VERIFY))
-                accepted = true;
-            hb_camera_status camera;
-            hb_camera_get_status(&camera);
-            extern esp_err_t hb_identity_model_storage(void);
-            bool model_ok = true;
-#if CONFIG_HB_IDENTITY_EXPERIMENTAL
-            model_ok = accepted || hb_identity_model_storage() == ESP_OK;
-#endif
-            if (!accepted && ota_status == ESP_OK && ota_state == ESP_OTA_IMG_PENDING_VERIFY &&
-                camera.running && model_ok)
-                accepted = esp_ota_mark_app_valid_cancel_rollback() == ESP_OK;
-        }
-#endif
         ESP_LOGI(TAG,
                  "uptime=%" PRIi64 "s internal_free=%u internal_largest=%u internal_min=%u "
                  "psram_free=%u psram_largest=%u dma_free=%u dma_largest=%u",

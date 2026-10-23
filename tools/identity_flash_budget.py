@@ -24,23 +24,23 @@ def main():
         data = path.read_bytes()
         measured[key] = {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
     config = json.loads((args.build / "config/sdkconfig.json").read_text())
-    candidate = config.get("PARTITION_TABLE_CUSTOM_FILENAME") == "partitions.identity.csv"
-    slot = 0x500000 if candidate else 0x600000
-    if candidate:
+    candidate = config.get("PARTITION_TABLE_CUSTOM_FILENAME") == "partitions.csv"
+    slot = 0x700000
+    if config.get("HB_IDENTITY_EXPERIMENTAL"):
         image = (args.build / "espdl_models/human_face_feat.espdl").read_bytes()
         validate_image(image)
         measured["model_package"] = {"bytes": len(image), "sha256": hashlib.sha256(image).hexdigest()}
     margin = slot - measured["application"]["bytes"]
-    print(json.dumps({"measured": measured, "candidate_layout": candidate, "ota_bytes": slot,
+    print(json.dumps({"measured": measured, "candidate_layout": candidate, "application_partition_bytes": slot,
                       "current_models_bytes": 0x1e0000,
                       "mbf_fits_current_models": measured["mbf"]["bytes"] <= 0x1e0000,
-                      "ota_headroom_bytes": margin,
+                      "application_headroom_bytes": margin,
                       "model_partition_headroom_bytes": 0x400000 - measured.get("model_package", {}).get("bytes", 0),
-                      "reserved_bytes": 0x160000,
+                      "reserved_bytes": 0xe0000, "voice_partition_bytes": 0x300000, "profile_partition_bytes": 0x100000,
                       "growth_floor_bytes": 0x40000,
                       "runtime_memory": "Requires hardware measurement; not inferred from file sizes"}, indent=2))
     if args.enforce and (not candidate or margin < 0x40000):
-        raise SystemExit("Insufficient candidate OTA growth margin or wrong partition table")
+        raise SystemExit("Insufficient single application growth margin or wrong partition table")
 
 
 if __name__ == "__main__":
