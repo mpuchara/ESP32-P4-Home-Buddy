@@ -7,10 +7,10 @@
 #define HB_FACE_WIDTH 180
 #define HB_FACE_HEIGHT 318
 #define HB_FACE_MAX 4
-// MSR input aspect is4:3; center the portrait thumbnail without distorting faces.
-#define HB_FACE_INPUT_WIDTH 424
-#define HB_FACE_PAD_X 122
-#define HB_FACE_INPUT_BYTES (HB_FACE_INPUT_WIDTH * HB_FACE_HEIGHT * 2)
+// Portrait sampling retains sensor aspect; ESPDet handles its own square letterbox.
+#define HB_FACE_INPUT_WIDTH 234
+#define HB_FACE_INPUT_HEIGHT 416
+#define HB_FACE_INPUT_BYTES (HB_FACE_INPUT_WIDTH * HB_FACE_INPUT_HEIGHT * 2)
 #ifdef __cplusplus
 extern "C"
 {
@@ -34,7 +34,7 @@ extern "C"
     bool hb_face_admit(uint32_t psram_free, uint32_t psram_largest, uint32_t internal_free,
                        uint32_t internal_largest, bool loading);
     bool hb_face_clip(hb_face_box *box);
-    bool hb_face_letterbox(uint16_t *pixels, size_t capacity_bytes);
+    bool hb_face_map_box(hb_face_box *box);
     bool hb_face_fresh(const hb_face_status *status, uint64_t now_ms);
 #ifdef __cplusplus
 }

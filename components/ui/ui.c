@@ -1028,7 +1028,7 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.4.0-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware 0.4.1-dev\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
                  service_state[0], service_state[1], service_state[2],

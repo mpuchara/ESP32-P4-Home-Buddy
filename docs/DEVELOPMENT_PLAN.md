@@ -10,7 +10,7 @@ Physical acceptance cannot be inferred from successful compilation.
 | 2 | Fullscreen cached UBox JPEG, cover crop, ETag, NTP/Warsaw clock, Open-Meteo temperature layers | Implemented; JPEG/clock verified, Real UBox/colors/304 and device weather verified; outage/soak pending |
 | 3 | Direct setup, persistent configuration, complete Polish touchscreen settings | All settings without PIN per operator request; Wi-Fi provisioning verified; encryption pending |
 | 4 | Exact camera driver, frame capture, illumination metric, two-anchor calibration | OV02C10 ID and ~30fps capture verified; RAW8 colors/detail/upright operator-confirmed; real calibration and stability pending |
-| 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | Experimental detection diagnostic in0.4.0; hardware acceptance pending. Alignment/embeddings/enrollment remain pending |
+| 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | 0.4.0 detects faces (<40ms operator report) but misses often; 0.4.1 ESPDet416 stability pending. Alignment/embeddings/enrollment remain pending |
 | 6 | ES8311/PCM/VAD, local speaker embeddings and on-device enrollment | Pending |
 | 7 | Temporal fusion, greetings, independent cooldowns, MQTT Discovery/events/HA examples | Pending |
 | 8 | Secure persistent storage, migrations, deletion, OTA/recovery | Pending |

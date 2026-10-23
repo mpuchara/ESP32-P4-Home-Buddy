@@ -93,7 +93,8 @@ static void worker(void *)
                 fail(ESP_ERR_NO_MEM);
                 continue;
             }
-            model = new (std::nothrow) HumanFaceDetect(HumanFaceDetect::MSRMNP_S8_V1, false);
+            model = new (std::nothrow)
+                HumanFaceDetect(HumanFaceDetect::ESPDET_PICO_416_416_FACE, false);
             if (!model)
             {
                 free(pixels);
@@ -106,7 +107,7 @@ static void worker(void *)
             size_t after_i = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
             size_t used_p = before_p > after_p ? before_p - after_p : 0;
             size_t used_i = before_i > after_i ? before_i - after_i : 0;
-            ESP_LOGI("face", "MSR/MNP loaded; psram_delta=%u internal_delta=%u input=%u",
+            ESP_LOGI("face", "ESPDet416 loaded; psram_delta=%u internal_delta=%u input=%u",
                      (unsigned)used_p, (unsigned)used_i, (unsigned)HB_FACE_INPUT_BYTES);
             if (used_p > 4 * 1024 * 1024 || used_i > 64 * 1024)
             {
@@ -145,15 +146,14 @@ static void worker(void *)
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
-        hb_raw_thumbnail_upright(frame.pixels, frame.width, frame.height, pixels, HB_FACE_WIDTH,
-                                 HB_FACE_HEIGHT);
+        hb_raw_thumbnail_upright(frame.pixels, frame.width, frame.height, pixels,
+                                 HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
         hb_camera_release(&frame); // Never hold sensor storage during model inference.
-        hb_camera_make_preview(pixels, HB_FACE_WIDTH, HB_FACE_HEIGHT, pixels, HB_FACE_WIDTH,
-                               HB_FACE_HEIGHT);
-        hb_face_letterbox(pixels, HB_FACE_INPUT_BYTES);
+        hb_camera_make_preview(pixels, HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT, pixels,
+                               HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
         dl::image::img_t image{.data = pixels,
                                .width = HB_FACE_INPUT_WIDTH,
-                               .height = HB_FACE_HEIGHT,
+                               .height = HB_FACE_INPUT_HEIGHT,
                                .pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB565LE};
         int64_t begin = esp_timer_get_time();
         auto &results = model->run(image);
@@ -169,9 +169,8 @@ static void worker(void *)
                 break;
             if (r.box.size() != 4 || r.score < 0.7f)
                 continue;
-            hb_face_box b{r.box[0] - HB_FACE_PAD_X, r.box[1], r.box[2] - HB_FACE_PAD_X, r.box[3],
-                          r.score};
-            if (hb_face_clip(&b))
+            hb_face_box b{r.box[0], r.box[1], r.box[2], r.box[3], r.score};
+            if (hb_face_map_box(&b))
                 result.boxes[result.count++] = b;
         }
         if (requested.load() && epoch.load() == ticket)

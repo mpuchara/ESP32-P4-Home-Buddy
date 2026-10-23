@@ -103,10 +103,10 @@ Second natural2304x1296 frame:739,606bytes,295ms; at allocation log PSRAM
 old displayed image, free PSRAM returned to26,723,652/largest23,592,960. Two full
 frames/one replacement are observed, not a sustained repeated-swap/AI admission test.
 
-##0.4.0 diagnostic detection budget
+##0.4.1 diagnostic detection budget
 
-Wi-Fi app initial build0x38d8b0bytes fits unchanged6MiB slots; no partition update.
-MSR/MNP weights are191,216bytes before pack/alignment; input canvas269,664bytes.
+ESPDet416 weights are578,160bytes before pack/alignment; input194,688bytes.
+Build and physical acceptance receipts are in DEVELOPMENT_LOG.md.
 Model arenas/parameters and temporary candidates are additional. An8KiB worker
 stack is created only after explicit activation. Model/input free on exit; the
 worker remains. Loading/inference use conservative aggregate/largest-block

@@ -42,24 +42,20 @@ int main(void)
     s.enabled = true;
     s.error = ESP_FAIL;
     CHECK(!hb_face_fresh(&s, 1000));
-    uint16_t *pixels = malloc(HB_FACE_INPUT_BYTES + 2);
-    CHECK(pixels);
-    for (unsigned y = 0; y < HB_FACE_HEIGHT; y++)
-        for (unsigned x = 0; x < HB_FACE_WIDTH; x++)
-            pixels[y * HB_FACE_WIDTH + x] = (uint16_t)(1 + y * HB_FACE_WIDTH + x);
-    pixels[HB_FACE_INPUT_BYTES / 2] = 0x5a5a;
-    CHECK(!hb_face_letterbox(pixels, HB_FACE_INPUT_BYTES - 1));
-    CHECK(hb_face_letterbox(pixels, HB_FACE_INPUT_BYTES));
-    for (unsigned y = 0; y < HB_FACE_HEIGHT; y++)
-        for (unsigned x = 0; x < HB_FACE_INPUT_WIDTH; x++)
-        {
-            uint16_t expected = x < HB_FACE_PAD_X || x >= HB_FACE_PAD_X + HB_FACE_WIDTH
-                                    ? 0
-                                    : (uint16_t)(1 + y * HB_FACE_WIDTH + x - HB_FACE_PAD_X);
-            CHECK(pixels[y * HB_FACE_INPUT_WIDTH + x] == expected);
-        }
-    CHECK(pixels[HB_FACE_INPUT_BYTES / 2] == 0x5a5a);
-    free(pixels);
-    puts("face policy: memory admission, bounded boxes and stale/disabled results OK");
+    b = (hb_face_box){0, 0, 233, 415, 0.8f};
+    CHECK(hb_face_map_box(&b));
+    CHECK(b.x1 == 0 && b.y1 == 0 && b.x2 == 179 && b.y2 == 317);
+    b = (hb_face_box){117, 208, 233, 415, 0.8f};
+    CHECK(hb_face_map_box(&b));
+    CHECK(b.x1 == 90 && b.y1 == 159);
+    b = (hb_face_box){-100, -100, 999999, 999999, 0.8f};
+    CHECK(hb_face_map_box(&b));
+    CHECK(b.x1 == 0 && b.y1 == 0 && b.x2 == 179 && b.y2 == 317);
+    b = (hb_face_box){999999, 0, 999999, 20, 0.8f};
+    CHECK(!hb_face_map_box(&b));
+    b = (hb_face_box){0, 0, 200, 200, NAN};
+    CHECK(!hb_face_map_box(&b));
+    CHECK(!hb_face_map_box(NULL));
+    puts("face policy: memory admission, scaled boxes and stale/disabled results OK");
     return 0;
 }

@@ -56,7 +56,7 @@ registry/ESPHome runtime dependency or lockfile change. Selected GUITION SDK
 Apache-2.0 mode table and its LICENSE/SOURCE receipt are in components/camera/vendor.
 Sullb/profi-max/esp-video-components were inspected with provenance recorded there.
 OV02C10 is now physically identified; similar-name drivers are not substituted.
-ESP-DL/ESP-WHO research is in LOCAL_CAMERA.md. No AI dependency/model is linked.
+ESP-DL/ESP-WHO research is in LOCAL_CAMERA.md. The optional diagnostic AI consumer is described below.
 
 The native CSI adapter requires the exact pinned IDF source hash and applies only
 output DMA length/cache invalidation corrections in the build directory. It adds

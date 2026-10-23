@@ -50,7 +50,7 @@ slider to a comfortable level and Zapisz. Do not shine a flashlight to manufactu
 the night point. Negative light values are normal relative logarithmic values.
 Brak aktualnego pomiaru means no usable fresh sample; it no longer displays0.000.
 
-Local face test (0.4.0-dev): open Kamera lokalna, provide normal good lighting,
+Local face test (0.4.1-dev): open Kamera lokalna, provide normal good lighting,
 press Test twarzy and face the onboard camera. The button displays count/time;
 green boxes are diagnostic detections. Press again or leave the page to stop.
 The menu still times out after30s without touch. No identity is assigned and no

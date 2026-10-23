@@ -10,9 +10,9 @@ source1ab1e264d4270bfad6a45760ea19273dca0cedfc is retained here.
 ESP-New-JPEG has an Espressif-product-restricted MIT-style license, retained
 verbatim. This target is ESP32-P4. No ESPHome or external inference service.
 
-Selected P4 two-stage models embedded in application rodata:
-* MSR61,248bytes SHA2562bbaaf17f39ce9ee547abf5ffdc6d8fcd1844009a0d26878d7bfb33451f16211
-* MNP129,968bytes SHA2565b7fedcff59dbe69d1935d6d206bf371fc18b5dd9176320ef69c9f05ee83af55
-CMake verifies these model hashes. Build-time registry downloads are required;
+Selected P4 ESPDet Pico Face 416x416, 578,160 bytes, embedded in application rodata:
+SHA256 a8a0ccfe808fc1c11902340d902f06d8483456e882af683aa23e91108c55e951
+CMake verifies the weight hash. This replaces the MSR/MNP selection from 0.4.0;
+registry/source pins are unchanged. Build-time registry downloads are required;
 device inference and its weights have no network dependency. No household images
 or biometric templates are bundled. Code is experimental detection, not identity.

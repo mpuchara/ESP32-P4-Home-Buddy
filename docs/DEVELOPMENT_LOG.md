@@ -586,3 +586,20 @@ No calibration/NVS schema change, C6 flash, bridge change, private-image upload,
 merge or production release. Existing night calibration acceptance remains valid;
 representative daytime anchor and physical persistence test are still pending.
 Documentation-only verification receipt uses [skip ci].
+
+
+## 0.4.1 accuracy-oriented face diagnostic, 2026-10-23
+
+Operator confirms 0.4.0 detects their face below 40 ms, with correct camera image,
+but frequent misses in a dim-looking image with glasses/beard/dark clothes and
+background. This is operator timing, not an agent-captured inference trace. Return
+to screensaver and model cleanup are not explicitly confirmed by this reply.
+
+Replace fixed MSR160x120 (portrait about68x120) with ESPDet416 and a 234x416
+portrait input, preserving aspect via SDK letterboxing. Keep score >=0.7, freshness,
+explicit activation, frame leases and resource admission; no synthetic presence
+hold or lower threshold. Host regressions cover mapping/extreme coordinates.
+Sensor AE, exposure limits and calibrated light/brightness path remain unchanged.
+Improvement in this room is pending a physical comparison, not claimed from the
+upstream benchmark. Dependencies/source pins remain unchanged; selected weights
+and their checked hash are updated. No enrollment or automation events added.
