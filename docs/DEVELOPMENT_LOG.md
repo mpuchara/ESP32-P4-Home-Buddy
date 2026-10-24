@@ -1,3 +1,16 @@
+# 2026-10-24: unexpected notification during covered-camera trial
+
+Operator reports three notifications in the deduplication trial, one while the
+camera was covered. Notification/deduplication acceptance fails; the cause is
+unassigned until actual triggering events/timestamps and notification text are
+correlated. Check fresh inference versus previously generated event/delayed phone
+delivery and older/duplicate automation. Passive camera ownership/freshness review
+retains leased frame snapshots, completion sequence/timestamp and five-second
+event freshness gates. No firmware/threshold change or reset is justified yet.
+Requested a renewed background lease, opaque local-lens cover and matching HA
+events while USB capture runs. Prior real recognized delivery remains evidence of
+the transport path, not proof that this negative-camera scenario is correct.
+
 # 2026-10-24: real confirmed identity reaches Home Assistant
 
 The operator supplied a real home_buddy_identity event with recognized/face/

@@ -1,5 +1,16 @@
 ## Current hardware acceptance, 2026-10-24
 
+OPEN regression/acceptance blocker: during the next notification/deduplication
+trial, the operator reports three notifications, including one while the local
+camera was covered. No corresponding trigger payload/trace has been supplied yet.
+Do not classify this as proven fresh covered-camera recognition, delayed mobile
+delivery or a duplicate/older automation without correlating the evidence.
+Requested notification text and a controlled covered-lens trial with the HA
+listener already active, a renewed background lease and passive USB capture.
+Investigate trigger event_id, source/receipt times, source_age_ms, session and
+encounter together with frame/inference diagnostics. No threshold changes,
+firmware installation, reset or loss of the RAM profile are part of this step.
+
 The operator confirms the complete one-person test scenario works: usable name
 entry/profile selection, eight accepted enrollment samples, fresh-frame
 verification/save in RAM, KNOWN with confirmation, loss of confirmation out of
