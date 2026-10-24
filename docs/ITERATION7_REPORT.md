@@ -84,7 +84,10 @@ recognized/face/confirmed event with the enrolled RAM profile, timestamp
 Live browser inspection subsequently confirms a real recognized event triggered
 the intended notification action at 13:34:44 Europe/Warsaw and finished in 0.30 s;
 the operator confirms receipt. No YAML/firmware change was required.
-Encounter deduplication/re-entry, stop/expiry and offline checks are next.
+The controlled one-person 90-second stay and leave/return test is also accepted:
+one notification per encounter, with two matching successful HA traces, different
+event IDs and encounters in the same session (13:52:34 and 13:54:06 Europe/Warsaw).
+Stop/expiry and offline checks are next; negative/multi-person tests remain open.
 Quantified identity accuracy remains pending. This
 is not a soak or multi-person accuracy acceptance. CI run 40071157529 for the
 current firmware source completed successfully; later commits are documentation.

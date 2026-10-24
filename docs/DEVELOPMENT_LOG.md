@@ -1,3 +1,15 @@
+# 2026-10-24: controlled encounter deduplication and return accepted
+
+Operator reports one notification during the 90-second stay, then one after the
+15-second leave/30-second return. Retained HA traces confirm two new successful
+recognized/face/confirmed runs at 13:52:34 and 13:54:06 Europe/Warsaw, runtime about
+0.28 seconds each. Event sequences 54/57 differ, session 123 is the same, encounters
+22/23 differ, source ages are 1356/1539 ms. This accepts that one-person scenario;
+it is not broader accuracy or an uninterrupted event-stream capture. Renewed the
+HA listener (it had disconnected) and passive USB capture for explicit Stop.
+No firmware change, reset or security provisioning. Expiry/offline/negative and
+multi-person acceptance remain pending.
+
 # 2026-10-24: live recognized-only notification acceptance
 
 After operator sign-in, the live HA listener received a real recognized/face/

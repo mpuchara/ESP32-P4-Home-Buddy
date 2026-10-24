@@ -7,8 +7,9 @@ Active continuation: onboard MBF execution, one-person RAM enrollment/fresh-fram
 confirmation, personalized saver greeting and real recognized REST event delivery
 are operator-confirmed. The real recognized-only notification action is also
 confirmed by a matching HA trace and operator receipt. Five saver/re-entry cycles
-passed after the Flash read watchdog fix. Continue automatically to encounter
-deduplication/re-entry, cancellation/expiry and offline/stress checks.
+passed after the Flash read watchdog fix. The controlled 90-second stay and real
+leave/return notification test also passed with two matching HA traces. Continue
+automatically to cancellation/expiry and offline/stress checks.
 Quantified multi-person accuracy remains pending. Voice remains
 capacity planning only in this iteration. Secure provisioning needs separate
 authorization; the current profile mode remains visibly RAM-only.
@@ -22,7 +23,7 @@ authorization; the current profile mode remains visibly RAM-only.
 | 4 | Exact camera driver, frame capture, illumination metric, two-anchor calibration | OV02C10 ID and ~30fps capture verified; RAW8 colors/detail/upright operator-confirmed; real calibration and stability pending |
 | 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | Real ESPDet416/MNP/MBF execution and one-person RAM enrollment/fresh-frame confirmation/leave-return scenario accepted; multi-person and impostor accuracy pending |
 | 6 | ES8311/PCM/VAD, local speaker embeddings and on-device enrollment | Pending |
-| 7 | Temporal fusion, greetings, independent cooldowns, Webhook/REST events and HA helper examples | Personalized greeting, real recognized REST delivery and recognized-only notification accepted; encounter deduplication, identity stop/expiry and outage acceptance pending |
+| 7 | Temporal fusion, greetings, independent cooldowns, Webhook/REST events and HA helper examples | Personalized greeting, real recognized REST delivery, recognized-only notification and controlled one-person encounter deduplication/return accepted; identity stop/expiry and outage acceptance pending |
 | 8 | Secure persistent storage, migrations, deletion, USB recovery | Transactional gate and USB tool implemented; secure provisioning and physical power-loss/deletion acceptance pending |
 | 9 | Profiling, fault injection, reconnect, recovery and 72-hour physical soak | Pending |
 

@@ -1,5 +1,18 @@
 ## Current hardware acceptance, 2026-10-24
 
+Controlled encounter test accepted: the operator reports exactly one notification
+during a continuous 90-second stay and one after leaving for 15 seconds and
+returning for 30 seconds. Retained HA traces independently show the two new
+recognized/face/confirmed runs at 13:52:34 and 13:54:06 Europe/Warsaw, both completed
+successfully in about 0.28 seconds. Their event sequences are 54 and 57, session
+123 for both, encounters 22 and 23, source ages 1356 and 1539 ms respectively.
+This accepts the stated one-person notification deduplication/new-encounter
+scenario. Operator timing/counts and server-side traces are the evidence; the
+browser event listener had disconnected and was not an uninterrupted raw capture.
+It was restarted for the next explicit Stop test, alongside passive USB capture.
+Stop/expiry, offline behavior, negative/multi-person accuracy and secure persistence
+remain open. No firmware change or device restart is part of these checks.
+
 Recognized-only HA notification acceptance now passes: the live browser listener
 received a real recognized/face/confirmed event at 2026-10-24T11:34:44.764184Z
 (session 106, encounter 18, event sequence 47, source_age_ms=1576). The matching
@@ -7,9 +20,8 @@ User detection trace shows the event trigger at 13:34:44 Europe/Warsaw, executio
 of the existing mobile notification and successful completion at 13:34:45 with
 runtime 0.30 seconds. The operator confirms the expected notification arrived.
 No HA YAML or firmware change was needed. A fresh explicit background trial was
-used; the cause of the earlier missed run is not proven. Remaining active checks:
-deduplication during a continuous 90-second stay, a second real encounter after
-leaving, cancellation/expiry, offline behavior and negative/multi-person accuracy.
+used; the cause of the earlier missed run is not proven. Subsequent encounter
+acceptance and remaining checks are recorded above.
 
 Earlier investigation: the operator initially reported three
 notifications, including one while the camera was covered, then explicitly
@@ -66,9 +78,7 @@ previous diagnostic connection_test. The similarity is not an accuracy estimate;
 second_similarity=-1 is the missing-other-profile sentinel. Timestamp resolution
 does not establish exact network latency. No images/embeddings are in the payload.
 
-Next checks: no repeated events while
-remaining in one encounter, a new event after a real leave/return beyond HA's
-configured cooldown, explicit stop/expiry and bounded offline behavior. RAM-only
+Next checks: explicit stop/expiry and bounded offline behavior. RAM-only
 IDs remain explicitly nonpersistent; secure persistence and multi-person/impostor
 accuracy acceptance remain open.
 

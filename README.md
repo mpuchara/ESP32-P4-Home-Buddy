@@ -128,7 +128,8 @@ personalized saver greeting and a real confirmed recognition event received by
 Home Assistant over REST are operator-accepted. A matching live HA trace and
 operator receipt also accept the recognized-only notification action. Five saver/re-entry cycles pass
 after the Flash-validation watchdog fix. Secure persistence, quantified accuracy,
-encounter deduplication and extended reliability acceptance remain open.
+extended reliability acceptance remain open. A controlled 90-second stay and
+leave/return test produced one notification per encounter with matching HA traces.
 See [hardware evidence](docs/IDENTITY_VALIDATION.md).
 
 [Implementation and on-device enrollment](docs/FACE_RECOGNITION.md) uses

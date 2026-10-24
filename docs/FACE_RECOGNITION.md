@@ -4,7 +4,9 @@ This is an **experimental implementation** with partial hardware acceptance.
 Real onboard MBF execution, one-person RAM enrollment/fresh-frame confirmation,
 personalized greeting, confirmed recognized REST delivery to HA and its harmless
 recognized-only notification are accepted. Quantified multi-person/impostor accuracy,
-secure persistence, encounter deduplication and extended reliability checks remain open. See IDENTITY_VALIDATION.md
+secure persistence and extended reliability checks remain open. The controlled
+one-person 90-second stay and leave/return notification test is also accepted.
+See IDENTITY_VALIDATION.md
 and ITERATION7_REPORT.md for current evidence and limits.
 The baseline is development branch commit `223a4ff1977b6bcb3bdb73f013b59801b6d30c7d`.
 Remote branch heads were checked before development; main contained only the initial commit.
