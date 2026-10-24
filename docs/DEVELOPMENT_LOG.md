@@ -9,6 +9,10 @@ Actual household/form functions were rendered at 800x480 before/after using LVGL
 The host UI harness also entered a key, checked foreground stacking, closed on
 ready, reopened on tap and verified the text survived. No biometric samples were
 enrolled as part of that UI check. On-device input acceptance remains pending.
+Recognition build, effective-config/budget and formatting checks pass. App-only
+COM5 installation and verify_flash pass; application is 4,386,720 bytes, SHA-256
+4f6cb3b2ac58ea8bfae7e1faed6e6883b53efc23ffc022fc25aee9e612e799bb.
+NVS, models, partition table and profile areas were not written.
 
 # 2026-10-24: captured Flash validation watchdog and mmap candidate
 
