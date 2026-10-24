@@ -45,3 +45,16 @@ confirmation; same ID may yield BOTH only after both providers are validated;
 distinct IDs yield CONFLICT. Preserve a sole reliable modality, otherwise return
 UNKNOWN/AMBIGUOUS. Never weight incomparable raw scores or assume the visible face
 owns a concurrent voice. Event bus still admits FACE only.
+
+## Host asset inspection receipt
+
+The pinned P4 3s asset was downloaded only to ignored local/iteration8, not to the
+board. Raw SHA256: 736ca24bc3430db65b063ce4af7341904d1970d8505aa2eaab0d7be9e760c42e.
+Read-only FlatBuffer inspection against the locked espdl.fbs schema gives input
+`input`: int16 [1,300,80], output `embedding`: int8 [1,512]. Thus this asset has a
+512-dimensional output; equal face/voice dimension does not imply comparable spaces.
+The locked packer produces 2,844,624-byte PDL3; full-file SHA256
+b503ff049a0cd5c62b4c1ac337cf20b7de1549857a4d5329a1821cfb55e9b3a8; margin
+301,104 bytes. The packer's printed package_sha256 is its internal integrity field,
+not the full-file digest. No runtime loading/operator or resource acceptance follows
+from parsing/packing; the future SV partition remains unchanged.

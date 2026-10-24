@@ -758,10 +758,15 @@ static void worker(void *)
                 else if (hb_id_evaluate(&state.evaluation, evaluation_expected, state.match,
                                         state.confirmed, state.sequence, state.frame_ms))
                 {
-                    state.evaluation.latency_total_us += state.total_us;
-                    ++state.evaluation.latency_samples;
-                    if (state.total_us > state.evaluation.latency_max_us)
-                        state.evaluation.latency_max_us = state.total_us;
+                    // No-face/failed preprocessing may have no complete timing receipt.
+                    // Keep its outcome count, but do not fabricate a zero-latency sample.
+                    if (state.total_us)
+                    {
+                        state.evaluation.latency_total_us += state.total_us;
+                        ++state.evaluation.latency_samples;
+                        if (state.total_us > state.evaluation.latency_max_us)
+                            state.evaluation.latency_max_us = state.total_us;
+                    }
                 }
                 evaluate = false;
                 message(state, "Próba oceniona; zmień warunek przed kolejną próbą");

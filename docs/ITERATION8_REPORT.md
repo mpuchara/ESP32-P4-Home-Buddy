@@ -73,10 +73,12 @@ feasibility from measured hardware behavior; reserved SV partition stays unwritt
 ## Local package receipt
 
 Recognition app: 4,457,648 bytes; SHA256
-3bcc72d3e24c51bdd7e57097ebe21f7066ddc5fcd828c6c5562a1492c277ff48.
+bb3bc0897240de020c6d2df3144e72b2d317fada540bbc0541086ce5f23e0916.
 Factory growth margin: 2,882,384 bytes, above the 262,144-byte enforced floor.
 Effective recognition configuration confirms persistence, Secure Boot and Flash
 encryption disabled, ES8311 support available, existing thresholds and Flash map.
-Package: dist/0.7.0-dev-iteration8 with hashes and codec license. Application-only
+Package: dist/0.7.0-dev-iteration8-final with hashes and codec license. Application-only
 USB dry run selects only 0x20000/home_buddy.bin and opens no serial port.
 Candidate CI is pending at this implementation commit; record actual results below.
+
+Final timing bookkeeping excludes unavailable measurements rather than inserting zero-latency samples. Host inspection confirmed SV input int16 [1,300,80], output int8 [1,512] and a fitting locked package, without a device write.
