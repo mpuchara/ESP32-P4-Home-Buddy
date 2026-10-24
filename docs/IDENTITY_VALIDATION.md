@@ -7,12 +7,15 @@ The operator also reports a device restart when returning from the saver to the
 household recognition test after landmarks appeared. This remains an OPEN blocker.
 Do not proceed to enrollment/recognized-event acceptance until it is resolved.
 
-The next operator attempt also restarted immediately on opening the household
-page, before starting recognition. A passive capture opened afterwards confirms
-a new uptime but missed the panic/reset-reason lines; it does not establish the
-cause. Investigation therefore includes household-page construction and the UI
-task, not only model release/reload. CI run 40047726427 passes the host job and
-all four firmware profiles for diagnostic commit 909a1f5; hardware restart
+The operator clarified that opening the household page alone works; the restart
+occurs when entering recognition. A later capture shows a successful first screen
+open/model load, a safe release (heap integrity passes before and after), and a
+truncated second recognition-screen-open line followed by a new uptime. The panic
+and reset reason were missed during the capture gap, so the cause remains unknown.
+UI minimum free stack recorded before the second open was 1,520 bytes; identity
+worker minimum free stack at release was 6,448 bytes. These are diagnostic
+observations, not proof of stack exhaustion. CI run 40047726427 passes the host job
+and all four firmware profiles for diagnostic commit 909a1f5; hardware restart
 acceptance remains open.
 
 Initial bounded passive captures show model loads (PSRAM delta 8,538,056 bytes,
