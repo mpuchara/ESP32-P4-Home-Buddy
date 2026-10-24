@@ -51,6 +51,16 @@ dependencies:
     - esp32s3
     - esp32s31
     version: 3.3.14
+  espressif/esp_codec_dev:
+    component_hash: 4779f31a3ba3f9b38aee1afe6ccb9ba8f6108dc3a6e77d39d7d714e9a215371b
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.6.2
   espressif/esp_hosted:
     component_hash: 35628bdf316d4cb4f7a918bdcef3fe8e87ccd5808f4b2f042b296adb59b00a27
     dependencies:
@@ -183,6 +193,7 @@ dependencies:
     version: 8.3.11
 direct_dependencies:
 - espressif/esp-dl
+- espressif/esp_codec_dev
 - espressif/esp_hosted
 - espressif/esp_lcd_touch_gt911
 - espressif/esp_wifi_remote
@@ -190,6 +201,6 @@ direct_dependencies:
 - espressif/human_face_recognition
 - idf
 - lvgl/lvgl
-manifest_hash: ca9a60f54b364aacd4634b04261b3063e8adb43412f2dcc529987f95b3ae1024
+manifest_hash: 04c6d027c9e1b1751c2577751a98e8737f84489601b917b71a2c12192e005d9c
 target: esp32p4
 version: 2.0.0

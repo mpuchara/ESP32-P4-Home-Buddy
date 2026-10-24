@@ -195,7 +195,18 @@ int main(void)
     assert(hb_id_evaluate(&stats, 0, trial, false, 4, 4000));
     assert(hb_id_evaluate(&stats, 1, trial, false, 5, 5000));
     assert(stats.true_accept == 1 && stats.confusion == 1 && stats.unknown_accept == 1);
-    assert(stats.unknown_reject == 1 && stats.false_reject == 1 && stats.ambiguous == 2);
+    assert(stats.unknown_reject == 0 && stats.false_reject == 0 && stats.ambiguous == 2);
+    assert(stats.known_ambiguous == 1 && stats.unknown_ambiguous == 1);
+    trial.state = HB_ID_UNAVAILABLE;
+    assert(hb_id_evaluate(&stats, 1, trial, false, 6, 6000));
+    assert(hb_id_evaluate(&stats, 0, trial, false, 7, 7000));
+    assert(stats.known_trials == 4 && stats.unknown_trials == 3);
+    assert(stats.known_unavailable == 1 && stats.unknown_unavailable == 1);
+    assert(stats.unknown_reject == 0); // Missing capture is not a correct unknown rejection.
+    hb_id_evaluation_unavailable(&stats, 1);
+    hb_id_evaluation_unavailable(&stats, 0);
+    assert(stats.known_trials == 5 && stats.unknown_trials == 4);
+    assert(stats.known_unavailable == 2 && stats.unknown_unavailable == 2);
     geometry();
     matching();
     temporal();

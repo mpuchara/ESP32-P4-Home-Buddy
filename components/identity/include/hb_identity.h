@@ -13,7 +13,8 @@ extern "C"
         HB_ID_STOP,
         HB_ID_TEST,
         HB_ID_BACKGROUND,
-        HB_ID_ENROLL
+        HB_ID_ENROLL,
+        HB_ID_AUTO
     } hb_id_mode;
     typedef enum
     {
@@ -30,7 +31,8 @@ extern "C"
         HB_ID_CMD_STOP,
         HB_ID_CMD_LANDMARK_METHOD,
         HB_ID_CMD_EVALUATE,
-        HB_ID_CMD_EXPECTED
+        HB_ID_CMD_EXPECTED,
+        HB_ID_CMD_AUTO
     } hb_id_command_type;
     typedef struct
     {
@@ -49,7 +51,13 @@ extern "C"
         hb_id_mode mode;
         hb_id_match match;
         bool ready, confirmed, verified, official_landmarks, detection_valid;
-        bool persistence_ready;
+        bool persistence_ready, auto_enabled;
+        unsigned usable_profiles;
+        uint64_t deadline_ms;
+        uint32_t model_loads, model_unloads, command_rejections, stack_min;
+        char last_error[160];
+        char last_recognized[HB_ID_NAME];
+        uint64_t last_recognized_ms;
         uint32_t model_load_us;
         char persistence_message[120];
         unsigned samples, faces, profile_count;

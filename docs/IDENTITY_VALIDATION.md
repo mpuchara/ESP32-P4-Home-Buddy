@@ -278,3 +278,8 @@ validate this new subsystem. Upstream reference timing/accuracy is not board dat
    updating its matrix is not itself evidence that CI succeeded.
 
 See FACE_RECOGNITION.md, IDENTITY_FLASH_LAYOUT.md and ACCURACY_CALIBRATION.md.
+
+
+## Iteration 8 continuation
+
+Iteration 8 preserves previous real recognition/HA/encounter receipts. New AUTO/audio, quantified negative/multi-person accuracy and exact lifecycle acceptance remain pending: ITERATION8_ACCEPTANCE.md. Host policy tests do not establish installed-device behavior.

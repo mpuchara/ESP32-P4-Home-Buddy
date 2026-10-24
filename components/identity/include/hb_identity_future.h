@@ -14,10 +14,24 @@ typedef struct
 typedef struct
 {
     hb_id_match face, voice;
+    bool face_confirmed, voice_confirmed;
     uint64_t face_frame_ms, voice_window_end_ms;
     uint32_t session;
 } hb_identity_fusion_input;
-// Future fusion must return AMBIGUOUS on distinct confirmed IDs; never choose
+typedef enum
+{
+    HB_FUSION_UNKNOWN,
+    HB_FUSION_AMBIGUOUS,
+    HB_FUSION_CONFIRMED,
+    HB_FUSION_CONFLICT
+} hb_identity_fusion_status;
+typedef struct
+{
+    hb_identity_fusion_status status;
+    hb_id_source source;
+    uint64_t person_id;
+} hb_identity_fusion_result;
+// Future fusion must return CONFLICT on distinct confirmed IDs; never choose
 // whichever source has a higher raw similarity across different model scales.
 // Voice templates require their own versioned schema/model namespace and storage
 // capacity assessment; schema-1 face slots must not be repurposed silently.

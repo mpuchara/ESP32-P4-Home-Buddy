@@ -7,8 +7,10 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "hb_config.h"
 #include "hb_face.h"
 #include "hb_identity.h"
+#include "hb_identity_lifecycle.h"
 #include "hb_profile_flash.h"
 #include <atomic>
 #include <cstdio>
@@ -34,6 +36,9 @@ static SemaphoreHandle_t guard;
 static hb_id_status published{};
 static std::atomic<uint32_t> epoch{1};
 static std::atomic<bool> stop_requested{false};
+static std::atomic<bool> disable_requested{false};
+static std::atomic<uint32_t> command_rejections{0};
+static std::atomic<uint64_t> session_deadline{0};
 static hb_id_database *database;
 static hb_id_enrollment *enrollment;
 static uint16_t *published_preview;
@@ -59,9 +64,14 @@ static void message(hb_id_status &s, const char *text)
 static void publish(hb_id_status &s)
 {
     s.profile_count = 0;
+    s.usable_profiles = 0;
+    s.command_rejections = command_rejections.load();
+    s.stack_min = uxTaskGetStackHighWaterMark(nullptr);
     for (const auto &p : database->people)
         if (p.id)
         {
+            if (p.enabled && p.count)
+                ++s.usable_profiles;
             auto &d = s.profiles[s.profile_count++];
             d.id = p.id;
             d.samples = p.count;
@@ -81,7 +91,7 @@ static void identity_events(const hb_id_status &s)
     static hb_presence_tracker presence{};
     static hb_presence_value previous = HB_PRESENCE_UNKNOWN;
     static uint32_t session;
-    if (s.mode != HB_ID_BACKGROUND || s.session != epoch.load() || !s.detection_valid ||
+    if (!hb_id_background(s.mode) || s.session != epoch.load() || !s.detection_valid ||
         !s.frame_ms || s.frame_ms > now_ms() || now_ms() - s.frame_ms > 5000)
         return;
     if (session != s.session)
@@ -432,7 +442,18 @@ static void worker(void *)
     hb_id_status state{};
     hb_id_tracker tracker{};
     persistence_start(state);
-    bool capture = false, verify = false;
+    state.auto_enabled = hb_config_identity_auto();
+    unsigned usable = 0;
+    for (const auto &p : database->people)
+        usable += p.id && p.enabled && p.count;
+    if (hb_id_auto_ready(state.auto_enabled, usable))
+        state.mode = HB_ID_AUTO;
+    else if (state.auto_enabled)
+        message(state, "AUTO oczekuje: zarejestruj domownika; profile RAM zniknęły po restarcie");
+    bool capture = false, verify = false, evaluate = false;
+    unsigned evaluation_frames = 0;
+    uint64_t evaluation_expected = 0;
+    uint32_t evaluation_sequence = 0;
     uint64_t until = 0;
 #if CONFIG_HB_IDENTITY_EXPERIMENTAL
     Models models;
@@ -451,24 +472,55 @@ static void worker(void *)
             hb_id_tracker_reset(&tracker, epoch.load());
             message(state, "Rozpoznawanie zatrzymane");
         }
+        if (disable_requested.exchange(false))
+        {
+            if (hb_config_identity_auto_save(false) == ESP_OK)
+                state.auto_enabled = false;
+            else
+                snprintf(state.last_error, sizeof(state.last_error),
+                         "Stop działa; błąd zapisu OFF. AUTO może wrócić po restarcie");
+        }
         hb_id_command c{};
         while (xQueueReceive(jobs, &c, 0) == pdTRUE)
         {
             if (c.type == HB_ID_CMD_EVALUATE)
             {
-                bool fresh = state.mode == HB_ID_TEST && state.completed_ms <= now_ms() &&
-                             now_ms() - state.completed_ms <= 5000;
-                bool recorded =
-                    fresh && hb_id_evaluate(&state.evaluation, state.expected_id, state.match,
-                                            state.confirmed, state.sequence, state.frame_ms);
-                message(state, recorded ? "Próba oceniona lokalnie (bez zapisu zdjęć)"
-                                        : "Brak nowej, aktualnej próby");
+                if (state.mode == HB_ID_TEST && !evaluate)
+                {
+                    evaluate = true;
+                    evaluation_frames = 0;
+                    evaluation_expected = state.expected_id;
+                    evaluation_sequence = state.sequence;
+                    hb_id_tracker_reset(&tracker, epoch.load());
+                    message(state, "Nowa próba: trzy nowe obserwacje; bez zapisu zdjęć");
+                }
+                else
+                    message(state, "Próba już trwa lub TEST nieaktywny");
                 continue;
+            }
+            if (c.type == HB_ID_CMD_AUTO)
+            {
+                if (hb_config_identity_auto_save(true) != ESP_OK)
+                {
+                    snprintf(state.last_error, sizeof(state.last_error),
+                             "Nie potwierdzono zapisu zgody AUTO");
+                    continue;
+                }
+                state.auto_enabled = true;
+            }
+            if (c.type == HB_ID_CMD_TEST || c.type == HB_ID_CMD_BACKGROUND)
+            {
+                if (hb_config_identity_auto_save(false) == ESP_OK)
+                    state.auto_enabled = false;
+                else
+                    snprintf(state.last_error, sizeof(state.last_error),
+                             "Nie zapisano wyłączenia AUTO po restarcie");
             }
             state.confirmed = false;
             state.confirmed_id = 0;
             state.match = {HB_ID_UNAVAILABLE, 0, -1, -1};
             hb_id_tracker_reset(&tracker, epoch.load());
+            evaluate = false;
             switch (c.type)
             {
             case HB_ID_CMD_CREATE:
@@ -523,6 +575,19 @@ static void worker(void *)
                 state.mode = HB_ID_TEST;
                 until = now_ms() + 600000;
                 break;
+            case HB_ID_CMD_AUTO:
+                capture = verify = false;
+                memset(enrollment, 0, sizeof(*enrollment));
+                state.sequence = 0;
+                state.mode = HB_ID_STOP;
+                for (const auto &p : database->people)
+                    if (p.id && p.enabled && p.count)
+                        state.mode = HB_ID_AUTO;
+                until = 0;
+                message(state, state.mode == HB_ID_AUTO
+                                   ? "AUTO aktywne; model pozostaje w pamięci"
+                                   : "AUTO oczekuje: zarejestruj domownika i włącz AUTO");
+                break;
             case HB_ID_CMD_BACKGROUND:
                 capture = verify = false;
                 memset(enrollment, 0, sizeof(*enrollment));
@@ -560,7 +625,9 @@ static void worker(void *)
             hb_id_tracker_reset(&tracker, current_session);
         }
         state.session = current_session;
-        if (state.mode != HB_ID_STOP && now_ms() >= until)
+        state.deadline_ms = state.mode == HB_ID_AUTO || state.mode == HB_ID_STOP ? 0 : until;
+        session_deadline.store(state.deadline_ms);
+        if (hb_id_expired(state.mode, until, now_ms()))
         {
             ESP_LOGI("identity", "SESSION_EXPIRED session=%u now_ms=%llu until_ms=%llu",
                      (unsigned)state.session, (unsigned long long)now_ms(),
@@ -576,6 +643,8 @@ static void worker(void *)
         {
             if (hb_compute_enter(0))
             {
+                if (models.mbf)
+                    ++state.model_unloads;
                 models.unload();
                 state.ready = false;
                 hb_compute_leave();
@@ -598,7 +667,12 @@ static void worker(void *)
             state.detection_us = state.landmarks_us = state.embedding_us = state.total_us = 0;
             state.faces = 0;
             state.detection_valid = false;
+            bool was_loaded = models.mbf != nullptr;
             state.ready = models.load(state);
+            if (state.ready && !was_loaded)
+                ++state.model_loads;
+            if (!state.ready)
+                snprintf(state.last_error, sizeof(state.last_error), "%s", state.message);
             bool ok = state.ready && models.infer(state, embedding);
             static uint64_t last_inference_log;
             if (!ok && (!last_inference_log || now_ms() - last_inference_log >= 10000))
@@ -610,6 +684,8 @@ static void worker(void *)
                          (unsigned)state.detection_us, (unsigned)state.landmarks_us,
                          (unsigned)state.embedding_us, state.message);
             }
+            if (!ok)
+                snprintf(state.last_error, sizeof(state.last_error), "%s", state.message);
             state.completed_ms = now_ms();
             if (state.ready && state.detection_valid && state.sequence && ticket == epoch.load())
             {
@@ -625,8 +701,8 @@ static void worker(void *)
                 preview_sequence = state.sequence;
                 xSemaphoreGive(guard);
             }
-            if (ticket == epoch.load() && state.completed_ms >= state.frame_ms &&
-                state.completed_ms - state.frame_ms <= 5000)
+            if (ticket == epoch.load() && !hb_id_expired(state.mode, until, now_ms()) &&
+                state.completed_ms >= state.frame_ms && state.completed_ms - state.frame_ms <= 5000)
             {
                 if (ok && state.mode == HB_ID_ENROLL)
                 {
@@ -657,7 +733,14 @@ static void worker(void *)
                         hb_id_confirm(&tracker, state.match, ticket, state.sequence, state.frame_ms,
                                       state.completed_ms, now_ms(), &policy);
                     if (state.confirmed)
+                    {
                         state.confirmed_id = state.match.person_id;
+                        state.last_recognized_ms = state.completed_ms;
+                        auto *person = hb_id_find(database, state.confirmed_id);
+                        if (person)
+                            snprintf(state.last_recognized, sizeof(state.last_recognized), "%s",
+                                     person->name);
+                    }
                 }
                 else
                     hb_id_tracker_reset(&tracker, ticket);
@@ -666,6 +749,22 @@ static void worker(void *)
             {
                 state.confirmed = false;
                 hb_id_tracker_reset(&tracker, epoch.load());
+            }
+            if (evaluate && state.mode == HB_ID_TEST && ticket == epoch.load() &&
+                !hb_id_expired(state.mode, until, now_ms()) && ++evaluation_frames >= 3)
+            {
+                if (state.sequence <= evaluation_sequence || !state.detection_valid)
+                    hb_id_evaluation_unavailable(&state.evaluation, evaluation_expected);
+                else if (hb_id_evaluate(&state.evaluation, evaluation_expected, state.match,
+                                        state.confirmed, state.sequence, state.frame_ms))
+                {
+                    state.evaluation.latency_total_us += state.total_us;
+                    ++state.evaluation.latency_samples;
+                    if (state.total_us > state.evaluation.latency_max_us)
+                        state.evaluation.latency_max_us = state.total_us;
+                }
+                evaluate = false;
+                message(state, "Próba oceniona; zmień warunek przed kolejną próbą");
             }
             memset(&embedding, 0, sizeof(embedding));
             hb_compute_leave();
@@ -681,13 +780,36 @@ static void worker(void *)
 #endif
         state.samples = enrollment->count;
         state.verified = enrollment->verified;
+        if (hb_id_expired(state.mode, until, now_ms()))
+        {
+            state.mode = HB_ID_STOP;
+            state.confirmed = false;
+            state.confirmed_id = 0;
+            state.match = {HB_ID_UNAVAILABLE, 0, -1, -1};
+            epoch.fetch_add(1);
+        }
         publish(state);
         identity_events(state);
+        static uint64_t health_at;
+        if (now_ms() >= health_at)
+        {
+            health_at = now_ms() + 30000;
+            uint32_t overflow[HB_EVENT_CONSUMERS], stale[HB_EVENT_CONSUMERS];
+            hb_identity_event_diagnostics(overflow, stale);
+            ESP_LOGI("identity",
+                     "HEALTH mode=%u ready=%d stack=%u models=%u/%u rejected=%u "
+                     "overflow=%u/%u/%u stale=%u/%u/%u",
+                     (unsigned)state.mode, state.ready, (unsigned)state.stack_min,
+                     (unsigned)state.model_loads, (unsigned)state.model_unloads,
+                     (unsigned)state.command_rejections, (unsigned)overflow[0],
+                     (unsigned)overflow[1], (unsigned)overflow[2], (unsigned)stale[0],
+                     (unsigned)stale[1], (unsigned)stale[2]);
+        }
         // No overlapping inference, no unbounded queue. Commands are checked at least every 100ms
         // idle.
         for (unsigned j = 0; j < (state.mode == HB_ID_STOP ? 1U : 10U); ++j)
         {
-            if (uxQueueMessagesWaiting(jobs))
+            if (stop_requested.load() || uxQueueMessagesWaiting(jobs))
                 break;
             vTaskDelay(pdMS_TO_TICKS(100));
         }
@@ -740,21 +862,30 @@ esp_err_t hb_identity_start(void)
 }
 esp_err_t hb_identity_command(const hb_id_command *c)
 {
-    if (!c || c->type > HB_ID_CMD_EXPECTED || !memchr(c->name, 0, HB_ID_NAME))
+    if (!c || (unsigned)c->type > HB_ID_CMD_AUTO || !memchr(c->name, 0, HB_ID_NAME))
         return ESP_ERR_INVALID_ARG;
     esp_err_t start = hb_identity_start();
     if (start)
         return start;
-    if (c->type != HB_ID_CMD_EVALUATE)
-        epoch.fetch_add(1); // Cancel in-flight publication immediately, even if queue is full.
+    portENTER_CRITICAL(&event_lock);
     if (c->type == HB_ID_CMD_STOP || c->type == HB_ID_CMD_CANCEL)
     {
-        // Safety stop cannot be refused by a full command queue. Later explicit starts may resume.
+        epoch.fetch_add(1);
         xQueueReset(jobs);
+        if (c->type == HB_ID_CMD_STOP)
+            disable_requested.store(true);
         stop_requested.store(true);
+        portEXIT_CRITICAL(&event_lock);
         return ESP_OK;
     }
-    return xQueueSend(jobs, c, 0) == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
+    bool accepted = xQueueSend(jobs, c, 0) == pdTRUE;
+    if (accepted && c->type != HB_ID_CMD_EVALUATE)
+        epoch.fetch_add(1);
+    portEXIT_CRITICAL(&event_lock);
+    if (accepted)
+        return ESP_OK;
+    command_rejections.fetch_add(1);
+    return ESP_ERR_TIMEOUT;
 }
 void hb_identity_get(hb_id_status *out)
 {
@@ -814,7 +945,7 @@ bool hb_identity_greeting(uint64_t now, char name[HB_ID_NAME])
         return false;
     hb_id_status s{};
     hb_identity_get(&s);
-    if (s.mode != HB_ID_BACKGROUND || event.session != epoch.load())
+    if (!hb_id_background(s.mode) || event.session != epoch.load())
         return false;
     for (auto &c : cooldown)
     {
@@ -842,14 +973,17 @@ bool hb_identity_greeting(uint64_t now, char name[HB_ID_NAME])
 bool hb_identity_event_read(hb_event_consumer consumer, hb_id_event *out)
 {
     portENTER_CRITICAL(&event_lock);
-    bool ok = hb_event_pop(&event_bus, consumer, epoch.load(), now_ms(), out);
+    uint64_t deadline = session_deadline.load();
+    bool ok = (!deadline || now_ms() < deadline) &&
+              hb_event_pop(&event_bus, consumer, epoch.load(), now_ms(), out);
     portEXIT_CRITICAL(&event_lock);
     return ok;
 }
 bool hb_identity_event_current(const hb_id_event *event)
 {
-    return event && event->session == epoch.load() && event->frame_ms <= now_ms() &&
-           now_ms() - event->frame_ms <= 5000;
+    uint64_t deadline = session_deadline.load();
+    return (!deadline || now_ms() < deadline) && event && event->session == epoch.load() &&
+           event->frame_ms <= now_ms() && now_ms() - event->frame_ms <= 5000;
 }
 void hb_identity_event_diagnostics(uint32_t overflow[HB_EVENT_CONSUMERS],
                                    uint32_t stale[HB_EVENT_CONSUMERS])

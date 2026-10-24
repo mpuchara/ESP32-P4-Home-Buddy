@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include "hb_identity_lifecycle.h"
 #include "identity_navigation.h"
 #include <assert.h>
 #include <stdio.h>
@@ -36,6 +37,18 @@ int main(void)
                                         HB_ID_CMD_SAVE};
     for (unsigned i = 0; i < sizeof(exits) / sizeof(exits[0]); ++i)
         assert(!hb_identity_saver_intent(true, exits[i], true));
+    assert(hb_identity_saver_intent(false, HB_ID_CMD_AUTO, true));
+    assert(!hb_identity_saver_intent(false, HB_ID_CMD_AUTO, false));
+    assert(hb_id_background(HB_ID_AUTO) && hb_id_background(HB_ID_BACKGROUND));
+    assert(!hb_id_background(HB_ID_TEST));
+    assert(!hb_id_expired(HB_ID_AUTO, 0, UINT64_MAX));
+    assert(!hb_id_expired(HB_ID_STOP, 0, UINT64_MAX));
+    assert(!hb_id_expired(HB_ID_TEST, 600000, 599999));
+    assert(hb_id_expired(HB_ID_TEST, 600000, 600000));
+    assert(hb_id_expired(HB_ID_BACKGROUND, 600000, 600001));
+    assert(!hb_id_auto_ready(true, 0)); // RAM-only reboot, no restored templates.
+    assert(!hb_id_auto_ready(false, 8));
+    assert(hb_id_auto_ready(true, 1));
     puts("identity navigation: pending background, rejected commands and stale worker modes");
     return 0;
 }

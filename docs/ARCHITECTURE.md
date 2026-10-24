@@ -136,3 +136,8 @@ The existing 16-entry identity bus has independent greeting, HA and compatibilit
 cursors. A separate bounded HTTP worker sends Webhook or REST events, never from
 the AI or LVGL task. Offline queues are drained, session/5s freshness is checked,
 and independent HA cooldown prevents inference spam. See HOME_ASSISTANT_HTTP.md.
+
+
+## Iteration 8 continuation
+
+AUTO is a separate worker mode with resident admitted models, existing compute/camera ownership and cancellation epochs. Navigation never starts/extends a session. Ordinary NVS stores enablement only; profile persistence stays gated. Audio uses a separate bounded manual worker. Fusion is architecture only, including CONFLICT; no VOICE/BOTH event.

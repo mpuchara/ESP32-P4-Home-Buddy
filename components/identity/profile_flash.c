@@ -31,8 +31,8 @@ bool hb_profile_flash_open(hb_profile_io *io)
     const esp_partition_t *p = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, 0x41, "profiles");
     // Opening NEVER generates keys, burns eFuses, formats storage or changes security.
     // Both runtime hardware checks are mandatory even if the firmware opt-in is set.
-    if (!CONFIG_HB_IDENTITY_PERSISTENCE || !p || !p->encrypted || !esp_flash_encryption_enabled() ||
-        !esp_secure_boot_enabled())
+    if (!CONFIG_HB_IDENTITY_PERSISTENCE || !p || p->size != 0x100000 || !p->encrypted ||
+        !esp_flash_encryption_enabled() || !esp_secure_boot_enabled())
         return false;
     *io = (hb_profile_io){(void *)p, p->size, true, read_flash, write_flash, erase_flash, digest};
     return true;

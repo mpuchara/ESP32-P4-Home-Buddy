@@ -141,3 +141,8 @@ events without a broker. No microSD, external inference or OTA.
 See [current report](docs/ITERATION7_REPORT.md), [Flash map](docs/SINGLE_IMAGE_FLASH_LAYOUT.md),
 [USB updates/recovery](docs/USB_FLASHING.md), [migration](docs/FLASH_MIGRATION.md)
 and [HA setup](docs/HOME_ASSISTANT_HTTP.md). Physical acceptance is tracked separately.
+
+
+## Iteration 8 continuation
+
+Candidate 0.7.0-dev adds opt-in AUTO with ordinary NVS preference, preserved ten-minute TEST, RAM-only reboot waiting, fresh local evaluation and manual 60-second microphone diagnostics. Installed firmware remains unchanged. See docs/ITERATION8_REPORT.md and docs/ITERATION8_ACCEPTANCE.md.

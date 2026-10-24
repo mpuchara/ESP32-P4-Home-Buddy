@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "hb_audio.h"
 #include "hb_brightness_service.h"
 #include "hb_camera.h"
 #include "hb_camera_preview.h"
@@ -83,6 +84,8 @@ static float calibration_metric;
 static lv_obj_t *identity_info, *identity_choice, *identity_marks[5], *identity_box;
 static uint64_t identity_selected;
 static bool identity_screen;
+static bool recognition_settings;
+static lv_obj_t *audio_info;
 static bool identity_saver_intent;
 static uint32_t identity_tick;
 static void identity_page(lv_event_t *e);
@@ -184,6 +187,9 @@ static void close_page(void)
         hb_identity_command(&stop);
     }
     identity_screen = false;
+    recognition_settings = false;
+    hb_audio_stop();
+    audio_info = NULL;
     identity_saver_intent = false;
     ha_enable = ha_publish = ha_tls = ha_info = ha_mode = NULL;
     identity_info = identity_choice = identity_box = NULL;
@@ -327,6 +333,47 @@ static void identity_send(lv_event_t *e)
         else if (command.type == HB_ID_CMD_STOP || command.type == HB_ID_CMD_TEST)
             form_error("Polecenie przyjęte.");
     }
+}
+static void audio_start(lv_event_t *e)
+{
+    (void)e;
+    if (hb_audio_start() != ESP_OK)
+        form_error("Nie można uruchomić mikrofonu");
+}
+static void audio_stop(lv_event_t *e)
+{
+    (void)e;
+    hb_audio_stop();
+}
+static void audio_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Mikrofon: diagnostyka");
+    button(page, "Uruchom test 60 s", 24, 70, 350, audio_start, NULL);
+    button(page, "Stop", 400, 70, 230, audio_stop, NULL);
+    audio_info = label(page, "Test wyłączony. Dźwięk pozostaje lokalny; bez zapisu i wysyłania.",
+                       LV_ALIGN_TOP_LEFT, 24, 150);
+    lv_obj_set_width(audio_info, 745);
+}
+static void recognition_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Rozpoznawanie");
+    recognition_settings = true;
+    button(page, "Wyłączone / Stop", 24, 70, 230, identity_send, (void *)(uintptr_t)HB_ID_CMD_STOP);
+    button(page, "Test na 10 minut", 282, 70, 230, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_BACKGROUND);
+    button(page, "Włącz AUTO", 540, 70, 230, identity_send, (void *)(uintptr_t)HB_ID_CMD_AUTO);
+    button(page, "Ocena dokładności", 24, 135, 300, identity_page, (void *)2);
+    button(page, "Mikrofon", 400, 135, 230, audio_page, NULL);
+    identity_info = label(page, "Oczekiwanie na stan", LV_ALIGN_TOP_LEFT, 24, 205);
+    lv_obj_set_height(identity_info, 165);
+    lv_label_set_long_mode(identity_info, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(identity_info, 745);
+    page_error = label(page, "AUTO wymaga świadomego włączenia. Profile RAM znikają po restarcie.",
+                       LV_ALIGN_TOP_LEFT, 24, 380);
+    lv_obj_set_width(page_error, 745);
+    button(page, "Wygaszacz", 590, 420, 190, close_menu, NULL);
 }
 static void identity_guest(lv_event_t *e)
 {
@@ -479,8 +526,38 @@ static void identity_update(void)
         if (hb_identity_greeting((uint64_t)esp_timer_get_time() / 1000, name))
             hb_ui_show_greeting(name);
     }
+    if (audio_info)
+    {
+        hb_audio_status a;
+        hb_audio_get(&a);
+        lv_label_set_text_fmt(
+            audio_info,
+            "%s | układ: %s\nPCM mono: %u Hz | RMS %u peak %u clip %u\n"
+            "Bufor aplikacji: %u B | DMA: %u B\nRamki: %u | błędy: %u | utracone próbki: %u\n%s",
+            a.active ? "AKTYWNY" : "Wyłączony", a.available ? "dostępny" : "niezweryfikowany",
+            (unsigned)a.sample_rate, (unsigned)a.rms, (unsigned)a.peak, a.clipped,
+            (unsigned)a.app_bytes, (unsigned)a.dma_bytes, (unsigned)a.frames, (unsigned)a.errors,
+            (unsigned)a.dropped_samples, a.message);
+    }
     if (!identity_info)
         return;
+    if (recognition_settings)
+    {
+        const char *mode = s.mode == HB_ID_AUTO                                 ? "AUTO aktywne"
+                           : s.mode == HB_ID_BACKGROUND || s.mode == HB_ID_TEST ? "TEST aktywny"
+                           : s.mode == HB_ID_ENROLL                             ? "Rejestracja"
+                                                    : "Wyłączone / oczekiwanie";
+        lv_label_set_text_fmt(identity_info,
+                              "%s | zgoda AUTO: %s\nDomownicy: %u (gotowi: %u) | MBF: %s\n"
+                              "Ostatni wynik: %s\n%s\nOstatni błąd: %s",
+                              mode, s.auto_enabled ? "TAK" : "NIE", s.profile_count,
+                              s.usable_profiles, s.ready ? "załadowany" : "niezaładowany",
+                              s.last_recognized_ms ? s.last_recognized : "brak",
+                              s.persistence_ready ? "Profile: chroniony Flash"
+                                                  : "RAM-only: profile znikają po restarcie",
+                              s.last_error[0] ? s.last_error : "brak");
+        return;
+    }
     if (!identity_screen)
     {
         lv_label_set_text_fmt(identity_info, "%s\n%s", s.message, s.persistence_message);
@@ -501,7 +578,7 @@ static void identity_update(void)
              "MBF: %s | twarze: %u | %s\n%s | %s\nPodobieństwo: %s / inna osoba: %s\n"
              "D/L/MBF+align: %u/%u/%u ms | razem %u\n"
              "KiB PSRAM %u/%u | RAM %u/%u\nQ: %.0f / %.0f / %.0f | próbki: %u\n"
-             "Ocena: TA %u FR %u mylne %u gość %u/%u\n%s",
+             "Próby znane %u: TA %u FR %u mylne %u\nGość %u: FA %u CR %u | AMB %u brak %u\n%s",
              s.ready ? "gotowy" : "brak", s.faces, states[s.match.state], candidate,
              s.confirmed ? "potwierdzony" : "kandydat", best, second,
              (unsigned)(s.detection_us / 1000), (unsigned)(s.landmarks_us / 1000),
@@ -509,8 +586,10 @@ static void identity_update(void)
              (unsigned)(s.psram_free / 1024), (unsigned)(s.psram_largest / 1024),
              (unsigned)(s.internal_free / 1024), (unsigned)(s.internal_largest / 1024),
              (double)s.quality.mean, (double)s.quality.contrast, (double)s.quality.detail,
-             s.samples, s.evaluation.true_accept, s.evaluation.false_reject, s.evaluation.confusion,
-             s.evaluation.unknown_accept, s.evaluation.unknown_trials, s.message);
+             s.samples, s.evaluation.known_trials, s.evaluation.true_accept,
+             s.evaluation.false_reject, s.evaluation.confusion, s.evaluation.unknown_trials,
+             s.evaluation.unknown_accept, s.evaluation.unknown_reject, s.evaluation.ambiguous,
+             s.evaluation.unavailable, s.message);
     lv_label_set_text(identity_info, text);
     if (preview_pixels)
     {
@@ -1545,7 +1624,7 @@ static void screens(void)
     button(menu, "System", 282, 290, 230, system_test, NULL);
     button(menu, "Jakość twarzy", 540, 290, 230, quality_page, NULL);
     button(menu, "Domownicy", 24, 355, 230, household_page, NULL);
-    button(menu, "Rozpoznawanie twarzy", 282, 355, 300, identity_page, NULL);
+    button(menu, "Rozpoznawanie", 282, 355, 300, recognition_page, NULL);
     button(menu, "Home Assistant", 594, 355, 180, ha_page, NULL);
     button(menu, "Powrót", 620, 410, 150, close_menu, NULL);
     status = label(menu, "", LV_ALIGN_TOP_LEFT, 24, 412);

@@ -120,3 +120,8 @@ This client does not automatically register HA devices/entities.
 
 References: [Webhook trigger](https://www.home-assistant.io/docs/automation/trigger/#webhook-trigger),
 [REST API](https://developers.home-assistant.io/docs/api/rest/).
+
+
+## Iteration 8 continuation
+
+AUTO reuses bounded FACE HTTP transport, freshness, encounter deduplication and independent cooldowns. Inference finishing after TEST deadline cannot authorize a late event. Outages drain/drop old events; delivery is best effort, without durable replay. No voice/BOTH/diagnostic recognition event. Physical fault protocol: ITERATION8_ACCEPTANCE.md.

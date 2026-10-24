@@ -22,3 +22,8 @@ Do not lower thresholds to hide uncertainty. Compare ESPDet -> MNP and official
 MSR -> MNP on the native ROI, visually inspect landmark positions and collect
 within-person/different-person similarity distributions before selecting production
 thresholds. None of these physical/calibration criteria is marked accepted yet.
+
+
+## Iteration 8 continuation
+
+Oceń próbę requests three new observations rather than grading a prior frame. Expected identity/guest is captured at admission. AMBIGUOUS/UNAVAILABLE are counted separately within known/unknown trial totals; neither is a correct guest rejection. No real accuracy rates/distributions collected. See ITERATION8_ACCEPTANCE.md.

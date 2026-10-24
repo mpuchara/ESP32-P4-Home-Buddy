@@ -60,3 +60,8 @@ Sources inspected 2026-10-23:
 [model files](https://github.com/espressif/esp-dl/tree/master/models/speaker_verification/models/p4),
 [speaker source](https://github.com/espressif/esp-dl/blob/master/models/speaker_verification/speaker_verification.cpp),
 [provisioning CMake](https://github.com/espressif/esp-dl/blob/master/models/speaker_verification/CMakeLists.txt).
+
+
+## Iteration 8 continuation
+
+Partitions unchanged. Audio codec driver lives in existing factory app. sv_model_3s remains reserved/unwritten; profiles stay security-gated. SPEAKER_FEASIBILITY.md distinguishes storage fit from runtime compatibility; SECURITY_PROVISIONING.md covers encrypted offsets/recovery.

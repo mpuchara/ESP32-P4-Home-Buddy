@@ -83,11 +83,16 @@ extern "C"
     {
         unsigned known_trials, unknown_trials, true_accept, false_reject, confusion;
         unsigned unknown_reject, unknown_accept, ambiguous, unavailable;
+        unsigned known_unavailable, unknown_unavailable;
+        unsigned known_ambiguous, unknown_ambiguous;
+        uint64_t latency_total_us;
+        uint32_t latency_max_us, latency_samples;
         uint32_t last_sequence;
         uint64_t last_frame_ms;
     } hb_id_evaluation;
     bool hb_id_evaluate(hb_id_evaluation *stats, uint64_t expected_id, hb_id_match match,
                         bool confirmed, uint32_t sequence, uint64_t frame_ms);
+    void hb_id_evaluation_unavailable(hb_id_evaluation *stats, uint64_t expected_id);
     bool hb_id_embedding_valid(const hb_id_embedding *e);
     float hb_id_similarity(const hb_id_embedding *a, const hb_id_embedding *b);
     bool hb_id_landmarks_valid(const hb_id_landmarks *l, unsigned w, unsigned h);

@@ -1052,3 +1052,8 @@ No new device flash, migration, erase, eFuse/security provisioning, C6 update,
 merge or production release. Hardware MBF/accuracy/memory, persistence security,
 MQTT/TLS/HA and rollback acceptance remain incomplete. This supersedes historical
 microSD deployment instructions above. Full receipts: ITERATION6_REPORT.md.
+
+
+## Iteration 8 continuation
+
+2026-10-24: iteration 8 continues 6dab65c on codex/local-face-recognition. Baseline CI 40118442005 succeeded. Installed 00272f7 remains untouched, preserving RAM enrollment. ITERATION8_REPORT.md separates candidate validation and physical gates.

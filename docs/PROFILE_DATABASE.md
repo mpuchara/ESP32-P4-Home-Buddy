@@ -68,3 +68,8 @@ that actual format before activation. Face data uses 245,760 feature bytes plus
 same-size blocks, not filesystem per-record overhead; header/payload writes are
 16-byte aligned. Security key storage is separate in nvs_keys. Larger voice
 requirements need an explicit schema/layout migration, not unbounded allocation.
+
+
+## Iteration 8 continuation
+
+Persistence remains disabled on unprovisioned hardware. Adapter now verifies exact 1 MiB capacity. No biometric schema/layout change. Ordinary AUTO preference is not profile persistence. SECURITY_PROVISIONING.md covers USB recovery, alternatives and activation gates.

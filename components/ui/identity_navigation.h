@@ -10,6 +10,7 @@ static inline bool hb_identity_saver_intent(bool current, hb_id_command_type com
         return current;
     switch (command)
     {
+    case HB_ID_CMD_AUTO:
     case HB_ID_CMD_BACKGROUND:
         return true;
     case HB_ID_CMD_TEST:

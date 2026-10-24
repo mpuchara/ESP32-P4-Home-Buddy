@@ -10,17 +10,31 @@ bool hb_id_evaluate(hb_id_evaluation *s, uint64_t expected, hb_id_match match, b
         return false;
     s->last_sequence = sequence;
     s->last_frame_ms = frame_ms;
+    if (expected)
+        ++s->known_trials;
+    else
+        ++s->unknown_trials;
     if (match.state == HB_ID_UNAVAILABLE)
     {
         ++s->unavailable;
+        if (expected)
+            ++s->known_unavailable;
+        else
+            ++s->unknown_unavailable;
         return true;
     }
     bool accepted = match.state == HB_ID_KNOWN && match.person_id && confirmed;
     if (match.state == HB_ID_AMBIGUOUS)
+    {
         ++s->ambiguous;
+        if (expected)
+            ++s->known_ambiguous;
+        else
+            ++s->unknown_ambiguous;
+        return true;
+    }
     if (expected)
     {
-        ++s->known_trials;
         if (accepted && match.person_id == expected)
             ++s->true_accept;
         else if (accepted)
@@ -30,13 +44,29 @@ bool hb_id_evaluate(hb_id_evaluation *s, uint64_t expected, hb_id_match match, b
     }
     else
     {
-        ++s->unknown_trials;
         if (accepted)
             ++s->unknown_accept;
         else
             ++s->unknown_reject;
     }
     return true;
+}
+
+void hb_id_evaluation_unavailable(hb_id_evaluation *s, uint64_t expected)
+{
+    if (!s)
+        return;
+    ++s->unavailable;
+    if (expected)
+    {
+        ++s->known_trials;
+        ++s->known_unavailable;
+    }
+    else
+    {
+        ++s->unknown_trials;
+        ++s->unknown_unavailable;
+    }
 }
 
 static bool name_valid(const char *s)

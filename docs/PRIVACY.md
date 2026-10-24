@@ -21,3 +21,8 @@ verified HTTPS. Keep full Flash backups, keys, credentials and personal samples
 outside Git, artifacts and CI. Do not automatically erase NVS on initialization
 failure. See PROFILE_DATABASE.md for deletion/recovery limits and FLASH_MIGRATION.md
 for the separately authorized security provisioning requirements.
+
+
+## Iteration 8 continuation
+
+AUTO requires deliberate opt-in; ordinary NVS stores its boolean only. RAM-only profiles still disappear on reboot. Microphone test starts manually, expires after 60 seconds, clears PCM each block and sends/saves no audio. No weaker persistence or voice enrollment is enabled. See AUDIO_DIAGNOSTICS.md and SECURITY_PROVISIONING.md.

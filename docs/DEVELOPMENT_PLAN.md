@@ -87,3 +87,8 @@ The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
 HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
+
+
+## Iteration 8 continuation
+
+Candidate implements AUTO/OFF/TEST, reboot waiting, evaluation and bounded audio diagnostics. Physical gates: scheduled app update/profile loss, navigation/AUTO and microphone acceptance, consenting multi-person negatives, outages and 72-hour soak. Persistence needs reviewed secure USB recovery; speaker runtime remains conditional.

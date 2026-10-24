@@ -206,3 +206,8 @@ Recognition component and generic weights ship under the component MIT notice,
 retained in `components/identity/vendor/MBF-MIT.txt` and onboard-model staging. Published
 93.94% TAR at FAR=1e-4 and 146.2 ms P4 inference are upstream IJB-C/reference-board
 benchmarks, not results from this GUITION device or this camera pipeline.
+
+
+## Iteration 8 continuation
+
+AUTO has no fixed deadline and requires explicit enablement. At reboot it starts only with usable restored profiles; RAM-only reboot waits for enrollment and explicit AUTO selection. Models remain resident until Stop/suspension. Thresholds/templates/confirmation are unchanged. Ordinary settings are passive; explicit diagnostics/enrollment may replace the session.

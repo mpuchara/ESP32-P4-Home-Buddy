@@ -49,6 +49,7 @@ for source_name, name in [
     ("components/face/vendor/SOURCE.md", "licenses/Face-source.md"),
     ("components/identity/vendor/MBF-MIT.txt", "licenses/MBF-MIT.txt"),
     ("components/identity/vendor/SOURCE.md", "licenses/Identity-source.md"),
+    ("managed_components/espressif__esp_codec_dev/LICENSE", "licenses/esp-codec-dev-Apache-2.0.txt"),
     ("dependencies.lock", "dependencies.lock"),
 ]:
     target = output / name

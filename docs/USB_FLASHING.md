@@ -93,3 +93,8 @@ are lost on full restore. Never write a P4 backup to C6 or another unit.
 Flash encryption/Secure Boot may irreversibly restrict USB/debug/download and raw
 backup restoration. Neither is enabled by this development package or tool. Test
 signed recovery on equivalent hardware before authorizing that separate stage.
+
+
+## Iteration 8 continuation
+
+Use application-only USB update after scheduling loss of RAM enrollment; no installation was automatic. Current helper rejects secured packages/devices and is not a signed/encrypted updater. Security can disable ROM OTG/DFU; exact Serial/JTAG or USB-UART recovery needs validation per SECURITY_PROVISIONING.md. No C6/OTA/security provisioning added.
