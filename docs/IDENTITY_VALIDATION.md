@@ -1,5 +1,34 @@
 ## Current hardware acceptance, 2026-10-24
 
+Unattended background completion observed on retry: the operator reports starting
+background, waiting twenty seconds on the recognition screen and then opening
+the saver, followed by no further requested input. The previous capture had
+already ended before this acknowledgement; a new passive capture was started.
+identity-expiry-retry-01.log first shows current inference at uptime 26,386,061 ms
+(its first line also contains an old buffered fragment, excluded from timing).
+Inference continues through the retry files until MODEL_RELEASE at
+26,925,411..26,925,433 ms in retry-10.log, with heap_ok=1 before and after,
+PSRAM restored to 26,327,860 bytes and internal largest block 69,632 bytes.
+No intervening navigation cancellation is logged. The camera and UBox continue
+after release without a reset. This accepts unattended background completion
+consistent with the ten-minute lease; the command/start timestamp was not captured,
+so the exact 600-second duration is not independently measured. Full-size UBox
+JPEG 2304x1296 decode also succeeds during active inference in retry-06.log.
+This is one coexistence sample, not leak/soak acceptance. No firmware write or
+reset was performed. Offline and negative/multi-person trials remain pending.
+
+Earlier automatic-expiry attempt was inconclusive: after the operator acknowledged the
+fresh start, passive USB capture identity-expiry-acceptance-02/03.log showed
+identity screen opening at uptime 22,905,945 ms, then close identity screen at
+22,925,622 ms and MODEL_RELEASE at 22,926,055..22,926,076 ms (heap_ok=1).
+This is an early navigation cancellation, not the ten-minute lease expiry.
+The saver transition checks the last published worker mode; background command
+processing is asynchronous, so a pending start can be cancelled by navigation.
+That code path is a possible explanation, not a proven cause of this attempt.
+A retry with twenty seconds on the recognition screen after requesting background
+produced the unattended-completion observation above. No reset or flash was
+performed, preserving the enrolled RAM profile.
+
 Stop/navigation workflow: the operator confirms pressing Stop, returning to the
 saver and observing no new notifications during the requested 30-second camera
 trial. The retained HA trace list still ends with the earlier 13:54:06 run.
@@ -9,7 +38,7 @@ There is no matching logged button/command timestamp, so that release cannot be
 attributed conclusively to the button rather than lease expiry. Accept the
 operator-reported Stop/navigation outcome; do not claim an independently timed
 isolated Stop-command test. Personalized-greeting absence was not separately
-reported. Next: a fresh background session and timed automatic expiry observation,
+reported. The subsequent unattended-completion observation is recorded above,
 preserving the existing RAM profile.
 
 Controlled encounter test accepted: the operator reports exactly one notification
@@ -22,8 +51,8 @@ This accepts the stated one-person notification deduplication/new-encounter
 scenario. Operator timing/counts and server-side traces are the evidence; the
 browser event listener had disconnected and was not an uninterrupted raw capture.
 It was restarted for the next explicit Stop test, alongside passive USB capture.
-Automatic expiry, offline behavior, negative/multi-person accuracy and secure persistence
-remain open. No firmware change or device restart is part of these checks.
+Exact lease timing, offline behavior, negative/multi-person accuracy and secure persistence
+remain open. Unattended completion is recorded above. No firmware change or device restart is part of these checks.
 
 Recognized-only HA notification acceptance now passes: the live browser listener
 received a real recognized/face/confirmed event at 2026-10-24T11:34:44.764184Z

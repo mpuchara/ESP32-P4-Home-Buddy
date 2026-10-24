@@ -1,3 +1,15 @@
+# 2026-10-24: unattended background completion observed
+
+The first expiry attempt cancelled during saver navigation after about twenty
+seconds. A retry with a twenty-second wait before saver entry remained active.
+Passive USB retry-01..10 captures show current inference from uptime 26,386,061 ms
+until clean model release at 26,925,411..26,925,433 ms; heap_ok=1 and PSRAM returns
+to 26,327,860 bytes. Camera/UBox continue without reset. This accepts unattended
+completion consistent with the ten-minute lease, not exact deadline timing:
+the start command predates the new capture. One full 2304x1296 UBox decode succeeds
+while inference is active. Preserve the RAM profile and continue to physical
+outage/negative checks. No firmware/configuration/security change was made.
+
 # 2026-10-24: operator accepts Stop/navigation notification outcome
 
 Operator reports Stop followed by no new notifications in the requested trial.

@@ -89,7 +89,10 @@ one notification per encounter, with two matching successful HA traces, differen
 event IDs and encounters in the same session (13:52:34 and 13:54:06 Europe/Warsaw).
 Operator-reported Stop/navigation also produced no new notifications; matching
 button/release timing was not captured, so no isolated-command timing is claimed.
-Timed expiry and offline checks are next; negative/multi-person tests remain open.
+Unattended background completion is observed on a retry, with clean model release
+and continued camera/UBox operation. Exact start/deadline timing was not captured;
+an earlier navigation cancellation is excluded. Offline and negative/multi-person
+tests remain open.
 Quantified identity accuracy remains pending. This
 is not a soak or multi-person accuracy acceptance. CI run 40071157529 for the
 current firmware source completed successfully; later commits are documentation.

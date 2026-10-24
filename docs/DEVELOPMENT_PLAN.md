@@ -9,7 +9,10 @@ are operator-confirmed. The real recognized-only notification action is also
 confirmed by a matching HA trace and operator receipt. Five saver/re-entry cycles
 passed after the Flash read watchdog fix. The controlled 90-second stay and real
 leave/return notification test also passed with two matching HA traces. Continue
-automatically to expiry and offline/stress checks. The Stop/navigation path has
+automatically to offline/stress checks. Unattended background completion and clean
+model release are observed on a retry; exact lease-start timing was not captured.
+The first attempt cancelled during navigation and is not an expiry result.
+The Stop/navigation path has
 operator-confirmed absence of new notifications; its exact command/release timing
 was not independently captured.
 Quantified multi-person accuracy remains pending. Voice remains
