@@ -14,32 +14,42 @@ mandatory on every load; hashing yields per 64 KiB and unmaps on every exit.
 The host regression covers 20 reloads, full-byte coverage, corrupt header/tail,
 mapping admission/failure and all SHA error cleanup paths using an injected SHA
 double. It does not claim hardware concurrency coverage. Host C suite 17/17,
-Python 7/7 and project checks 3/3 pass. Physical re-entry acceptance remains open.
+Python 7/7 and project checks 3/3 pass.
 
 USB deployment of the mmap candidate succeeded in application-only mode on P4
 COM5 and verify_flash passed. Application: 4,386,480 bytes, SHA-256
 72fa4c48ab8410f4d48fd696910f30ff08d7e643df58e62102f8906402cbf9b3.
 Recognition build and effective-config/budget checks pass. NVS, partition table,
-model and profile areas were not written. A bounded 18-minute passive capture is
-running for operator re-entry/landmark checks; no acceptance is claimed yet.
+model and profile areas were not written.
+
+The operator then completed five saver/re-entry cycles with landmarks and the
+successful-frame message, and explicitly confirmed no restart. Passive captures
+identity-mmap-acceptance-01..04.log show six successful validated model loads
+(initial plus five re-entries), no panic, and no failed release heap check.
+Validation takes 337,420..369,653 us. Five rate-limited MBF_EXEC_OK receipts confirm
+512-dimensional normalized embeddings; complete detector/landmark/alignment/MBF
+latencies are 1,478,508..1,588,499 us. Those five log entries are not the total
+number of processed frames. This accepts the reproduced re-entry regression and
+real onboard pipeline execution, not long-duration stability or identity accuracy.
+The next active stage is one consenting RAM-only enrollment, fresh-frame verify,
+and confirmed local match; no biometric HA delivery is accepted yet.
 
 The operator reports MBF ready, one face, UNKNOWN, visible landmarks and the
 successful-inference message "Kandydat z nowej klatki". This is operator evidence
 of an initial pipeline execution, not a measured accuracy/enrollment acceptance.
 The operator also reports a device restart when returning from the saver to the
-household recognition test after landmarks appeared. This remains an OPEN blocker.
-Do not proceed to enrollment/recognized-event acceptance until it is resolved.
+household recognition test after landmarks appeared. These pre-fix observations
+led to the captured watchdog and accepted re-entry regression described above.
 
 The operator clarified that opening the household page alone works; the restart
 occurs when entering recognition. A later capture shows a successful first screen
 open/model load, a safe release (heap integrity passes before and after), and a
 truncated second recognition-screen-open line followed by a new uptime. The panic
-and reset reason were missed during the capture gap, so the cause remains unknown.
+and reset reason were missed during that earlier capture gap.
 UI minimum free stack recorded before the second open was 1,520 bytes; identity
 worker minimum free stack at release was 6,448 bytes. These are diagnostic
 observations, not proof of stack exhaustion. CI run 40047726427 passes the host job
-and all four firmware profiles for diagnostic commit 909a1f5; hardware restart
-acceptance remains open.
+and all four firmware profiles for diagnostic commit 909a1f5.
 
 Initial bounded passive captures show model loads (PSRAM delta 8,538,056 bytes,
 internal deltas around 55 KiB), continued ~30 fps camera capture, and no captured

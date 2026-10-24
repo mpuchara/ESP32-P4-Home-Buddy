@@ -1,5 +1,13 @@
 # 2026-10-24: captured Flash validation watchdog and mmap candidate
 
+Application-only candidate installation and Flash verification passed. The
+operator completed five re-entry cycles with landmarks/successful-frame status
+and no restart. USB confirms six validated loads, passing release heap checks
+and real 512-dimensional MBF results (total pipeline approximately 1.48..1.59 s).
+The reproduced restart scenario is accepted; soak/multi-person accuracy and
+recognized HA delivery remain pending. Proceeded to one consenting RAM-only
+enrollment and fresh-frame verification; no security provisioning or reboot.
+
 Captured CPU1 interrupt watchdog during model validation, with CPU0 waiting in
 the Flash/cache IPC handshake. Matching ELF decoding and evidence are recorded
 in IDENTITY_VALIDATION.md. Replaced thousands of raw Flash reads with one cache

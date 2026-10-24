@@ -66,11 +66,23 @@ not evidence of physical recognition accuracy or a working HA automation.
 
 ## Physical and CI receipt
 
-Latest firmware: f764f3212696c061e92c33a6425f87fb295c4267, app 4,383,248 bytes,
+Latest firmware source: 0b5a2528c819166d62f0219eeb13da6ab21f2de0, app 4,386,480 bytes,
+SHA256 72fa4c48ab8410f4d48fd696910f30ff08d7e643df58e62102f8906402cbf9b3.
+Recognition build/config/budget and app-only COM5 Flash verification pass. Host
+C suite is 17/17, Python 7/7, project checks 3/3. A captured re-entry interrupt
+watchdog in raw Flash validation led to cache-mapped full SHA-256 validation.
+The operator completed five re-entry cycles without restart; USB captures show
+six validated loads and real 512-dimensional MBF pipeline results in about
+1.48..1.59 seconds. See IDENTITY_VALIDATION.md for exact evidence and limits.
+One-person RAM-only enrollment/fresh-frame verification is now active; identity
+accuracy and actual recognized HA delivery remain pending. This is not a soak
+or multi-person accuracy acceptance. Current CI remains in PR checks.
+
+Previous HA settings firmware: f764f3212696c061e92c33a6425f87fb295c4267, app 4,383,248 bytes,
 SHA256 db2827836af2913d9ef48d14d9ca8e995a915b7641708bc13c32be1d64e7b5f4.
 [CI run 40008194920](https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40008194920)
 passed host and all four firmware profiles; local host suite is now 16/16.
-This supersedes earlier image/version/size receipts below.
+This HA settings baseline superseded the older image/version/size receipts below.
 
 REST diagnostic transport accepted by the operator: HA received a real
 home_buddy_identity event with payload connection_test/method diagnostic/status
@@ -107,7 +119,7 @@ The migrated application boots and captures OV02C10 frames at approximately
 HTTP 304 and successful decode after initial network recovery. Short serial
 observation to about 108 seconds uptime showed no panic/watchdog or reboot;
 PSRAM settled near 26.3 MB free. This is not a soak/leak test. Visual touchscreen,
-brightness/weather regression, MBF model loading/inference, real enrollment,
+brightness/weather regression, real enrollment,
 multi-person accuracy and actual recognized
 HA automation remain unaccepted until directly observed. The diagnostic REST
 transport and harmless diagnostic automation are separately accepted above.
