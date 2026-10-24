@@ -1,5 +1,12 @@
 # 2026-10-24: unexpected notification during covered-camera trial
 
+Live HA follow-up after operator sign-in: the intended User detection automation
+is enabled and its stored YAML correctly matches recognized/face/confirmed within
+home_buddy_identity. No conditions; the existing notification action/template is
+correct. No available traces were shown. No HA configuration was changed. Started
+a read-only event listener and passive USB capture for a fresh explicit background
+leave/return trial; the operator only needs to perform that physical operation.
+
 Operator correction: the notification anomaly was caused by an incorrectly
 configured HA automation, according to the operator. Do not count the earlier
 report as a proven fresh covered-camera false acceptance. The intended automation

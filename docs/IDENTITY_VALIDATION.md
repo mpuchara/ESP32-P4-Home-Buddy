@@ -14,6 +14,16 @@ agent. No threshold change, firmware installation, reset or loss of the RAM
 profile is part of this diagnostic step. Negative-camera and event-deduplication
 acceptance still require controlled observation after fixing the HA configuration.
 
+Live browser inspection after the operator signed in: User detection is enabled.
+Its saved YAML matches home_buddy_identity with event_data recognized / face /
+confirmed, has no conditions, and calls the existing mobile notification with the
+optional person_name template. No configuration change was needed or applied.
+The trace page reports no available traces. HA lists one active listener for
+home_buddy_identity before the agent's read-only listener was started. The agent
+started that listener and passive USB capture, then requested a renewed background
+trial and real leave/return. Awaiting the actual event/action observation; do not
+substitute a diagnostic or a fabricated recognized event for this acceptance.
+
 The operator confirms the complete one-person test scenario works: usable name
 entry/profile selection, eight accepted enrollment samples, fresh-frame
 verification/save in RAM, KNOWN with confirmation, loss of confirmation out of
