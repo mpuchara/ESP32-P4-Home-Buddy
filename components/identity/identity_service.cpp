@@ -239,6 +239,8 @@ class Models
                      esp_err_to_name(model_error));
             return false;
         }
+        ESP_LOGI("identity", "MODEL_VALIDATE mapped_sha256_ok us=%u",
+                 (unsigned)(esp_timer_get_time() - load_started));
         uint32_t p = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
         uint32_t i = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         // Provisional admission budgets, to be replaced by measured board peaks.

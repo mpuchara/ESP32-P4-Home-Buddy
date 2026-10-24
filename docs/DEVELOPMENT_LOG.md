@@ -1,3 +1,13 @@
+# 2026-10-24: captured Flash validation watchdog and mmap candidate
+
+Captured CPU1 interrupt watchdog during model validation, with CPU0 waiting in
+the Flash/cache IPC handshake. Matching ELF decoding and evidence are recorded
+in IDENTITY_VALIDATION.md. Replaced thousands of raw Flash reads with one cache
+mapping, retaining header validation and full pinned SHA-256 on every load.
+Added host fault/cleanup/full-coverage/reload regression: C suite 17/17, Python
+7/7, project checks 3/3 pass. Hardware acceptance of this candidate remains open;
+the watchdog timeout and recognition thresholds are unchanged.
+
 # 2026-10-24: MBF hardware re-entry investigation
 
 Operator sees MBF ready / one face / UNKNOWN, landmarks and the successful-frame

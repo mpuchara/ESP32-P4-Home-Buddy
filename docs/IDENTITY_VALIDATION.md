@@ -1,5 +1,21 @@
 ## Active hardware investigation, 2026-10-24
 
+Captured failure: `local/identity-household-crash-11.log` contains an interrupt
+watchdog on CPU1 immediately after MODEL_LOAD begin and before detector creation.
+Matching diagnostic ELF SHA prefix is 2e574acd4. CPU1 MEPC 0x4ff00c5e resolves to
+shared_intr_isr (intr_alloc.c:481); CPU0 MEPC 0x4ff02530 resolves to the flash IPC
+wait in spi_flash_op_block_func (cache_utils.c:109). reset_reason=5 follows.
+This identifies a flash/cache-handshake stall during model validation, not a
+biometric match failure. The exact interrupt-lock interleaving is not proven.
+
+The candidate replaces 3,442 raw esp_partition_read calls per validation with
+one read-only cache mapping. Header and complete pinned-package SHA-256 remain
+mandatory on every load; hashing yields per 64 KiB and unmaps on every exit.
+The host regression covers 20 reloads, full-byte coverage, corrupt header/tail,
+mapping admission/failure and all SHA error cleanup paths using an injected SHA
+double. It does not claim hardware concurrency coverage. Host C suite 17/17,
+Python 7/7 and project checks 3/3 pass. Physical re-entry acceptance remains open.
+
 The operator reports MBF ready, one face, UNKNOWN, visible landmarks and the
 successful-inference message "Kandydat z nowej klatki". This is operator evidence
 of an initial pipeline execution, not a measured accuracy/enrollment acceptance.
