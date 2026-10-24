@@ -88,6 +88,23 @@ foreground measurement. An active10min background lease still follows its deadli
 
 ## 0.5.0-dev local identity experiment
 
+Current 0.6.1-dev workflow: Domownicy -> enter a name -> keyboard checkmark ->
+Potwierdź dodanie -> Odśwież listę -> select the profile -> Rejestruj próbki.
+Collect eight accepted samples with small pose/distance changes and 2-3 second
+spacing. Wait three seconds, face the camera, Weryfikuj, then Potwierdź zapis.
+Refresh the household list, select the profile and open Test rozpoznawania.
+KNOWN plus potwierdzony requires fresh-frame confirmations. No profile survives
+a reboot on the current unprovisioned RAM-only device.
+
+Foreground testing does not publish HA identity events. For the explicit
+background trial, press Włącz tło na 10 min, wait five seconds for the queued
+mode change, then Wygaszacz UBox. The operator has accepted the personalized
+greeting and a real recognized/face/confirmed HA event. Greeting cooldown is five
+minutes; HA cooldown is configured separately (default 60 seconds). To validate
+another encounter, leave the camera view for 15 seconds and return after the HA
+cooldown has elapsed. Inspect all received events: the last event after leaving
+can be presence_leave rather than the earlier recognized event.
+
 See [face recognition implementation and limitations](FACE_RECOGNITION.md),
 [onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).

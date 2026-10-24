@@ -3,10 +3,12 @@
 Each phase needs a buildable commit and evidence in DEVELOPMENT_LOG.md.
 Physical acceptance cannot be inferred from successful compilation.
 
-Active continuation: LAN REST diagnostic delivery and its HA notification are
-operator-confirmed. Continue automatically to real onboard MBF execution, local
-enrollment, confirmed recognized-event delivery, then cancellation/reload/stress
-checks. A connection_test does not count as a biometric recognition. Voice remains
+Active continuation: onboard MBF execution, one-person RAM enrollment/fresh-frame
+confirmation, personalized saver greeting and real recognized REST event delivery
+are operator-confirmed. Five saver/re-entry cycles passed after the Flash read
+watchdog fix. Continue automatically to recognized-only harmless automation,
+encounter deduplication/re-entry, cancellation/expiry and offline/stress checks.
+Quantified multi-person accuracy remains pending. Voice remains
 capacity planning only in this iteration. Secure provisioning needs separate
 authorization; the current profile mode remains visibly RAM-only.
 
@@ -17,9 +19,9 @@ authorization; the current profile mode remains visibly RAM-only.
 | 2 | Fullscreen cached UBox JPEG, cover crop, ETag, NTP/Warsaw clock, Open-Meteo temperature layers | Implemented; JPEG/clock verified, Real UBox/colors/304 and device weather verified; outage/soak pending |
 | 3 | Direct setup, persistent configuration, complete Polish touchscreen settings | All settings without PIN per operator request; Wi-Fi provisioning verified; encryption pending |
 | 4 | Exact camera driver, frame capture, illumination metric, two-anchor calibration | OV02C10 ID and ~30fps capture verified; RAW8 colors/detail/upright operator-confirmed; real calibration and stability pending |
-| 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | 0.4.2 ESPDet416 detection is operator-accepted as more stable (700-800ms), including reopen. 0.4.5 scalar face-quality readouts operator-confirmed; alignment/MBF/enrollment implemented, physical acceptance pending |
+| 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | Real ESPDet416/MNP/MBF execution and one-person RAM enrollment/fresh-frame confirmation/leave-return scenario accepted; multi-person and impostor accuracy pending |
 | 6 | ES8311/PCM/VAD, local speaker embeddings and on-device enrollment | Pending |
-| 7 | Temporal fusion, greetings, independent cooldowns, Webhook/REST events and HA helper examples | 0.4.3 temporal presence accepted; 0.4.4 background navigation/countdown/manual stop/layout operator-accepted; 10min expiry pending. Identity/greeting/HTTP events implemented; real confirmed-identity HA action pending |
+| 7 | Temporal fusion, greetings, independent cooldowns, Webhook/REST events and HA helper examples | Personalized greeting and real recognized REST delivery accepted; recognized-only HA action, encounter deduplication, identity stop/expiry and outage acceptance pending |
 | 8 | Secure persistent storage, migrations, deletion, USB recovery | Transactional gate and USB tool implemented; secure provisioning and physical power-loss/deletion acceptance pending |
 | 9 | Profiling, fault injection, reconnect, recovery and 72-hour physical soak | Pending |
 

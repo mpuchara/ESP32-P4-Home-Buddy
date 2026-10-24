@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.5.0-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.6.1-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -122,6 +122,13 @@ The independent `mpuchara/HA_UBOX_bridge` repository is read-only reference mate
 Home Buddy will consume its published API only.
 
 ## Experimental household identity
+
+On-device MBF execution, one-person RAM enrollment/fresh-frame confirmation,
+personalized saver greeting and a real confirmed recognition event received by
+Home Assistant over REST are operator-accepted. Five saver/re-entry cycles pass
+after the Flash-validation watchdog fix. Secure persistence, quantified accuracy,
+recognized-only HA action and extended reliability acceptance remain open.
+See [hardware evidence](docs/IDENTITY_VALIDATION.md).
 
 [Implementation and on-device enrollment](docs/FACE_RECOGNITION.md) uses
 ESPDet416, real MNP landmarks, native ROI, MBF embeddings and multi-frame open-set

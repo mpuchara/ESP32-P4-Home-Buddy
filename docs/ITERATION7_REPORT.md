@@ -8,7 +8,7 @@ not evidence of physical recognition accuracy or a working HA automation.
    draft on codex/local-face-recognition, based on codex/initial-hardware-foundation.
 2. **Implemented:** preserves onboard ESPDet416/MNP/alignment/MBF, enrollment,
    transactions and bounded event bus; replaces MQTT with separate Webhook/REST
-   HTTP task and masked touchscreen settings. Preserves fullscreen UBox, clock,
+   HTTP task and visible credential fields at the owner's request. Preserves fullscreen UBox, clock,
    weather, brightness and independent greeting. No OTA, SD, external inference,
    voice implementation, broker or HA custom integration.
 3. **Flash map:** table 0x10000; NVS 0x11000/24 KiB; PHY 0x19000/4 KiB;
@@ -78,10 +78,13 @@ The operator confirms the complete one-person RAM-only enrollment/fresh-frame
 verification/confirmed-KNOWN/leave-return scenario works, including the corrected
 name keyboard. The operator also confirms the personalized saver greeting works.
 An initial HA listening attempt showed no event; a later supplied HA presence_leave
-event confirms automatic face-presence delivery. Real recognized/face/confirmed
-delivery remains open and is being checked with a fresh background session and an
-already active listener. Quantified identity accuracy remains pending. This is not a soak
-or multi-person accuracy acceptance. Current CI remains in PR checks.
+event confirms automatic face-presence delivery. The operator then supplied a real
+recognized/face/confirmed event with the enrolled RAM profile, timestamp
+2026-10-24T07:29:31Z and source_age_ms=1299. Real recognized REST delivery is accepted.
+Recognized-only harmless automation, encounter deduplication/re-entry, stop/expiry
+and offline checks are next. Quantified identity accuracy remains pending. This
+is not a soak or multi-person accuracy acceptance. CI run 40071157529 for the
+current firmware source completed successfully; later commits are documentation.
 
 Previous HA settings firmware: f764f3212696c061e92c33a6425f87fb295c4267, app 4,383,248 bytes,
 SHA256 db2827836af2913d9ef48d14d9ca8e995a915b7641708bc13c32be1d64e7b5f4.

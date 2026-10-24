@@ -1,3 +1,15 @@
+# 2026-10-24: real confirmed identity reaches Home Assistant
+
+The operator supplied a real home_buddy_identity event with recognized/face/
+confirmed, an enrolled RAM profile name, similarity 0.762862741947174 and source
+age 1299 ms. Source timestamp 2026-10-24T07:29:31Z; HA receipt 07:29:32.000870Z.
+person_id_persistent=false and omitted person_id are expected for RAM-only mode.
+Local inference, confirmation, personalized greeting and real REST identity-event
+delivery are now accepted for the one-person scenario. Similarity is not an
+accuracy estimate, and coarse wall timestamps do not measure network latency.
+Next: recognized-only harmless automation, encounter deduplication/re-entry,
+stop/expiry and offline checks. No reset/flash while the RAM profile is in use.
+
 # 2026-10-24: operator accepts one-person local recognition scenario
 
 Background follow-up: operator confirms the expected personalized greeting on

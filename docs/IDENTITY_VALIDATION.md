@@ -21,12 +21,21 @@ cause is claimed; a diagnostic POST can run while automatic publishing is disabl
 The existing RAM profile must be preserved: no reset/flash is scheduled while
 diagnosing real background recognized-event delivery.
 
-Next hardware check: listen for home_buddy_identity in HA, enable background
-recognition, wait five seconds for the queued mode change before opening the
-saver, leave/return and confirm payload event_type=recognized, method=face,
-status=confirmed plus the local greeting. Diagnostic connection_test and a generic
-notification alone do not accept this recognized-event check. RAM-only IDs remain
-explicitly nonpersistent; no persistent-ID acceptance is claimed.
+Recognized-event acceptance: the operator supplied the real HA event
+home_buddy_identity with data.event_type=recognized, method=face, status=confirmed
+at 2026-10-24T07:29:31Z, received 07:29:32.000870Z. It contains the enrolled profile
+name, similarity=0.762862741947174, source_age_ms=1299, session=70, encounter=9,
+person_id_persistent=false and no persistent person_id. This accepts real local
+confirmed recognition -> REST -> HA event delivery. It is separate from the
+previous diagnostic connection_test. The similarity is not an accuracy estimate;
+second_similarity=-1 is the missing-other-profile sentinel. Timestamp resolution
+does not establish exact network latency. No images/embeddings are in the payload.
+
+Next checks: recognized-only harmless automation action, no repeated events while
+remaining in one encounter, a new event after a real leave/return beyond HA's
+configured cooldown, explicit stop/expiry and bounded offline behavior. RAM-only
+IDs remain explicitly nonpersistent; secure persistence and multi-person/impostor
+accuracy acceptance remain open.
 
 ## Re-entry investigation and fix evidence
 

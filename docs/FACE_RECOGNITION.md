@@ -1,9 +1,15 @@
-# Local household recognition, 0.6.0-dev
+# Local household recognition, 0.6.1-dev
 
-This is an **experimental implementation**, not completed hardware acceptance. Internal Flash loading, gated profile persistence and HTTP infrastructure are implemented. See ITERATION7_REPORT.md for current receipts.
+This is an **experimental implementation** with partial hardware acceptance.
+Real onboard MBF execution, one-person RAM enrollment/fresh-frame confirmation,
+personalized greeting and confirmed recognized REST delivery to HA are accepted.
+Quantified multi-person/impostor accuracy, secure persistence, recognized-only HA
+action and extended reliability checks remain open. See IDENTITY_VALIDATION.md
+and ITERATION7_REPORT.md for current evidence and limits.
 The baseline is development branch commit `223a4ff1977b6bcb3bdb73f013b59801b6d30c7d`.
 Remote branch heads were checked before development; main contained only the initial commit.
-No device was flashed, no partition table was changed, no C6 update was performed.
+The authorized single-image migration and later app-only USB updates have been
+verified on P4. No C6 update or irreversible security provisioning was performed.
 
 ## Architecture implemented
 
@@ -19,8 +25,8 @@ camera validation, especially low light and saturation.
 MNP receives a candidate box in ROI coordinates. It makes the box square, clips
 it to the image, and transforms predicted landmarks through the actual crop
 and resize. This is API/coordinate compatible with ESPDet candidates by source
-inspection; recognition quality of this combination is **not experimentally
-validated**. The diagnostic MSR/ESPDet button switches to official MSR -> MNP
+inspection; one-person operation is now accepted, while recognition accuracy of
+this combination has not been quantified. The diagnostic MSR/ESPDet button switches to official MSR -> MNP
 on the same native ROI for an on-board comparison. ESPDet remains the primary
 scene detector in both modes. This is not a full-scene MSR accuracy comparison.
 
@@ -178,11 +184,13 @@ python tools/identity_flash_budget.py build-recognition --enforce
 
 These are preparation commands only. Do not flash this new partition table as
 an ordinary update to an existing device. Follow [migration preflight](FLASH_MIGRATION.md)
-and obtain explicit authorization. The three standard profiles retain the original
-partition map and leave experimental model execution disabled.
+and obtain explicit authorization. All profiles now use the single-factory map;
+the three non-recognition profiles leave experimental model execution disabled.
 
-See [actual validation](ITERATION6_REPORT.md). Physical MBF execution, accuracy,
-secure persistence, HTTP/TLS and HA automation acceptance remain pending.
+See [actual validation](IDENTITY_VALIDATION.md). Physical MBF execution and REST
+identity-event delivery are accepted for one RAM-only profile. Quantified accuracy,
+secure persistence, real HTTPS/TLS fault behavior and recognized-only HA action
+acceptance remain pending.
 The ten-minute background lease is deliberately retained during validation.
 
 ## Inspected primary sources

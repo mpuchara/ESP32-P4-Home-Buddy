@@ -58,6 +58,29 @@ Events POST to `/api/events/home_buddy_identity`. In HA use an Event trigger wit
 event type `home_buddy_identity`; replace `trigger.json` in the examples above
 with `trigger.event.data`. Check real event/automation traces separately.
 
+For a REST automation that should notify only on confirmed identity, replace its
+trigger block with the following, preserving its existing harmless notify action:
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: home_buddy_identity
+    event_data:
+      event_type: recognized
+      method: face
+      status: confirmed
+```
+
+Save/enable it. With the default 60-second HA cooldown, wait at least 70 seconds
+since the last recognized event before a new background session. Start the
+10-minute trial, wait five seconds, then open the saver. Stay visible for 90
+seconds: expect one recognized event/notification for that encounter. Leave for
+15 seconds and return for 30 seconds: expect another recognized event with a new
+event_id and another notification. If the configured HA cooldown is longer, wait
+for it before the next encounter. A greeting has its independent 300-second
+cooldown and need not repeat during this test. These remain physical acceptance
+steps until observed; a prior connection_test does not validate them.
+
 ## Delivery and diagnostics
 
 The independent HTTP task uses bounded buffers and a 1.5s request timeout. Status
