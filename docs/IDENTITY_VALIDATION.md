@@ -9,11 +9,15 @@ The household keyboard fix is physically accepted. Current installed UI source
 is 00272f7; app 4,386,720 bytes, SHA-256
 4f6cb3b2ac58ea8bfae7e1faed6e6883b53efc23ffc022fc25aee9e612e799bb.
 The operator additionally confirms the saver shows the expected personalized
-greeting after background recognition. Local greeting acceptance passes. The HA
-listener showed no event during that attempt, so recognized HA delivery remains
-an open blocker. Checking the publishing-enabled setting, saved REST configuration
-and a fresh diagnostic POST at the listener is the next diagnostic step; no cause
-is claimed yet. A diagnostic POST can run while automatic publishing is disabled.
+greeting after background recognition. Local greeting acceptance passes. An
+initial HA listening attempt showed no event; the next supplied real HA event
+confirms automatic face presence_leave delivery at 2026-10-24T07:28:44Z (received
+07:28:45.957952Z), source_age_ms=780, status=unavailable and
+person_id_persistent=false. This accepts automatic presence-event transport, not
+recognized identity delivery. The unavailable status and -1 score sentinels in
+that leave event are expected without a face. Checking a fresh background session
+with the HA listener already active is now the next step. No transport failure
+cause is claimed; a diagnostic POST can run while automatic publishing is disabled.
 The existing RAM profile must be preserved: no reset/flash is scheduled while
 diagnosing real background recognized-event delivery.
 

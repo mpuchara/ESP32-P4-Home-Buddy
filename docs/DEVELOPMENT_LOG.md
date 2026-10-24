@@ -5,6 +5,11 @@ the saver, but the HA listener shows no event. Local greeting is accepted; actua
 recognized HA delivery remains open. Diagnose publishing enablement and repeat
 the existing harmless diagnostic POST before changing firmware/resetting the RAM
 profile. Independent greeting and HA event consumers are retained.
+Subsequently the operator supplied a real HA presence_leave event (method face,
+2026-10-24T07:28:44Z, source_age_ms=780). Automatic presence delivery is accepted;
+the next check explicitly looks through new events for recognized/face/confirmed
+with the listener already active. The leave event does not establish identity
+delivery. RAM-only nonpersistent-ID signaling is consistent with this build.
 
 The operator confirms all steps of the supplied scenario work, including name
 entry, eight-sample RAM enrollment, fresh-frame verification/save, confirmed

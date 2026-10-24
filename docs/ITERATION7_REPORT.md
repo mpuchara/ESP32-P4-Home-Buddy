@@ -77,9 +77,10 @@ six validated loads and real 512-dimensional MBF pipeline results in about
 The operator confirms the complete one-person RAM-only enrollment/fresh-frame
 verification/confirmed-KNOWN/leave-return scenario works, including the corrected
 name keyboard. The operator also confirms the personalized saver greeting works.
-The HA listener showed no event in that attempt: real recognized-event delivery
-remains open, with publication enablement and a fresh diagnostic POST being
-checked. Quantified identity accuracy remains pending. This is not a soak
+An initial HA listening attempt showed no event; a later supplied HA presence_leave
+event confirms automatic face-presence delivery. Real recognized/face/confirmed
+delivery remains open and is being checked with a fresh background session and an
+already active listener. Quantified identity accuracy remains pending. This is not a soak
 or multi-person accuracy acceptance. Current CI remains in PR checks.
 
 Previous HA settings firmware: f764f3212696c061e92c33a6425f87fb295c4267, app 4,383,248 bytes,
