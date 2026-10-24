@@ -1,3 +1,30 @@
+## Active hardware investigation, 2026-10-24
+
+The operator reports MBF ready, one face, UNKNOWN, visible landmarks and the
+successful-inference message "Kandydat z nowej klatki". This is operator evidence
+of an initial pipeline execution, not a measured accuracy/enrollment acceptance.
+The operator also reports a device restart when returning from the saver to the
+household recognition test after landmarks appeared. This remains an OPEN blocker.
+Do not proceed to enrollment/recognized-event acceptance until it is resolved.
+
+Initial bounded passive captures show model loads (PSRAM delta 8,538,056 bytes,
+internal deltas around 55 KiB), continued ~30 fps camera capture, and no captured
+panic for the specific after-inference re-entry. Some full-resolution UBox JPEG
+decodes fail with ESP_ERR_NO_MEM while models are resident; a later smaller JPEG
+is accepted. This is a separate observed coexistence issue, not proof of the
+restart cause. Existing admission checks and rejection behavior remain enabled.
+
+The diagnostic candidate adds reset reason, screen-transition/minimum-stack logs,
+model construction/release stages, heap integrity at release, and rate-limited
+inference-wait reasons. No images, landmarks, names, credentials or embeddings are
+logged. Recognition panic reboot waits 3 seconds to allow the dump to drain.
+Missing score sentinels display as "brak"; landmark dots have no white border.
+The USB capture helper writes incrementally and optionally reconnects passively
+after USB reset. Two injected-disconnect regressions pass; Python suite 7/7 and
+host C suite 16/16 pass. These changes aid diagnosis; they are not a restart fix.
+
+---
+
 > Historical iteration 5 receipts. Superseded storage deployment and outstanding
 > criteria are documented in ITERATION7_REPORT.md. No microSD deployment is supported.
 > Current single-factory firmware is installed and its REST diagnostic automation

@@ -24,6 +24,7 @@ expected = {
     "PARTITION_TABLE_CUSTOM_FILENAME": "partitions.csv",
     "PARTITION_TABLE_OFFSET": 0x10000,
     "BOOTLOADER_APP_ROLLBACK_ENABLE": False,
+    "ESP_SYSTEM_PANIC_REBOOT_DELAY_SECONDS": 3 if profile == "recognition" else 0,
     "HUMAN_FACE_FEAT_MBF_S8_V1": True,
     "FLASH_HUMAN_FACE_FEAT_MFN_S8_V1": False,
     "FLASH_HUMAN_FACE_FEAT_MBF_S8_V1": True,

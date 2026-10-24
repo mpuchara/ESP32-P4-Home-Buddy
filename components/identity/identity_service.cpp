@@ -190,8 +190,14 @@ class Models
     static constexpr size_t raw_capacity = 1288 * 728;
     void unload()
     {
+        if (!mbf && !official && !mnp && !detector && !raw && !roi_pixels && !thumbnail)
+            return;
+        ESP_LOGI("identity", "MODEL_RELEASE begin heap_ok=%d stack_min=%u",
+                 heap_caps_check_integrity_all(true),
+                 (unsigned)uxTaskGetStackHighWaterMark(nullptr));
         delete mbf;
         mbf = nullptr;
+        ESP_LOGI("identity", "MODEL_RELEASE mbf_done");
         delete official;
         official = nullptr;
         delete mnp;
@@ -204,12 +210,28 @@ class Models
         roi_pixels = nullptr;
         free(thumbnail);
         thumbnail = nullptr;
+        ESP_LOGI("identity", "MODEL_RELEASE done heap_ok=%d internal=%u largest=%u psram=%u",
+                 heap_caps_check_integrity_all(true),
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     }
     bool load(hb_id_status &s)
     {
         if (mbf)
             return true;
         int64_t load_started = esp_timer_get_time();
+        static uint64_t last_load_log;
+        if (!last_load_log || now_ms() - last_load_log >= 10000)
+        {
+            last_load_log = now_ms();
+            ESP_LOGI(
+                "identity", "MODEL_LOAD begin internal=%u largest=%u psram=%u largest=%u",
+                (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+                (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
+        }
         esp_err_t model_error = hb_identity_model_storage();
         if (model_error != ESP_OK)
         {
@@ -240,8 +262,10 @@ class Models
         }
         detector =
             new (std::nothrow) HumanFaceDetect(HumanFaceDetect::ESPDET_PICO_416_416_FACE, false);
+        ESP_LOGI("identity", "MODEL_LOAD detector_done");
         mnp = new (std::nothrow)
             human_face_detect::MNP("human_face_detect_mnp_s8_v1.espdl", 0.7f, 0.5f);
+        ESP_LOGI("identity", "MODEL_LOAD mnp_done");
         mbf = new (std::nothrow) HumanFaceFeat(HumanFaceFeat::MBF_S8_V1, false);
         if (!detector || !mnp || !mbf || mbf->get_feat_len() != HB_ID_DIM)
         {
@@ -569,6 +593,16 @@ static void worker(void *)
             state.detection_valid = false;
             state.ready = models.load(state);
             bool ok = state.ready && models.infer(state, embedding);
+            static uint64_t last_inference_log;
+            if (!ok && (!last_inference_log || now_ms() - last_inference_log >= 10000))
+            {
+                last_inference_log = now_ms();
+                ESP_LOGI("identity",
+                         "INFER_WAIT ready=%d faces=%u official=%d D/L/MBF_us=%u/%u/%u reason=%s",
+                         state.ready, state.faces, state.official_landmarks,
+                         (unsigned)state.detection_us, (unsigned)state.landmarks_us,
+                         (unsigned)state.embedding_us, state.message);
+            }
             state.completed_ms = now_ms();
             if (state.ready && state.detection_valid && state.sequence && ticket == epoch.load())
             {

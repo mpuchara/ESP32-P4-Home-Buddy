@@ -1,3 +1,13 @@
+# 2026-10-24: MBF hardware re-entry investigation
+
+Operator sees MBF ready / one face / UNKNOWN, landmarks and the successful-frame
+message. Re-entry from the saver after a completed face frame is reported to
+restart P4; this is an open acceptance blocker, not yet a reproduced/fixed cause.
+Added bounded lifecycle/reset/heap/stack diagnostics, incremental reconnecting USB
+capture and two disconnect regressions. UI shows absent comparison scores as
+"brak", with solid yellow landmark dots. Host suite 16/16 and Python 7/7 pass.
+See IDENTITY_VALIDATION.md for current observations and unresolved JPEG coexistence.
+
 # 2026-10-23: 0.6.1-dev continuation
 
 REST transport acceptance: the operator configured the LAN endpoint and supplied

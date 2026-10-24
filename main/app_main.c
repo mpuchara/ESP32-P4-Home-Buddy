@@ -5,6 +5,7 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_psram.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -34,6 +35,7 @@ void app_main(void)
     esp_err_t flash_err = esp_flash_get_size(NULL, &flash);
     ESP_LOGI(TAG, "Home Buddy %s; IDF %s", esp_app_get_description()->version,
              esp_app_get_description()->idf_ver);
+    ESP_LOGI(TAG, "reset_reason=%d", (int)esp_reset_reason());
     ESP_LOGI(TAG, "P4 revision %d.%d; cores=%d; flash=%" PRIu32 " (%s); PSRAM=%u",
              chip.revision / 100, chip.revision % 100, chip.cores, flash,
              esp_err_to_name(flash_err), (unsigned)esp_psram_get_size());

@@ -181,6 +181,8 @@ static void close_page(void)
 {
     if (identity_screen)
     {
+        ESP_LOGI("identity_ui", "close identity screen stack_min=%u",
+                 (unsigned)uxTaskGetStackHighWaterMark(NULL));
         hb_id_command stop = {.type = HB_ID_CMD_CANCEL};
         hb_identity_command(&stop);
     }
@@ -335,6 +337,8 @@ static void identity_delete(lv_event_t *e)
 static void household_page(lv_event_t *e)
 {
     (void)e;
+    ESP_LOGI("identity_ui", "open household screen stack_min=%u",
+             (unsigned)uxTaskGetStackHighWaterMark(NULL));
     page_base("Domownicy: sprawdź status trwałego zapisu");
     hb_identity_start();
     hb_id_status s;
@@ -372,6 +376,8 @@ static void identity_page(lv_event_t *e)
 {
     bool enroll = e && (uintptr_t)lv_event_get_user_data(e) == 1;
     uint64_t id = identity_selected;
+    ESP_LOGI("identity_ui", "open identity screen enroll=%d stack_min=%u", enroll,
+             (unsigned)uxTaskGetStackHighWaterMark(NULL));
     page_base(enroll ? "Rejestracja twarzy: 8-15 różnych próbek"
                      : "Rozpoznawanie twarzy: eksperyment");
     identity_selected = id;
@@ -413,6 +419,8 @@ static void identity_page(lv_event_t *e)
         identity_marks[i] = lv_obj_create(page);
         lv_obj_set_size(identity_marks[i], 7, 7);
         lv_obj_set_style_bg_color(identity_marks[i], lv_color_hex(0xffcc33), 0);
+        lv_obj_set_style_bg_opa(identity_marks[i], LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(identity_marks[i], 0, 0);
         lv_obj_clear_flag(identity_marks[i], LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_add_flag(identity_marks[i], LV_OBJ_FLAG_HIDDEN);
     }
@@ -452,21 +460,25 @@ static void identity_update(void)
     for (unsigned i = 0; i < s.profile_count; ++i)
         if (s.profiles[i].id == s.match.person_id)
             candidate = s.profiles[i].name;
+    char best[20] = "brak", second[20] = "brak";
+    if (s.match.state != HB_ID_UNAVAILABLE && s.match.best > -1.0f)
+        snprintf(best, sizeof(best), "%.3f", (double)s.match.best);
+    if (s.match.state != HB_ID_UNAVAILABLE && s.match.second > -1.0f)
+        snprintf(second, sizeof(second), "%.3f", (double)s.match.second);
     char text[750];
     snprintf(text, sizeof(text),
-             "MBF: %s | twarze: %u | %s\n%s | %s\nPodobieństwo: %.3f / inna osoba: %.3f\n"
+             "MBF: %s | twarze: %u | %s\n%s | %s\nPodobieństwo: %s / inna osoba: %s\n"
              "D/L/MBF+align: %u/%u/%u ms | razem %u\n"
              "KiB PSRAM %u/%u | RAM %u/%u\nQ: %.0f / %.0f / %.0f | próbki: %u\n"
              "Ocena: TA %u FR %u mylne %u gość %u/%u\n%s",
              s.ready ? "gotowy" : "brak", s.faces, states[s.match.state], candidate,
-             s.confirmed ? "potwierdzony" : "kandydat", (double)s.match.best,
-             (double)s.match.second, (unsigned)(s.detection_us / 1000),
-             (unsigned)(s.landmarks_us / 1000), (unsigned)(s.embedding_us / 1000),
-             (unsigned)(s.total_us / 1000), (unsigned)(s.psram_free / 1024),
-             (unsigned)(s.psram_largest / 1024), (unsigned)(s.internal_free / 1024),
-             (unsigned)(s.internal_largest / 1024), (double)s.quality.mean,
-             (double)s.quality.contrast, (double)s.quality.detail, s.samples,
-             s.evaluation.true_accept, s.evaluation.false_reject, s.evaluation.confusion,
+             s.confirmed ? "potwierdzony" : "kandydat", best, second,
+             (unsigned)(s.detection_us / 1000), (unsigned)(s.landmarks_us / 1000),
+             (unsigned)(s.embedding_us / 1000), (unsigned)(s.total_us / 1000),
+             (unsigned)(s.psram_free / 1024), (unsigned)(s.psram_largest / 1024),
+             (unsigned)(s.internal_free / 1024), (unsigned)(s.internal_largest / 1024),
+             (double)s.quality.mean, (double)s.quality.contrast, (double)s.quality.detail,
+             s.samples, s.evaluation.true_accept, s.evaluation.false_reject, s.evaluation.confusion,
              s.evaluation.unknown_accept, s.evaluation.unknown_trials, s.message);
     lv_label_set_text(identity_info, text);
     if (preview_pixels)
