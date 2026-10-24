@@ -1,5 +1,13 @@
 # 2026-10-24: unexpected notification during covered-camera trial
 
+Operator correction: the notification anomaly was caused by an incorrectly
+configured HA automation, according to the operator. Do not count the earlier
+report as a proven fresh covered-camera false acceptance. The intended automation
+still fails to run for recognition while a test event works. Inspect its live
+trigger/trace and background-versus-foreground mode; preserve the existing RAM
+profile. HA is reachable in the browser, but the agent tab requires login; the
+operator elected to sign in directly. No credential collection or firmware write.
+
 Operator reports three notifications in the deduplication trial, one while the
 camera was covered. Notification/deduplication acceptance fails; the cause is
 unassigned until actual triggering events/timestamps and notification text are

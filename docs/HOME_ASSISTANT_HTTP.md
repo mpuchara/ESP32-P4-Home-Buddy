@@ -83,6 +83,15 @@ steps until observed; a prior connection_test does not validate them.
 
 ## Delivery and diagnostics
 
+If a diagnostic test works but recognized automation does not, distinguish the
+payloads and worker modes first. The diagnostic button emits connection_test /
+diagnostic / test. A real identity event is recognized / face / confirmed and
+requires the explicit background trial; foreground Test rozpoznawania intentionally
+does not publish. Inspect the automation's actual trigger data and trace. A
+recognized-only trigger must match the outer home_buddy_identity event and the
+nested event_data fields shown above. A real recognized event received by the
+listener proves transport but does not prove the intended automation action ran.
+
 The independent HTTP task uses bounded buffers and a 1.5s request timeout. Status
 distinguishes disabled, host/API reachable, POST 2xx, unavailable, 401, 403, invalid
 configuration, TLS error, timeout and rejected HTTP response. Redirects are refused.

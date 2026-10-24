@@ -1,15 +1,18 @@
 ## Current hardware acceptance, 2026-10-24
 
-OPEN regression/acceptance blocker: during the next notification/deduplication
-trial, the operator reports three notifications, including one while the local
-camera was covered. No corresponding trigger payload/trace has been supplied yet.
-Do not classify this as proven fresh covered-camera recognition, delayed mobile
-delivery or a duplicate/older automation without correlating the evidence.
-Requested notification text and a controlled covered-lens trial with the HA
-listener already active, a renewed background lease and passive USB capture.
-Investigate trigger event_id, source/receipt times, source_age_ms, session and
-encounter together with frame/inference diagnostics. No threshold changes,
-firmware installation, reset or loss of the RAM profile are part of this step.
+HA automation acceptance remains open. The operator initially reported three
+notifications, including one while the camera was covered, then explicitly
+corrected that report: the HA automation had been configured incorrectly. This
+does not establish a fresh covered-camera recognition or a firmware defect.
+The current issue is that recognition does not invoke the intended automation,
+while a test event works. Inspect the actual current trigger/trace and whether
+the Buddy trial is foreground-only or explicitly background-enabled. The same
+user session already supplied a real recognized REST event, so device transport
+is independently proven. Browser access reached the HA login page; the operator
+chose to sign in directly for read/repair. No credentials were entered/read by the
+agent. No threshold change, firmware installation, reset or loss of the RAM
+profile is part of this diagnostic step. Negative-camera and event-deduplication
+acceptance still require controlled observation after fixing the HA configuration.
 
 The operator confirms the complete one-person test scenario works: usable name
 entry/profile selection, eight accepted enrollment samples, fresh-frame
