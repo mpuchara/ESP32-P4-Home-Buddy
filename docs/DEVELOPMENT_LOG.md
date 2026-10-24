@@ -1,5 +1,11 @@
 # 2026-10-24: operator accepts one-person local recognition scenario
 
+Background follow-up: operator confirms the expected personalized greeting on
+the saver, but the HA listener shows no event. Local greeting is accepted; actual
+recognized HA delivery remains open. Diagnose publishing enablement and repeat
+the existing harmless diagnostic POST before changing firmware/resetting the RAM
+profile. Independent greeting and HA event consumers are retained.
+
 The operator confirms all steps of the supplied scenario work, including name
 entry, eight-sample RAM enrollment, fresh-frame verification/save, confirmed
 KNOWN, leaving the camera frame and recognition on return. This accepts the

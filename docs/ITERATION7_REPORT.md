@@ -76,8 +76,10 @@ six validated loads and real 512-dimensional MBF pipeline results in about
 1.48..1.59 seconds. See IDENTITY_VALIDATION.md for exact evidence and limits.
 The operator confirms the complete one-person RAM-only enrollment/fresh-frame
 verification/confirmed-KNOWN/leave-return scenario works, including the corrected
-name keyboard. Real background HA recognized-event delivery and the saver greeting
-are now active checks; quantified identity accuracy remains pending. This is not a soak
+name keyboard. The operator also confirms the personalized saver greeting works.
+The HA listener showed no event in that attempt: real recognized-event delivery
+remains open, with publication enablement and a fresh diagnostic POST being
+checked. Quantified identity accuracy remains pending. This is not a soak
 or multi-person accuracy acceptance. Current CI remains in PR checks.
 
 Previous HA settings firmware: f764f3212696c061e92c33a6425f87fb295c4267, app 4,383,248 bytes,

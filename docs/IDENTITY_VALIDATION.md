@@ -8,8 +8,14 @@ scenario, not a serial dump of the sample count or a quantified accuracy study.
 The household keyboard fix is physically accepted. Current installed UI source
 is 00272f7; app 4,386,720 bytes, SHA-256
 4f6cb3b2ac58ea8bfae7e1faed6e6883b53efc23ffc022fc25aee9e612e799bb.
+The operator additionally confirms the saver shows the expected personalized
+greeting after background recognition. Local greeting acceptance passes. The HA
+listener showed no event during that attempt, so recognized HA delivery remains
+an open blocker. Checking the publishing-enabled setting, saved REST configuration
+and a fresh diagnostic POST at the listener is the next diagnostic step; no cause
+is claimed yet. A diagnostic POST can run while automatic publishing is disabled.
 The existing RAM profile must be preserved: no reset/flash is scheduled while
-testing real background recognized-event delivery and the saver greeting.
+diagnosing real background recognized-event delivery.
 
 Next hardware check: listen for home_buddy_identity in HA, enable background
 recognition, wait five seconds for the queued mode change before opening the
