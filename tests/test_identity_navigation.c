@@ -49,6 +49,10 @@ int main(void)
     assert(!hb_id_auto_ready(true, 0)); // RAM-only reboot, no restored templates.
     assert(!hb_id_auto_ready(false, 8));
     assert(hb_id_auto_ready(true, 1));
+    assert(hb_id_detection_failure(true, 2) == HB_ID_AMBIGUOUS);
+    assert(hb_id_detection_failure(true, 0) == HB_ID_UNAVAILABLE);
+    assert(hb_id_detection_failure(false, 2) == HB_ID_UNAVAILABLE);
+    assert(hb_id_detection_failure(true, 1) == HB_ID_UNAVAILABLE);
     puts("identity navigation: pending background, rejected commands and stale worker modes");
     return 0;
 }

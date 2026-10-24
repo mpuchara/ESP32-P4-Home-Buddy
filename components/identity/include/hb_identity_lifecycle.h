@@ -13,3 +13,8 @@ static inline bool hb_id_auto_ready(bool enabled, unsigned usable_profiles)
 {
     return enabled && usable_profiles > 0;
 }
+
+static inline hb_id_state hb_id_detection_failure(bool detection_valid, unsigned faces)
+{
+    return detection_valid && faces > 1 ? HB_ID_AMBIGUOUS : HB_ID_UNAVAILABLE;
+}

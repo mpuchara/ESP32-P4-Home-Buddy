@@ -743,7 +743,10 @@ static void worker(void *)
                     }
                 }
                 else
+                {
+                    state.match.state = hb_id_detection_failure(state.detection_valid, state.faces);
                     hb_id_tracker_reset(&tracker, ticket);
+                }
             }
             else
             {

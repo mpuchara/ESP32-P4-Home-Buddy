@@ -72,12 +72,12 @@ feasibility from measured hardware behavior; reserved SV partition stays unwritt
 
 ## Local package receipt
 
-Recognition app: 4,457,648 bytes; SHA256
-bb3bc0897240de020c6d2df3144e72b2d317fada540bbc0541086ce5f23e0916.
-Factory growth margin: 2,882,384 bytes, above the 262,144-byte enforced floor.
+Recognition app: 4,457,696 bytes; SHA256
+62fc3ecd9fed18993677b1f7a36baaab749c4097eeb7c4fc96fe9e0fa331cdfe.
+Factory growth margin: 2,882,336 bytes, above the 262,144-byte enforced floor.
 Effective recognition configuration confirms persistence, Secure Boot and Flash
 encryption disabled, ES8311 support available, existing thresholds and Flash map.
-Package: dist/0.7.0-dev-iteration8-complete with hashes and codec license. Application-only
+Package: dist/0.7.0-dev-iteration8-validated with hashes and codec license. Application-only
 USB dry run selects only 0x20000/home_buddy.bin and opens no serial port.
 Final runtime-code CI receipts are recorded below.
 
@@ -96,3 +96,15 @@ or firmware writes, received camera reports around 30.1 fps and no capture disco
 This confirms only current installed camera activity; no boot/version receipt or
 new-candidate recognition/audio acceptance was obtained. It is not a soak result.
 Private log stays in ignored local/iteration8, not in Git.
+
+## Final multi-face correction
+
+A valid detector result with more than one face now returns AMBIGUOUS, resets
+identity confirmation and never computes an embedding or emits recognized. Invalid
+camera/detector results remain UNAVAILABLE, including stale multi-face counts.
+Pure policy regressions, all 20 host tests, Python/project/format checks and the
+local recognition build/effective config/Flash budget pass after this correction.
+Earlier CI receipts above remain historical. The final correction has its own
+[PR checks](https://github.com/mpuchara/ESP32-P4-Home-Buddy/pull/2/checks); actual
+workflow outcome is recorded in the PR description and delivery response, without
+reusing the older runtime's result. Physical multi-face acceptance is still pending.
