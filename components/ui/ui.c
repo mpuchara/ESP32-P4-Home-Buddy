@@ -255,8 +255,19 @@ static void focus(lv_event_t *e)
     if (keyboard)
     {
         lv_keyboard_set_textarea(keyboard, lv_event_get_target(e));
+        // Forms are built after the keyboard; keep their labels/buttons below it.
+        lv_obj_move_foreground(keyboard);
         lv_obj_clear_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
     }
+}
+static void keyboard_done(lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code != LV_EVENT_READY && code != LV_EVENT_CANCEL)
+        return;
+    lv_obj_t *kb = lv_event_get_target(e);
+    lv_keyboard_set_textarea(kb, NULL);
+    lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
 }
 static lv_obj_t *input(lv_obj_t *container, const char *name, const char *value, unsigned max,
                        bool secret, int y)
@@ -272,6 +283,7 @@ static lv_obj_t *input(lv_obj_t *container, const char *name, const char *value,
     lv_obj_set_style_text_color(ta, lv_color_black(), 0);
     lv_obj_set_style_text_font(ta, &hb_font_20, 0);
     lv_obj_add_event_cb(ta, focus, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(ta, focus, LV_EVENT_CLICKED, NULL);
     return ta;
 }
 static void page_base(const char *title)
@@ -283,6 +295,10 @@ static void page_base(const char *title)
     keyboard = lv_keyboard_create(page);
     lv_obj_set_size(keyboard, 800, 170);
     lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_color(keyboard, lv_color_hex(0x202a32), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(keyboard, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(keyboard, LV_FONT_DEFAULT, LV_PART_ITEMS);
+    lv_obj_add_event_cb(keyboard, keyboard_done, LV_EVENT_ALL, NULL);
     lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
     page_error = label(page, "", LV_ALIGN_TOP_LEFT, 24, 300);
     lv_obj_set_width(page_error, 750);
@@ -339,7 +355,8 @@ static void household_page(lv_event_t *e)
     (void)e;
     ESP_LOGI("identity_ui", "open household screen stack_min=%u",
              (unsigned)uxTaskGetStackHighWaterMark(NULL));
-    page_base("Domownicy: sprawdź status trwałego zapisu");
+    page_base("Domownicy");
+    diagnostic = true; // Keep an unfinished name edit open.
     hb_identity_start();
     hb_id_status s;
     hb_identity_get(&s);
@@ -356,19 +373,26 @@ static void household_page(lv_event_t *e)
     identity_choice = lv_dropdown_create(page);
     lv_obj_set_pos(identity_choice, 24, 70);
     lv_obj_set_width(identity_choice, 745);
+    lv_obj_set_style_text_color(identity_choice, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(identity_choice, lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(lv_dropdown_get_list(identity_choice), lv_color_black(),
+                                LV_PART_MAIN);
+    lv_obj_set_style_bg_color(lv_dropdown_get_list(identity_choice), lv_color_white(),
+                              LV_PART_MAIN);
     lv_dropdown_set_options(identity_choice, options[0] ? options : "Brak domowników");
     lv_obj_add_event_cb(identity_choice, identity_select, LV_EVENT_VALUE_CHANGED, NULL);
     identity_selected = s.profile_count ? s.profiles[0].id : 0;
-    field[0] = input(page, "Nazwa (do 60 bajtów)", s.profile_count ? s.profiles[0].name : "", 60,
-                     false, 140);
-    button(page, "Potwierdź dodanie", 24, 210, 230, identity_send,
+    field[0] =
+        input(page, "Nazwa domownika", s.profile_count ? s.profiles[0].name : "", 60, false, 140);
+    button(page, "Potwierdź dodanie", 24, 200, 230, identity_send,
            (void *)(uintptr_t)HB_ID_CMD_CREATE);
-    button(page, "Zmień nazwę", 282, 210, 230, identity_send, (void *)(uintptr_t)HB_ID_CMD_RENAME);
-    button(page, "Usuń domownika", 540, 210, 230, identity_delete, NULL);
-    button(page, "Rejestruj / dodaj próbki", 24, 280, 350, identity_page, (void *)1);
-    button(page, "Odśwież listę", 420, 280, 350, household_page, NULL);
-    button(page, "Testuj rozpoznawanie", 24, 345, 350, identity_page, (void *)2);
-    identity_info = label(page, s.message, LV_ALIGN_TOP_LEFT, 24, 410);
+    button(page, "Zmień nazwę", 282, 200, 230, identity_send, (void *)(uintptr_t)HB_ID_CMD_RENAME);
+    button(page, "Usuń domownika", 540, 200, 230, identity_delete, NULL);
+    button(page, "Rejestruj próbki", 24, 260, 230, identity_page, (void *)1);
+    button(page, "Odśwież listę", 282, 260, 230, household_page, NULL);
+    button(page, "Test rozpoznawania", 540, 260, 230, identity_page, (void *)2);
+    lv_obj_set_pos(page_error, 24, 390);
+    identity_info = label(page, s.message, LV_ALIGN_TOP_LEFT, 24, 335);
     lv_obj_set_width(identity_info, 745);
     lv_scr_load(page);
 }

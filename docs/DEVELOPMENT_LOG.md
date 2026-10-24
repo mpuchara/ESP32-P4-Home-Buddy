@@ -1,3 +1,15 @@
+# 2026-10-24: household name keyboard usability
+
+Enrollment was blocked by household buttons/status drawing over keyboard keys.
+The shared focus handler now raises an opaque keyboard above later form children;
+ready/cancel hides it without clearing typed text, and tapping the field reopens
+it. Household actions use two rows above the keyboard, the title/name labels are
+shorter, profile-list contrast is explicit, and name editing no longer idle-closes.
+Actual household/form functions were rendered at 800x480 before/after using LVGL.
+The host UI harness also entered a key, checked foreground stacking, closed on
+ready, reopened on tap and verified the text survived. No biometric samples were
+enrolled as part of that UI check. On-device input acceptance remains pending.
+
 # 2026-10-24: captured Flash validation watchdog and mmap candidate
 
 Application-only candidate installation and Flash verification passed. The
