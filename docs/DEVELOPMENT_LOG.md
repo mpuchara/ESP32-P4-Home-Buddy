@@ -1,3 +1,16 @@
+# 2026-10-24: live recognized-only notification acceptance
+
+After operator sign-in, the live HA listener received a real recognized/face/
+confirmed event at 2026-10-24T11:34:44.764184Z (session 106, encounter 18, event
+sequence 47, source age 1576 ms). The User detection trace matches the 13:34:44
+Europe/Warsaw trigger, mobile notification execution and successful completion
+at 13:34:45, runtime 0.30 seconds. Operator confirms the expected message arrived.
+No automation YAML, firmware, thresholds or device reset were required. This
+accepts the real recognized-only harmless action; it does not establish the
+cause of the earlier missed attempt. Continued to continuous-stay deduplication
+and a real subsequent encounter, with browser/USB observation and the RAM profile
+preserved. Stop/expiry, offline and broader accuracy acceptance remain open.
+
 # 2026-10-24: unexpected notification during covered-camera trial
 
 Live HA follow-up after operator sign-in: the intended User detection automation

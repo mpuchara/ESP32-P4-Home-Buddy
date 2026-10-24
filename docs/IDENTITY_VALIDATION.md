@@ -1,11 +1,22 @@
 ## Current hardware acceptance, 2026-10-24
 
-HA automation acceptance remains open. The operator initially reported three
+Recognized-only HA notification acceptance now passes: the live browser listener
+received a real recognized/face/confirmed event at 2026-10-24T11:34:44.764184Z
+(session 106, encounter 18, event sequence 47, source_age_ms=1576). The matching
+User detection trace shows the event trigger at 13:34:44 Europe/Warsaw, execution
+of the existing mobile notification and successful completion at 13:34:45 with
+runtime 0.30 seconds. The operator confirms the expected notification arrived.
+No HA YAML or firmware change was needed. A fresh explicit background trial was
+used; the cause of the earlier missed run is not proven. Remaining active checks:
+deduplication during a continuous 90-second stay, a second real encounter after
+leaving, cancellation/expiry, offline behavior and negative/multi-person accuracy.
+
+Earlier investigation: the operator initially reported three
 notifications, including one while the camera was covered, then explicitly
 corrected that report: the HA automation had been configured incorrectly. This
 does not establish a fresh covered-camera recognition or a firmware defect.
-The current issue is that recognition does not invoke the intended automation,
-while a test event works. Inspect the actual current trigger/trace and whether
+The issue then was that recognition did not invoke the intended automation,
+while a test event worked. Inspect the actual current trigger/trace and whether
 the Buddy trial is foreground-only or explicitly background-enabled. The same
 user session already supplied a real recognized REST event, so device transport
 is independently proven. Browser access reached the HA login page; the operator
@@ -55,7 +66,7 @@ previous diagnostic connection_test. The similarity is not an accuracy estimate;
 second_similarity=-1 is the missing-other-profile sentinel. Timestamp resolution
 does not establish exact network latency. No images/embeddings are in the payload.
 
-Next checks: recognized-only harmless automation action, no repeated events while
+Next checks: no repeated events while
 remaining in one encounter, a new event after a real leave/return beyond HA's
 configured cooldown, explicit stop/expiry and bounded offline behavior. RAM-only
 IDs remain explicitly nonpersistent; secure persistence and multi-person/impostor

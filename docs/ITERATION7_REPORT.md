@@ -81,8 +81,11 @@ An initial HA listening attempt showed no event; a later supplied HA presence_le
 event confirms automatic face-presence delivery. The operator then supplied a real
 recognized/face/confirmed event with the enrolled RAM profile, timestamp
 2026-10-24T07:29:31Z and source_age_ms=1299. Real recognized REST delivery is accepted.
-Recognized-only harmless automation, encounter deduplication/re-entry, stop/expiry
-and offline checks are next. Quantified identity accuracy remains pending. This
+Live browser inspection subsequently confirms a real recognized event triggered
+the intended notification action at 13:34:44 Europe/Warsaw and finished in 0.30 s;
+the operator confirms receipt. No YAML/firmware change was required.
+Encounter deduplication/re-entry, stop/expiry and offline checks are next.
+Quantified identity accuracy remains pending. This
 is not a soak or multi-person accuracy acceptance. CI run 40071157529 for the
 current firmware source completed successfully; later commits are documentation.
 

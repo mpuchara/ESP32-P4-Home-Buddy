@@ -2,9 +2,9 @@
 
 This is an **experimental implementation** with partial hardware acceptance.
 Real onboard MBF execution, one-person RAM enrollment/fresh-frame confirmation,
-personalized greeting and confirmed recognized REST delivery to HA are accepted.
-Quantified multi-person/impostor accuracy, secure persistence, recognized-only HA
-action and extended reliability checks remain open. See IDENTITY_VALIDATION.md
+personalized greeting, confirmed recognized REST delivery to HA and its harmless
+recognized-only notification are accepted. Quantified multi-person/impostor accuracy,
+secure persistence, encounter deduplication and extended reliability checks remain open. See IDENTITY_VALIDATION.md
 and ITERATION7_REPORT.md for current evidence and limits.
 The baseline is development branch commit `223a4ff1977b6bcb3bdb73f013b59801b6d30c7d`.
 Remote branch heads were checked before development; main contained only the initial commit.
@@ -189,7 +189,7 @@ the three non-recognition profiles leave experimental model execution disabled.
 
 See [actual validation](IDENTITY_VALIDATION.md). Physical MBF execution and REST
 identity-event delivery are accepted for one RAM-only profile. Quantified accuracy,
-secure persistence, real HTTPS/TLS fault behavior and recognized-only HA action
+secure persistence, real HTTPS/TLS fault behavior and extended reliability
 acceptance remain pending.
 The ten-minute background lease is deliberately retained during validation.
 

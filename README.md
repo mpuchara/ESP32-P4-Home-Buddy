@@ -125,9 +125,10 @@ Home Buddy will consume its published API only.
 
 On-device MBF execution, one-person RAM enrollment/fresh-frame confirmation,
 personalized saver greeting and a real confirmed recognition event received by
-Home Assistant over REST are operator-accepted. Five saver/re-entry cycles pass
+Home Assistant over REST are operator-accepted. A matching live HA trace and
+operator receipt also accept the recognized-only notification action. Five saver/re-entry cycles pass
 after the Flash-validation watchdog fix. Secure persistence, quantified accuracy,
-recognized-only HA action and extended reliability acceptance remain open.
+encounter deduplication and extended reliability acceptance remain open.
 See [hardware evidence](docs/IDENTITY_VALIDATION.md).
 
 [Implementation and on-device enrollment](docs/FACE_RECOGNITION.md) uses
