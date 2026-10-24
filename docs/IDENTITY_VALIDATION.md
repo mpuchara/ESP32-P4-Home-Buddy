@@ -7,6 +7,14 @@ The operator also reports a device restart when returning from the saver to the
 household recognition test after landmarks appeared. This remains an OPEN blocker.
 Do not proceed to enrollment/recognized-event acceptance until it is resolved.
 
+The next operator attempt also restarted immediately on opening the household
+page, before starting recognition. A passive capture opened afterwards confirms
+a new uptime but missed the panic/reset-reason lines; it does not establish the
+cause. Investigation therefore includes household-page construction and the UI
+task, not only model release/reload. CI run 40047726427 passes the host job and
+all four firmware profiles for diagnostic commit 909a1f5; hardware restart
+acceptance remains open.
+
 Initial bounded passive captures show model loads (PSRAM delta 8,538,056 bytes,
 internal deltas around 55 KiB), continued ~30 fps camera capture, and no captured
 panic for the specific after-inference re-entry. Some full-resolution UBox JPEG
