@@ -19,6 +19,7 @@
 #include "hb_services.h"
 #include "hb_ui.h"
 #include "hb_wifi.h"
+#include "identity_navigation.h"
 #include "lvgl.h"
 #include "screen_lifecycle.h"
 #include "ui_commands.h"
@@ -82,6 +83,7 @@ static float calibration_metric;
 static lv_obj_t *identity_info, *identity_choice, *identity_marks[5], *identity_box;
 static uint64_t identity_selected;
 static bool identity_screen;
+static bool identity_saver_intent;
 static uint32_t identity_tick;
 static void identity_page(lv_event_t *e);
 static void household_page(lv_event_t *e);
@@ -166,13 +168,8 @@ static void close_menu(lv_event_t *event)
     (void)event;
     if (critical)
         return;
-    if (identity_screen)
-    {
-        hb_id_status identity;
-        hb_identity_get(&identity);
-        if (identity.mode == HB_ID_BACKGROUND)
-            identity_screen = false;
-    }
+    if (identity_screen && identity_saver_intent)
+        identity_screen = false;
     close_page();
     in_menu = false;
     lv_scr_load(saver);
@@ -187,6 +184,7 @@ static void close_page(void)
         hb_identity_command(&stop);
     }
     identity_screen = false;
+    identity_saver_intent = false;
     ha_enable = ha_publish = ha_tls = ha_info = ha_mode = NULL;
     identity_info = identity_choice = identity_box = NULL;
     memset(identity_marks, 0, sizeof(identity_marks));
@@ -316,10 +314,19 @@ static void identity_send(lv_event_t *e)
                              .person_id = identity_selected};
     if (field[0])
         snprintf(command.name, sizeof(command.name), "%s", lv_textarea_get_text(field[0]));
-    if (hb_identity_command(&command) != ESP_OK)
+    bool accepted = hb_identity_command(&command) == ESP_OK;
+    identity_saver_intent = hb_identity_saver_intent(identity_saver_intent, command.type, accepted);
+    if (!accepted)
         form_error("Polecenie nieprzyjęte. Spróbuj ponownie.");
-    else if (keyboard)
-        lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+    else
+    {
+        if (keyboard)
+            lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+        if (command.type == HB_ID_CMD_BACKGROUND)
+            form_error("Tło przyjęte. Możesz otworzyć wygaszacz.");
+        else if (command.type == HB_ID_CMD_STOP || command.type == HB_ID_CMD_TEST)
+            form_error("Polecenie przyjęte.");
+    }
 }
 static void identity_guest(lv_event_t *e)
 {

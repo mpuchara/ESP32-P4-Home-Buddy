@@ -97,8 +97,13 @@ KNOWN plus potwierdzony requires fresh-frame confirmations. No profile survives
 a reboot on the current unprovisioned RAM-only device.
 
 Foreground testing does not publish HA identity events. For the explicit
-background trial, press Włącz tło na 10 min, wait five seconds for the queued
-mode change, then Wygaszacz UBox. The operator has accepted the personalized
+background trial on the installed household-keyboard firmware, press Włącz tło
+na 10 min, wait twenty seconds for the queued mode change, then Wygaszacz UBox.
+The prepared navigation-fix candidate instead shows “Tło przyjęte. Możesz
+otworzyć wygaszacz.” after queue acceptance, and permits immediate saver entry.
+That candidate is not yet installed or physically accepted. Queue rejection
+still displays an error; Stop and Test revoke background navigation intent.
+The operator has accepted the personalized
 greeting and a real recognized/face/confirmed HA event. Greeting cooldown is five
 minutes; HA cooldown is configured separately (default 60 seconds). To validate
 another encounter, leave the camera view for 15 seconds and return after the HA

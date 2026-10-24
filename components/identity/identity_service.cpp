@@ -529,6 +529,8 @@ static void worker(void *)
                 state.sequence = 0;
                 state.mode = HB_ID_BACKGROUND;
                 until = now_ms() + 600000;
+                ESP_LOGI("identity", "SESSION_BACKGROUND session=%u until_ms=%llu",
+                         (unsigned)epoch.load(), (unsigned long long)until);
                 break;
             case HB_ID_CMD_LANDMARK_METHOD:
                 state.official_landmarks = !state.official_landmarks;
@@ -560,6 +562,9 @@ static void worker(void *)
         state.session = current_session;
         if (state.mode != HB_ID_STOP && now_ms() >= until)
         {
+            ESP_LOGI("identity", "SESSION_EXPIRED session=%u now_ms=%llu until_ms=%llu",
+                     (unsigned)state.session, (unsigned long long)now_ms(),
+                     (unsigned long long)until);
             state.mode = HB_ID_STOP;
             state.confirmed = false;
             memset(enrollment, 0, sizeof(*enrollment));

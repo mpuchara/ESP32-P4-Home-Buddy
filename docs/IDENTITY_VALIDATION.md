@@ -1,5 +1,23 @@
 ## Current hardware acceptance, 2026-10-24
 
+Prepared navigation fix (not installed): saver navigation now uses accepted UI
+command intent instead of the worker's asynchronously published mode. Accepted
+BACKGROUND survives immediate saver navigation; accepted TEST/STOP revokes that
+intent even if the old snapshot still says BACKGROUND. Rejected commands do not
+grant or change navigation ownership. Ordinary page exit still cancels; the
+intent is cleared when the page closes and never restarts or extends a lease.
+The UI acknowledges queue acceptance without claiming model readiness. New
+SESSION_BACKGROUND/SESSION_EXPIRED logs expose session/deadline timing without
+identity names or credentials. Host regression passes with delayed worker modes
+and rejected commands (18/18 total); physical acceptance remains pending.
+The installed household-keyboard image and its RAM profile remain unchanged.
+Recognition build, effective configuration and enforced Flash budget pass.
+Prepared package: dist/0.6.1-dev-background-navigation; application 4,387,152 bytes,
+SHA256 75f23473c787f9d3ab7219439337ffd5580d194ffacd66ee364899941208fbe0,
+with 2,952,880 bytes free in the existing application partition. Python tests
+pass 7/7, project checks 3/3, formatting and git diff --check pass. This candidate
+has not been written to COM5; prior hardware receipts apply to source 00272f7.
+
 Unattended background completion observed on retry: the operator reports starting
 background, waiting twenty seconds on the recognition screen and then opening
 the saver, followed by no further requested input. The previous capture had

@@ -1,3 +1,16 @@
+# 2026-10-24: background navigation intent fix prepared
+
+Saver navigation previously consulted the worker's delayed mode snapshot. It
+could cancel an accepted but unprocessed background request, or preserve an old
+background snapshot after a newer Test request. Track accepted mode-changing UI
+commands instead, clear ownership on page close, and preserve normal cancellation
+for ordinary exits. Add a short acceptance acknowledgement and explicit worker
+background deadline/expiry logs. Host regression covers both delayed-mode
+directions, queue rejection and Stop; all 18 C tests, 7 Python tests and 3 project
+checks pass. Firmware build/package results are recorded in IDENTITY_VALIDATION.
+No device flash/reset: physical acceptance of this fix is pending and the
+operator's enrolled RAM profile is preserved.
+
 # 2026-10-24: unattended background completion observed
 
 The first expiry attempt cancelled during saver navigation after about twenty

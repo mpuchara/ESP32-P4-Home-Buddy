@@ -66,7 +66,15 @@ not evidence of physical recognition accuracy or a working HA automation.
 
 ## Physical and CI receipt
 
-Latest firmware source: 00272f7 (household keyboard UI follow-up), app 4,386,720 bytes,
+Prepared newer candidate (not installed): accepted background navigation intent
+replaces asynchronous worker-mode polling, with queue acknowledgement and session
+deadline/expiry diagnostics. Host C tests 18/18, Python 7/7, project checks 3/3,
+recognition build/configuration/budget pass. Package
+dist/0.6.1-dev-background-navigation contains a 4,387,152-byte application,
+SHA256 75f23473c787f9d3ab7219439337ffd5580d194ffacd66ee364899941208fbe0.
+Immediate-saver physical acceptance is pending; preserve the current RAM profile.
+
+Installed firmware source: 00272f7 (household keyboard UI follow-up), app 4,386,720 bytes,
 SHA256 4f6cb3b2ac58ea8bfae7e1faed6e6883b53efc23ffc022fc25aee9e612e799bb.
 Recognition build/config/budget and app-only COM5 Flash verification pass. Host
 C suite is 17/17, Python 7/7, project checks 3/3. A captured re-entry interrupt
