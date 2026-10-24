@@ -3,6 +3,22 @@
 Each phase needs a buildable commit and evidence in DEVELOPMENT_LOG.md.
 Physical acceptance cannot be inferred from successful compilation.
 
+Active continuation: onboard MBF execution, one-person RAM enrollment/fresh-frame
+confirmation, personalized saver greeting and real recognized REST event delivery
+are operator-confirmed. The real recognized-only notification action is also
+confirmed by a matching HA trace and operator receipt. Five saver/re-entry cycles
+passed after the Flash read watchdog fix. The controlled 90-second stay and real
+leave/return notification test also passed with two matching HA traces. Continue
+automatically to offline/stress checks. Unattended background completion and clean
+model release are observed on a retry; exact lease-start timing was not captured.
+The first attempt cancelled during navigation and is not an expiry result.
+The Stop/navigation path has
+operator-confirmed absence of new notifications; its exact command/release timing
+was not independently captured.
+Quantified multi-person accuracy remains pending. Voice remains
+capacity planning only in this iteration. Secure provisioning needs separate
+authorization; the current profile mode remains visibly RAM-only.
+
 | Phase | Deliverable | Current state |
 |---|---|---|
 | 0 | Research, dependency pins, architecture, budget, CI, skeleton | Initial research/foundation delivered; all CI jobs passed |
@@ -10,15 +26,15 @@ Physical acceptance cannot be inferred from successful compilation.
 | 2 | Fullscreen cached UBox JPEG, cover crop, ETag, NTP/Warsaw clock, Open-Meteo temperature layers | Implemented; JPEG/clock verified, Real UBox/colors/304 and device weather verified; outage/soak pending |
 | 3 | Direct setup, persistent configuration, complete Polish touchscreen settings | All settings without PIN per operator request; Wi-Fi provisioning verified; encryption pending |
 | 4 | Exact camera driver, frame capture, illumination metric, two-anchor calibration | OV02C10 ID and ~30fps capture verified; RAW8 colors/detail/upright operator-confirmed; real calibration and stability pending |
-| 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | 0.4.2 ESPDet416 detection is operator-accepted as more stable (700-800ms), including reopen. 0.4.5 scalar face-quality readouts operator-confirmed; alignment/embeddings/enrollment remain pending |
+| 5 | Face detection/alignment/embedding, local profile enrollment and unknown handling | Real ESPDet416/MNP/MBF execution and one-person RAM enrollment/fresh-frame confirmation/leave-return scenario accepted; multi-person and impostor accuracy pending |
 | 6 | ES8311/PCM/VAD, local speaker embeddings and on-device enrollment | Pending |
-| 7 | Temporal fusion, greetings, independent cooldowns, MQTT Discovery/events/HA examples | 0.4.3 temporal presence accepted; 0.4.4 background navigation/countdown/manual stop/layout operator-accepted; 10min expiry pending. Identity/greeting/events remain pending |
-| 8 | Secure persistent storage, migrations, deletion, OTA/recovery | Pending |
+| 7 | Temporal fusion, greetings, independent cooldowns, Webhook/REST events and HA helper examples | Personalized greeting, real recognized REST delivery, recognized-only notification, controlled one-person encounter deduplication/return and operator-reported Stop/navigation notification outcome accepted; timed expiry and outage acceptance pending |
+| 8 | Secure persistent storage, migrations, deletion, USB recovery | Transactional gate and USB tool implemented; secure provisioning and physical power-loss/deletion acceptance pending |
 | 9 | Profiling, fault injection, reconnect, recovery and 72-hour physical soak | Pending |
 
 ## Next acceptance gates
 
-1. CI build all three profiles and Linux DST tests for iteration 2.
+1. CI build all four profiles and Linux host regression for 0.6.1-dev.
 2. Confirm synthetic JPEG colors/crop, no bars, greeting fades, full touch range,
    slider range, cold boot and repeated menu/image transitions.
 3. Wi-Fi association/DHCP and SNTP verified; reconnect and reboot restore pending.
@@ -60,3 +76,19 @@ second flashlight test anchor was saved. Repeat the day point under representati
 daytime lighting and explicitly save AUTO. Physical reboot restore, changing-light
 stability and extended soak remain pending; do not treat the flashlight as final
 daytime acceptance.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
+Flash for model storage, gated encrypted profile persistence and native identity
+HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
+FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
+
+
+## Iteration 8 continuation
+
+Candidate implements AUTO/OFF/TEST, reboot waiting, evaluation and bounded audio diagnostics. Physical gates: scheduled app update/profile loss, navigation/AUTO and microphone acceptance, consenting multi-person negatives, outages and 72-hour soak. Persistence needs reviewed secure USB recovery; speaker runtime remains conditional.

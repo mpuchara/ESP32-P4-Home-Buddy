@@ -14,7 +14,7 @@ and has a separate persistent configuration; see BRIGHTNESS.md.
 3. Pogoda: enter a locality name, tap Szukaj, choose the correct country/region
    result from the dropdown, then Zapisz. ASCII spelling is accepted by geocoding;
    you need not type Polish accents. No default location is assumed. Empty the
-   city field and Save to disable weather. No MQTT/broker setup exists.
+   city field and Save to disable weather. Weather requires no MQTT/broker setup. Identity HTTP has a separate Home Assistant menu; see HOME_ASSISTANT_HTTP.md.
 4. The device requests Open-Meteo current temperature at2m every10minutes over
    verified HTTPS. These are weather-model data, not a local sensor measurement.
    Data older than1hour become unavailable. Source attribution appears in Pogoda.
@@ -84,3 +84,36 @@ observe processed-face brightness. Hints are provisional and do not reject a fac
 Detail also changes with beard/glasses/noise/scale, so it is not a focus diagnosis.
 Without a fresh face the page shows unavailable/wait text. Stop or leave to end
 foreground measurement. An active10min background lease still follows its deadline.
+
+
+## 0.5.0-dev local identity experiment
+
+Current 0.6.1-dev workflow: Domownicy -> enter a name -> keyboard checkmark ->
+Potwierdź dodanie -> Odśwież listę -> select the profile -> Rejestruj próbki.
+Collect eight accepted samples with small pose/distance changes and 2-3 second
+spacing. Wait three seconds, face the camera, Weryfikuj, then Potwierdź zapis.
+Refresh the household list, select the profile and open Test rozpoznawania.
+KNOWN plus potwierdzony requires fresh-frame confirmations. No profile survives
+a reboot on the current unprovisioned RAM-only device.
+
+Foreground testing does not publish HA identity events. For the explicit
+background trial on the installed household-keyboard firmware, press Włącz tło
+na 10 min, wait twenty seconds for the queued mode change, then Wygaszacz UBox.
+The prepared navigation-fix candidate instead shows “Tło przyjęte. Możesz
+otworzyć wygaszacz.” after queue acceptance, and permits immediate saver entry.
+That candidate is not yet installed or physically accepted. Queue rejection
+still displays an error; Stop and Test revoke background navigation intent.
+The operator has accepted the personalized
+greeting and a real recognized/face/confirmed HA event. Greeting cooldown is five
+minutes; HA cooldown is configured separately (default 60 seconds). To validate
+another encounter, leave the camera view for 15 seconds and return after the HA
+cooldown has elapsed. Inspect all received events: the last event after leaving
+can be presence_leave rather than the earlier recognized event.
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
+Flash for model storage, gated encrypted profile persistence and native identity
+HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
+FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.

@@ -21,7 +21,7 @@ misalignment, unequal OTA slots and overflow.
 Two app slots fit the current small firmware. **This does not prove both biometric
 model sets fit.** Only 1920 KiB is reserved separately for models. Before adding
 models, measure exact quantized weights, code growth and inference arena demand.
-Use local microSD assets if required; pin hashes, licenses and model format/version.
+All model assets must use onboard Flash; pin hashes, licenses and model format/version.
 Never fetch a model from a server as a runtime requirement. Signed OTA, rollback,
 model compatibility and partition migration are not implemented.
 
@@ -141,3 +141,14 @@ expiry release and repeated requests need measured receipts.
 no extra ROI image, histogram or heap allocation. Existing234x416 input is reused.
 64-bit sum products bound arithmetic at maximum generic800x480 ROI. Hardware
 quality_us overhead remains to be measured; no speed or recognition claim.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
+Flash for model storage, gated encrypted profile persistence and native identity
+HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
+FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.

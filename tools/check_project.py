@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ProjectChecks(unittest.TestCase):
     def test_partition_budget(self):
-        end = 0x9000
+        end = 0x11000
         apps = []
         for row in csv.reader((ROOT / "partitions.csv").read_text(encoding="utf-8").splitlines()):
             if not row or row[0].startswith("#"):
@@ -22,7 +22,7 @@ class ProjectChecks(unittest.TestCase):
                 apps.append((subtype, size))
             end = offset + size
         self.assertEqual(end, 16 * 1024 * 1024)
-        self.assertEqual(apps, [("ota_0", 6 * 1024 * 1024), ("ota_1", 6 * 1024 * 1024)])
+        self.assertEqual(apps, [("factory", 7 * 1024 * 1024)])
 
     def test_dependency_pins(self):
         import yaml
@@ -48,7 +48,7 @@ class ProjectChecks(unittest.TestCase):
                 coverage.update(start + int(v, 16) for v in re.findall(r"0x[0-9a-fA-F]+", body))
         for letter in "ĄąĆćĘęŁłŃńÓóŚśŹźŻż°":
             self.assertIn(ord(letter), coverage, letter)
-        ui = (ROOT / "components/ui/ui.c").read_text(encoding="utf-8")
+        ui = (ROOT / "components/ui/ui.c").read_text(encoding="utf-8") + (ROOT / "components/ui/ha_settings.h").read_text(encoding="utf-8")
         for text in re.findall(r'"(?:[^"\\]|\\.)*"', ui):
             for letter in text:
                 if ord(letter) > 127:

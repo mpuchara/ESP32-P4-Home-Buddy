@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.4.5-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.6.1-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -53,13 +53,13 @@ idf.py -B build-bringup -p COM5 flash monitor
 ```
 
 COM5 is this session's port, not a fixed requirement. See [recovery](docs/BUILD.md).
-No browser installer or OTA is provided yet.
+USB is the supported update path; this architecture has no OTA.
 
 ## Current interface
 
 Tap the saver to open Wi-Fi, UBox, weather, brightness and diagnostic controls.
 Missing image/time/temperature remain unavailable. Test JPEG uses a committed
-synthetic image; Test greeting explicitly says Test UI. No biometric inference runs.
+synthetic image; Test greeting explicitly says Test UI. Experimental biometric inference runs only after explicit opt-in in the recognition build.
 All settings open directly, without an administrator PIN, at the operator's
 explicit request. Choose a Wi-Fi network and enter its password; UBox settings and weather location are edited in their own screens. Wi-Fi
 passwords stay masked; the UBox token is visible in its edit field as requested.
@@ -113,10 +113,36 @@ The future identity pipeline runs entirely on P4; HA provides no inference.
 * [Flash/PSRAM budget](docs/MEMORY_BUDGET.md)
 * [Roadmap](docs/DEVELOPMENT_PLAN.md)
 * [UBox HTTP contract](docs/UBOX_API.md)
-* [Planned MQTT API](docs/MQTT_API.md)
+* [Home Assistant Webhook / REST](docs/HOME_ASSISTANT_HTTP.md)
 * [Privacy](docs/PRIVACY.md)
 * [User guide](docs/USER_GUIDE.md)
 * [Troubleshooting](docs/TROUBLESHOOTING.md)
 
 The independent `mpuchara/HA_UBOX_bridge` repository is read-only reference material.
 Home Buddy will consume its published API only.
+
+## Experimental household identity
+
+On-device MBF execution, one-person RAM enrollment/fresh-frame confirmation,
+personalized saver greeting and a real confirmed recognition event received by
+Home Assistant over REST are operator-accepted. A matching live HA trace and
+operator receipt also accept the recognized-only notification action. Five saver/re-entry cycles pass
+after the Flash-validation watchdog fix. Secure persistence, quantified accuracy,
+extended reliability acceptance remain open. A controlled 90-second stay and
+leave/return test produced one notification per encounter with matching HA traces.
+See [hardware evidence](docs/IDENTITY_VALIDATION.md).
+
+[Implementation and on-device enrollment](docs/FACE_RECOGNITION.md) uses
+ESPDet416, real MNP landmarks, native ROI, MBF embeddings and multi-frame open-set
+matching. The 0.6.1-dev candidate uses one 7 MiB factory application, dedicated
+onboard MBF storage, a 1 MiB gated profile area and 3 MiB reserved for future voice.
+Unprovisioned devices remain explicitly RAM-only. HA uses native Webhook or REST
+events without a broker. No microSD, external inference or OTA.
+See [current report](docs/ITERATION7_REPORT.md), [Flash map](docs/SINGLE_IMAGE_FLASH_LAYOUT.md),
+[USB updates/recovery](docs/USB_FLASHING.md), [migration](docs/FLASH_MIGRATION.md)
+and [HA setup](docs/HOME_ASSISTANT_HTTP.md). Physical acceptance is tracked separately.
+
+
+## Iteration 8 continuation
+
+Candidate 0.7.0-dev adds opt-in AUTO with ordinary NVS preference, preserved ten-minute TEST, RAM-only reboot waiting, fresh local evaluation and manual 60-second microphone diagnostics. Installed firmware remains unchanged. See docs/ITERATION8_REPORT.md and docs/ITERATION8_ACCEPTANCE.md.

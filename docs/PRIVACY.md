@@ -1,29 +1,28 @@
-# Privacy and security status
+# Privacy and security, 0.6.1-dev
 
-No biometric enrollment, camera capture, audio capture or identity inference is
-implemented yet. The current firmware does not transmit biometric data.
+Local opt-in face enrollment/recognition uses onboard camera, ESPDet, MNP and MBF.
+Raw captures are transient; personal templates stay in RAM on unprovisioned boards.
+The secure transactional Flash adapter is implemented but refuses plaintext
+biometric writes. Voice recognition is not implemented. No microSD or external
+inference is used. Face matching is not a liveness proof or sufficient door security.
 
-Keep private hardware backups, credentials, raw frames/audio and embeddings out
-of Git and CI. The local/ directory is ignored. Serial diagnostics omit SSIDs,
-passwords and access tokens. NVS is not automatically erased after init failure.
-The current reserved profiles/models partitions are not mounted or formatted.
+HTTP identity events contain bounded metadata only, never images/audio/embeddings.
+Publishing and names are separately opt-in. RAM IDs are never advertised as
+persistent. Webhook IDs and REST tokens are bearer secrets: visible in HA settings
+at the owner's request for checking input,
+omitted from logs/exports and never reused from UBox. LAN HTTP is unencrypted;
+HTTPS validates CA and hostname without bypass. Development NVS settings and
+credentials are NOT encrypted at rest. Protect physical access and private backups.
 
-The operator explicitly requested no administrator PIN anywhere in settings.
-Wi-Fi/UBox/weather forms open directly and all PIN gates/hash operations were removed.
-Wi-Fi passwords remain masked. The operator explicitly requested the UBox token
-visible in its edit field; general diagnostics/logs still omit it. Weather has no
-secret or broker credentials and only sends the selected locality/coordinates
-to Open-Meteo through verified HTTPS. Anyone with touchscreen
-access can edit settings. Schema-1 settings remain compatible; obsolete PIN bytes
-are ignored and cleared on the next successful configuration save.
-NVS is NOT encrypted at rest in this development build. Encrypted storage and
-production provisioning/recovery remain incomplete. No biometric enrollment or
-deletion is exposed. Face/voice matching is not a liveness proof.
+No mandatory administrator PIN is added. Anyone with touchscreen access can edit
+settings. The existing owner-requested visible UBox token field is unchanged;
+HA credentials are also visible at the owner's request. Open-Meteo receives selected location through
+verified HTTPS. Keep full Flash backups, keys, credentials and personal samples
+outside Git, artifacts and CI. Do not automatically erase NVS on initialization
+failure. See PROFILE_DATABASE.md for deletion/recovery limits and FLASH_MIGRATION.md
+for the separately authorized security provisioning requirements.
 
-Store embeddings rather than recordings by default, discard enrollment source
-buffers after extraction, and remove every template on profile deletion.
-Never include embeddings, face images or microphone audio in MQTT.
-Physical flash extraction and microSD access are separate threats: encrypted NVS
-does not automatically encrypt files on SPIFFS or removable media. Production
-security needs verified secure boot/flash encryption provisioning and recovery
-design; do not burn irreversible eFuses during bring-up.
+
+## Iteration 8 continuation
+
+AUTO requires deliberate opt-in; ordinary NVS stores its boolean only. RAM-only profiles still disappear on reboot. Microphone test starts manually, expires after 60 seconds, clears PCM each block and sends/saves no audio. No weaker persistence or voice enrollment is enabled. See AUDIO_DIAGNOSTICS.md and SECURITY_PROVISIONING.md.

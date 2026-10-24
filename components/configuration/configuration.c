@@ -12,6 +12,7 @@ static hb_config_t current;
 static hb_weather_config_t weather = {.schema = 1};
 static SemaphoreHandle_t mutex;
 static atomic_bool ready;
+static atomic_bool identity_auto;
 typedef struct
 {
     hb_config_t settings;
@@ -78,6 +79,11 @@ esp_err_t hb_config_start(void)
         weather = saved_weather;
     else if (we != ESP_ERR_NVS_NOT_FOUND)
         ESP_LOGW("configuration", "Weather settings invalid; preserved until explicit resave");
+    uint8_t automatic = 0;
+    esp_err_t ae = nvs_get_u8(h, "identity_auto", &automatic);
+    identity_auto = ae == ESP_OK && automatic == 1;
+    if (ae != ESP_OK && ae != ESP_ERR_NVS_NOT_FOUND)
+        ESP_LOGW("configuration", "AUTO preference unavailable; disabled");
     nvs_close(h);
     mbedtls_platform_zeroize(&loaded, sizeof(loaded));
     ready = true;
@@ -152,5 +158,31 @@ esp_err_t hb_config_weather_save(const hb_weather_config_t *value)
         weather = *value;
         xSemaphoreGive(mutex);
     }
+    return e;
+}
+
+bool hb_config_identity_auto(void)
+{
+    return ready && identity_auto;
+}
+esp_err_t hb_config_identity_auto_save(bool enabled)
+{
+    if (!ready)
+        return ESP_ERR_INVALID_STATE;
+    nvs_handle_t h;
+    esp_err_t e = nvs_open("hb_config", NVS_READWRITE, &h);
+    if (e != ESP_OK)
+        return e;
+    e = nvs_set_u8(h, "identity_auto", enabled ? 1 : 0);
+    if (e == ESP_OK)
+        e = nvs_commit(h);
+    uint8_t check = 2;
+    if (e == ESP_OK)
+        e = nvs_get_u8(h, "identity_auto", &check);
+    if (e == ESP_OK && check != (enabled ? 1 : 0))
+        e = ESP_FAIL;
+    nvs_close(h);
+    if (e == ESP_OK)
+        identity_auto = enabled;
     return e;
 }

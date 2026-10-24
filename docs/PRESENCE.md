@@ -113,3 +113,14 @@ the saver and reopening, manual stop works and labels are readable. Automatic
 10-minute expiry, measured heap release and simultaneous model/full-size JPEG
 remain pending physical acceptance. Final artifact receipt is in
 DEVELOPMENT_LOG.md, including the superseding diagnostics-final package.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
+Flash for model storage, gated encrypted profile persistence and native identity
+HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
+FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.

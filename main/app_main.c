@@ -5,6 +5,7 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_psram.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,6 +14,8 @@
 #include "hb_camera.h"
 #include "hb_compute_budget.h"
 #include "hb_config.h"
+#include "hb_ha.h"
+#include "hb_identity.h"
 #include "hb_services.h"
 #include "hb_ubox.h"
 #include "hb_ui.h"
@@ -32,6 +35,7 @@ void app_main(void)
     esp_err_t flash_err = esp_flash_get_size(NULL, &flash);
     ESP_LOGI(TAG, "Home Buddy %s; IDF %s", esp_app_get_description()->version,
              esp_app_get_description()->idf_ver);
+    ESP_LOGI(TAG, "reset_reason=%d", (int)esp_reset_reason());
     ESP_LOGI(TAG, "P4 revision %d.%d; cores=%d; flash=%" PRIu32 " (%s); PSRAM=%u",
              chip.revision / 100, chip.revision % 100, chip.cores, flash,
              esp_err_to_name(flash_err), (unsigned)esp_psram_get_size());
@@ -59,6 +63,10 @@ void app_main(void)
     if (err == ESP_OK)
     {
         hb_brightness_start(nvs == ESP_OK);
+#if CONFIG_HB_IDENTITY_EXPERIMENTAL
+        if (hb_identity_start() != ESP_OK)
+            ESP_LOGW(TAG, "Identity infrastructure unavailable");
+#endif
         err = hb_ui_start();
     }
     bool ui_ready = err == ESP_OK;
@@ -80,6 +88,8 @@ void app_main(void)
     {
         hb_services_start();
         hb_ubox_start();
+        if (hb_ha_start() != ESP_OK)
+            ESP_LOGW(TAG, "Home Assistant configuration/start failed");
     }
 #else
     ESP_LOGW(TAG, "Board profile unconfirmed; peripheral outputs disabled. See docs/HARDWARE.md");
