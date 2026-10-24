@@ -1,5 +1,17 @@
 ## Current hardware acceptance, 2026-10-24
 
+Stop/navigation workflow: the operator confirms pressing Stop, returning to the
+saver and observing no new notifications during the requested 30-second camera
+trial. The retained HA trace list still ends with the earlier 13:54:06 run.
+USB identity-stop-acceptance-05.log contains MODEL_RELEASE with heap_ok=1 before
+and after, at uptime 19,223,074..19,223,094 ms; PSRAM returns to 26,327,860 bytes.
+There is no matching logged button/command timestamp, so that release cannot be
+attributed conclusively to the button rather than lease expiry. Accept the
+operator-reported Stop/navigation outcome; do not claim an independently timed
+isolated Stop-command test. Personalized-greeting absence was not separately
+reported. Next: a fresh background session and timed automatic expiry observation,
+preserving the existing RAM profile.
+
 Controlled encounter test accepted: the operator reports exactly one notification
 during a continuous 90-second stay and one after leaving for 15 seconds and
 returning for 30 seconds. Retained HA traces independently show the two new
@@ -10,7 +22,7 @@ This accepts the stated one-person notification deduplication/new-encounter
 scenario. Operator timing/counts and server-side traces are the evidence; the
 browser event listener had disconnected and was not an uninterrupted raw capture.
 It was restarted for the next explicit Stop test, alongside passive USB capture.
-Stop/expiry, offline behavior, negative/multi-person accuracy and secure persistence
+Automatic expiry, offline behavior, negative/multi-person accuracy and secure persistence
 remain open. No firmware change or device restart is part of these checks.
 
 Recognized-only HA notification acceptance now passes: the live browser listener

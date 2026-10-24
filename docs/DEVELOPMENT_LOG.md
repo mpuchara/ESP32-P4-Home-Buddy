@@ -1,3 +1,15 @@
+# 2026-10-24: operator accepts Stop/navigation notification outcome
+
+Operator reports Stop followed by no new notifications in the requested trial.
+HA's retained trace list still ends at the previous 13:54:06 run. USB shows a clean
+model release and restored PSRAM in identity-stop-acceptance-05.log, but no matching
+button timestamp, so that release is not conclusively attributed to Stop versus
+lease expiry. This accepts the operator-reported Stop/navigation path, not an
+independently timed isolated command test or separately observed greeting absence.
+Started passive capture for a fresh timed ten-minute background-expiry test and
+requested immediate operator acknowledgement of activation. No firmware write,
+reset or profile loss. Offline/negative/multi-person/security acceptance remains open.
+
 # 2026-10-24: controlled encounter deduplication and return accepted
 
 Operator reports one notification during the 90-second stay, then one after the
