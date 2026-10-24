@@ -16,6 +16,13 @@ mapping admission/failure and all SHA error cleanup paths using an injected SHA
 double. It does not claim hardware concurrency coverage. Host C suite 17/17,
 Python 7/7 and project checks 3/3 pass. Physical re-entry acceptance remains open.
 
+USB deployment of the mmap candidate succeeded in application-only mode on P4
+COM5 and verify_flash passed. Application: 4,386,480 bytes, SHA-256
+72fa4c48ab8410f4d48fd696910f30ff08d7e643df58e62102f8906402cbf9b3.
+Recognition build and effective-config/budget checks pass. NVS, partition table,
+model and profile areas were not written. A bounded 18-minute passive capture is
+running for operator re-entry/landmark checks; no acceptance is claimed yet.
+
 The operator reports MBF ready, one face, UNKNOWN, visible landmarks and the
 successful-inference message "Kandydat z nowej klatki". This is operator evidence
 of an initial pipeline execution, not a measured accuracy/enrollment acceptance.
