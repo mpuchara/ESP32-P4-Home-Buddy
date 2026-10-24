@@ -77,8 +77,22 @@ bb3bc0897240de020c6d2df3144e72b2d317fada540bbc0541086ce5f23e0916.
 Factory growth margin: 2,882,384 bytes, above the 262,144-byte enforced floor.
 Effective recognition configuration confirms persistence, Secure Boot and Flash
 encryption disabled, ES8311 support available, existing thresholds and Flash map.
-Package: dist/0.7.0-dev-iteration8-final with hashes and codec license. Application-only
+Package: dist/0.7.0-dev-iteration8-complete with hashes and codec license. Application-only
 USB dry run selects only 0x20000/home_buddy.bin and opens no serial port.
-Candidate CI is pending at this implementation commit; record actual results below.
+Final runtime-code CI receipts are recorded below.
 
 Final timing bookkeeping excludes unavailable measurements rather than inserting zero-latency samples. Host inspection confirmed SV input int16 [1,300,80], output int8 [1,512] and a fitting locked package, without a device write.
+
+## CI and installed-runtime receipts
+
+Implementation c032462 passed host plus all four clean firmware profiles in
+[run 40123881098](https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40123881098).
+Final runtime-code commit bb96a16 passed host and all four clean firmware profiles
+in [run 40124148367](https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40124148367).
+The following report/package-manifest receipt adds no firmware source change.
+
+A bounded 8-second passive COM5 capture opened with DTR/RTS inactive, without reset
+or firmware writes, received camera reports around 30.1 fps and no capture disconnect.
+This confirms only current installed camera activity; no boot/version receipt or
+new-candidate recognition/audio acceptance was obtained. It is not a soak result.
+Private log stays in ignored local/iteration8, not in Git.
