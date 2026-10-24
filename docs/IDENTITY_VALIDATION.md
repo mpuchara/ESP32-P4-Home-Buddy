@@ -1,4 +1,24 @@
-## Active hardware investigation, 2026-10-24
+## Current hardware acceptance, 2026-10-24
+
+The operator confirms the complete one-person test scenario works: usable name
+entry/profile selection, eight accepted enrollment samples, fresh-frame
+verification/save in RAM, KNOWN with confirmation, loss of confirmation out of
+frame and recognition on return. This is operator acceptance of the described
+scenario, not a serial dump of the sample count or a quantified accuracy study.
+The household keyboard fix is physically accepted. Current installed UI source
+is 00272f7; app 4,386,720 bytes, SHA-256
+4f6cb3b2ac58ea8bfae7e1faed6e6883b53efc23ffc022fc25aee9e612e799bb.
+The existing RAM profile must be preserved: no reset/flash is scheduled while
+testing real background recognized-event delivery and the saver greeting.
+
+Next hardware check: listen for home_buddy_identity in HA, enable background
+recognition, wait five seconds for the queued mode change before opening the
+saver, leave/return and confirm payload event_type=recognized, method=face,
+status=confirmed plus the local greeting. Diagnostic connection_test and a generic
+notification alone do not accept this recognized-event check. RAM-only IDs remain
+explicitly nonpersistent; no persistent-ID acceptance is claimed.
+
+## Re-entry investigation and fix evidence
 
 Captured failure: `local/identity-household-crash-11.log` contains an interrupt
 watchdog on CPU1 immediately after MODEL_LOAD begin and before detector creation.
@@ -31,8 +51,8 @@ Validation takes 337,420..369,653 us. Five rate-limited MBF_EXEC_OK receipts con
 latencies are 1,478,508..1,588,499 us. Those five log entries are not the total
 number of processed frames. This accepts the reproduced re-entry regression and
 real onboard pipeline execution, not long-duration stability or identity accuracy.
-The next active stage is one consenting RAM-only enrollment, fresh-frame verify,
-and confirmed local match; no biometric HA delivery is accepted yet.
+One consenting RAM-only enrollment/fresh-frame/confirmed-local-match scenario is
+now operator-accepted above; biometric HA delivery remains pending.
 
 The operator reports MBF ready, one face, UNKNOWN, visible landmarks and the
 successful-inference message "Kandydat z nowej klatki". This is operator evidence

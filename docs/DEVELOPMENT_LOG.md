@@ -1,3 +1,13 @@
+# 2026-10-24: operator accepts one-person local recognition scenario
+
+The operator confirms all steps of the supplied scenario work, including name
+entry, eight-sample RAM enrollment, fresh-frame verification/save, confirmed
+KNOWN, leaving the camera frame and recognition on return. This accepts the
+household keyboard fix and that local scenario only; no quantified accuracy or
+impostor acceptance is inferred. Continued automatically to real background HA
+recognized-event delivery and the local saver greeting, preserving the live RAM
+profile without resetting/flashing. Secure persistent profiles remain gated.
+
 # 2026-10-24: household name keyboard usability
 
 Enrollment was blocked by household buttons/status drawing over keyboard keys.
@@ -8,7 +18,8 @@ shorter, profile-list contrast is explicit, and name editing no longer idle-clos
 Actual household/form functions were rendered at 800x480 before/after using LVGL.
 The host UI harness also entered a key, checked foreground stacking, closed on
 ready, reopened on tap and verified the text survived. No biometric samples were
-enrolled as part of that UI check. On-device input acceptance remains pending.
+enrolled as part of that UI check. On-device input was subsequently accepted in
+the operator's complete local-recognition scenario above.
 Recognition build, effective-config/budget and formatting checks pass. App-only
 COM5 installation and verify_flash pass; application is 4,386,720 bytes, SHA-256
 4f6cb3b2ac58ea8bfae7e1faed6e6883b53efc23ffc022fc25aee9e612e799bb.
