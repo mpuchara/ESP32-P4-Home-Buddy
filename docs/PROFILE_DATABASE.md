@@ -6,7 +6,7 @@ verification frame. Names, enabled flags, 64-bit IDs, templates and next-ID coun
 are persisted together. Rename and additional samples preserve the ID. Deleting
 an ID never makes it available for reassignment. Blank profiles may exist before
 enrollment. The face-model namespace is checked on every restore and mutation.
-Voice enrollment is not implemented; voice_enrolled is always false.
+Public voice enrollment remains gated; the internal RAM workflow is described below.
 
 ## Secure gate
 
@@ -78,3 +78,8 @@ Persistence remains disabled on unprovisioned hardware. Adapter now verifies exa
 ## Iteration 10, 2026-10-25
 
 Preparatory voice vectors use an independent RAM schema/model namespace and stable person IDs. No active voice user workflow or storage write. Adding 65,536 B raw voice vectors exceeds a schema-1 256 KiB bank; do not reinterpret face bytes. ITERATION10_REPORT.md gives a future two-512-KiB-bank migration assessment within the current 1 MiB partition. Existing security gate remains closed.
+
+
+## Iteration 11, 2026-10-25
+
+Active firmware still uses schema 1 under the existing hardware-security gate. A separate, unused schema-2 engine now fits face + voice in two 512 KiB banks within the same 1 MiB partition: 246,640 B face +65,768 B voice +8 B explicit padding =312,416 B payload, plus256 B header, leaving211,616 B per bank. Both model namespaces, stable-ID references and metadata checksums are checked. The first explicitly authorized migration writes bank1 at0x80000 and preserves BOTH schema-1 banks. Dirty interrupted migration is refused until offline recovery; no auto-format. See PERSISTENCE_DECISION.md for rollback/security limitations. No schema-2 runtime adapter or activation exists.

@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+#ifdef HB_VOICE_DIAG_HOST_TEST
+#include "voice_diagnostic_platform.hpp"
+#else
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -6,6 +9,7 @@
 #include "freertos/task.h"
 #include "hb_audio.h"
 #include "hb_voice.h"
+#endif
 #include <atomic>
 #include <cstdio>
 #include <cstring>
@@ -15,6 +19,26 @@ static char message[160] = "Model głosu: test wyłączony";
 static int16_t *window;
 static hb_voice_gate gate;
 static unsigned slot;
+static uint32_t capture_epoch;
+static hb_voice_capture_result result_mailbox;
+static bool result_pending;
+static uint32_t loads, releases;
+static int64_t inference_deadline;
+bool hb_voice_capture_take(hb_voice_capture_result *out)
+{
+    if (!out)
+        return false;
+    portENTER_CRITICAL(&status_lock);
+    bool present = result_pending;
+    if (present)
+    {
+        *out = result_mailbox;
+        memset(&result_mailbox, 0, sizeof(result_mailbox));
+        result_pending = false;
+    }
+    portEXIT_CRITICAL(&status_lock);
+    return present;
+}
 static void status(const char *text)
 {
     portENTER_CRITICAL(&status_lock);
@@ -31,11 +55,15 @@ void hb_voice_diagnostic_status(char *text, size_t capacity)
 }
 static bool cancel(void *)
 {
-    return cancelled.load();
+    return cancelled.load() || (inference_deadline && esp_timer_get_time() > inference_deadline);
 }
 void hb_voice_diagnostic_stop(void)
 {
     cancelled.store(true);
+    portENTER_CRITICAL(&status_lock);
+    memset(&result_mailbox, 0, sizeof(result_mailbox));
+    result_pending = false;
+    portEXIT_CRITICAL(&status_lock);
 }
 static void consume(const int16_t *pcm, size_t n, uint32_t rate, uint64_t end_us,
                     bool discontinuity, void *)
@@ -92,8 +120,14 @@ static void worker(void *)
     if (err == ESP_OK)
     {
         status("Model głosu: lokalne osadzenie; brak identyfikacji osoby");
+        inference_deadline = esp_timer_get_time() + 120000000;
         err = hb_voice_embedding_run(window, HB_VOICE_SAMPLES, 16000, cancel, nullptr, &embedding,
                                      &metrics);
+        if (esp_timer_get_time() > inference_deadline)
+            err = ESP_ERR_TIMEOUT;
+        inference_deadline = 0;
+        loads += metrics.load_us != 0;
+        releases += metrics.load_us != 0;
     }
     char result[160];
     snprintf(result, sizeof(result), "Model głosu: %s; load/pre/infer %lu/%lu/%lu ms",
@@ -101,12 +135,24 @@ static void worker(void *)
              (unsigned long)(metrics.features_us / 1000),
              (unsigned long)(metrics.inference_us / 1000));
     status(result);
-    ESP_LOGI(
-        "voice",
-        "%s internal_low=%u psram_low=%u largest=%u largest_psram=%u stack=%u; diagnostic only",
-        result, (unsigned)metrics.internal_low, (unsigned)metrics.psram_low,
-        (unsigned)metrics.internal_largest, (unsigned)metrics.psram_largest,
-        (unsigned)metrics.stack_min);
+    ESP_LOGI("voice",
+             "%s internal_low=%u psram_low=%u largest=%u largest_psram=%u stack=%u load_us=%u "
+             "features_us=%u inference_us=%u voice_loads=%u voice_releases=%u; diagnostic only",
+             result, (unsigned)metrics.internal_low, (unsigned)metrics.psram_low,
+             (unsigned)metrics.internal_largest, (unsigned)metrics.psram_largest,
+             (unsigned)metrics.stack_min, (unsigned)metrics.load_us, (unsigned)metrics.features_us,
+             (unsigned)metrics.inference_us, (unsigned)loads, (unsigned)releases);
+    portENTER_CRITICAL(&status_lock);
+    if (capture_epoch && !cancelled.load())
+    {
+        result_mailbox.epoch = capture_epoch;
+        result_mailbox.end_ms = gate.end_ms;
+        result_mailbox.error = err;
+        if (err == ESP_OK)
+            result_mailbox.embedding = embedding;
+        result_pending = true;
+    }
+    portEXIT_CRITICAL(&status_lock);
     memset(&embedding, 0, sizeof(embedding));
     if (window)
     {
@@ -119,14 +165,27 @@ static void worker(void *)
     busy.store(false);
     vTaskDelete(nullptr);
 }
-esp_err_t hb_voice_diagnostic_start(unsigned selected)
+static esp_err_t start(unsigned selected, uint32_t epoch)
 {
     if (selected > 1)
         return ESP_ERR_INVALID_ARG;
     bool expected = false;
     if (!busy.compare_exchange_strong(expected, true))
         return ESP_ERR_INVALID_STATE;
+    portENTER_CRITICAL(&status_lock);
+    bool pending = result_pending;
+    portEXIT_CRITICAL(&status_lock);
+    if (pending)
+    {
+        busy.store(false);
+        return ESP_ERR_INVALID_STATE; // Never overwrite an unconsumed accepted result.
+    }
     slot = selected;
+    capture_epoch = epoch;
+    portENTER_CRITICAL(&status_lock);
+    memset(&result_mailbox, 0, sizeof(result_mailbox));
+    result_pending = false;
+    portEXIT_CRITICAL(&status_lock);
     cancelled.store(false);
     ready.store(false);
     hb_voice_gate_reset(&gate);
@@ -136,4 +195,12 @@ esp_err_t hb_voice_diagnostic_start(unsigned selected)
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
+}
+esp_err_t hb_voice_diagnostic_start(unsigned selected)
+{
+    return start(selected, 0);
+}
+esp_err_t hb_voice_capture_start(unsigned selected, uint32_t epoch)
+{
+    return epoch ? start(selected, epoch) : ESP_ERR_INVALID_ARG;
 }

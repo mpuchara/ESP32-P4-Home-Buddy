@@ -14,6 +14,7 @@
 #include "hb_face.h"
 #include "hb_geometry.h"
 #include "hb_ha.h"
+#include "hb_household_voice.h"
 #include "hb_identity.h"
 #include "hb_image.h"
 #include "hb_raw_frame.h"
@@ -86,6 +87,7 @@ static float calibration_metric;
 static lv_obj_t *identity_info, *identity_choice, *identity_marks[5], *identity_box;
 static uint64_t identity_selected;
 static bool identity_screen;
+static bool voice_screen;
 static bool recognition_settings;
 static lv_obj_t *audio_info, *audio_meter, *product_info, *enroll_progress;
 static lv_obj_t *product_states[5];
@@ -103,6 +105,7 @@ static void settings_page(lv_event_t *e);
 static void information_page(lv_event_t *e);
 static void advanced_page(lv_event_t *e);
 static void profile_page(lv_event_t *e);
+static void voice_enrollment_page(lv_event_t *e);
 static void return_parent(lv_event_t *e);
 static bool identity_saver_intent;
 static uint32_t identity_tick;
@@ -168,7 +171,8 @@ static lv_obj_t *button(lv_obj_t *parent, const char *text, int x, int y, int wi
     lv_obj_set_height(caption, 28);
     lv_label_set_long_mode(caption, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_align(caption, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, user);
+    if (cb)
+        lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, user);
     return b;
 }
 static void return_menu(lv_event_t *event)
@@ -203,7 +207,7 @@ static void close_menu(lv_event_t *event)
 }
 static void close_page(void)
 {
-    if (identity_screen)
+    if (identity_screen || voice_screen)
     {
         ESP_LOGI("identity_ui", "close identity screen stack_min=%u",
                  (unsigned)uxTaskGetStackHighWaterMark(NULL));
@@ -217,6 +221,7 @@ static void close_page(void)
         }
     }
     identity_screen = false;
+    voice_screen = false;
     resume_auto = false;
     recognition_settings = false;
     household_list = guided_enrollment = confirming = creating_profile = false;
@@ -443,6 +448,8 @@ static void recognition_page(lv_event_t *e)
     button(page, "Włącz automatyczne", 412, 78, 364, identity_send,
            (void *)(uintptr_t)HB_ID_CMD_AUTO);
     button(page, "Dodaj domownika", 24, 350, 350, household_page, NULL);
+    lv_obj_t *voice_switch = button(page, "Głos: oczekuje na walidację", 412, 350, 364, NULL, NULL);
+    lv_obj_add_state(voice_switch, LV_STATE_DISABLED);
     identity_info = label(page, "Oczekiwanie na stan", LV_ALIGN_TOP_LEFT, 24, 160);
     lv_obj_set_width(identity_info, 745);
     lv_obj_set_pos(page_error, 24, 410);
@@ -461,7 +468,8 @@ static uint64_t profile_signature(const hb_id_status *s)
     uint64_t hash = s->profile_count;
     for (unsigned i = 0; i < s->profile_count; ++i)
     {
-        hash = hash * 31 + s->profiles[i].id + s->profiles[i].samples;
+        hash =
+            hash * 31 + s->profiles[i].id + s->profiles[i].samples + s->profiles[i].voice_samples;
         for (const unsigned char *p = (const unsigned char *)s->profiles[i].name; *p; ++p)
             hash = hash * 31 + *p;
     }
@@ -550,20 +558,59 @@ static void profile_page(lv_event_t *e)
     hb_id_status s;
     hb_identity_get(&s);
     const char *name = "";
-    unsigned samples = 0;
+    unsigned samples = 0, voice_samples = 0;
     for (unsigned i = 0; i < s.profile_count; ++i)
         if (s.profiles[i].id == id)
         {
             name = s.profiles[i].name;
             samples = s.profiles[i].samples;
+            voice_samples = s.profiles[i].voice_samples;
         }
     label(page, samples ? "Twarz: zarejestrowana" : "Twarz: brak rejestracji", LV_ALIGN_TOP_LEFT,
           24, 70);
+    label(page, voice_samples ? "Głos: próbki w RAM" : "Głos: brak rejestracji", LV_ALIGN_TOP_LEFT,
+          412, 70);
     field[0] = input(page, "Imię", name, 60, false, 130);
     button(page, "Zmień nazwę", 24, 210, 350, identity_send, (void *)(uintptr_t)HB_ID_CMD_RENAME);
     button(page, "Uzupełnij rejestrację", 412, 210, 364, identity_page, (void *)1);
     button(page, "Usuń domownika", 24, 280, 350, identity_delete, NULL);
+    lv_obj_t *voice_button =
+        button(page, s.voice_available ? "Rejestruj głos" : "Głos: oczekuje na walidację", 412, 280,
+               364, voice_enrollment_page, NULL);
+    if (!s.voice_available)
+        lv_obj_add_state(voice_button, LV_STATE_DISABLED);
     identity_info = label(page, "", LV_ALIGN_TOP_LEFT, 24, 360);
+    lv_obj_set_width(identity_info, 745);
+    lv_scr_load(page);
+}
+static void voice_enrollment_page(lv_event_t *e)
+{
+    (void)e;
+    hb_id_status s;
+    hb_identity_get(&s);
+    if (!s.voice_available)
+    {
+        form_error("Głos oczekuje na walidację mikrofonu i modelu");
+        return;
+    }
+    uint64_t id = identity_selected;
+    page_base("Rejestracja głosu");
+    identity_selected = id;
+    voice_screen = true;
+    resume_auto = s.auto_enabled;
+    label(page, "Cztery różne wypowiedzi, potem nowa do weryfikacji.", LV_ALIGN_TOP_LEFT, 24, 78);
+    label(page, "Mów samodzielnie, naturalnie. Próbki pozostają tylko w RAM.", LV_ALIGN_TOP_LEFT,
+          24, 110);
+    button(page, "Rozpocznij", 24, 160, 350, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_VOICE_BEGIN);
+    button(page, "Pobierz próbkę", 412, 160, 364, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_VOICE_SAMPLE);
+    button(page, "Weryfikuj nową wypowiedzią", 24, 230, 350, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_VOICE_VERIFY);
+    button(page, "Potwierdź zapis w RAM", 412, 230, 364, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_VOICE_SAVE);
+    identity_info =
+        label(page, "Naciśnij Rozpocznij. Mikrofon jest wyłączony.", LV_ALIGN_TOP_LEFT, 24, 320);
     lv_obj_set_width(identity_info, 745);
     lv_scr_load(page);
 }
@@ -695,7 +742,7 @@ static void identity_update(void)
         hb_camera_get_status(&camera);
         hb_ha_status ha;
         hb_ha_get_status(&ha);
-        lv_label_set_text(product_info, "Home Buddy | firmware 0.8.0-dev");
+        lv_label_set_text(product_info, "Home Buddy | firmware 0.10.0-dev");
         const char *names[] = {"Wi-Fi", "UBox", "Kamera", "Rozpoznawanie", "Home Assistant"};
         const char *values[] = {network_state, image.data ? "Obraz dostępny" : "Oczekiwanie",
                                 camera.running ? "Dostępna" : "Oczekiwanie",
@@ -760,7 +807,11 @@ static void identity_update(void)
     }
     if (!identity_screen)
     {
-        lv_label_set_text(identity_info, s.message);
+        if (voice_screen)
+            lv_label_set_text_fmt(identity_info, "Próbki: %u/4\n%s", s.voice_enrollment_samples,
+                                  s.message);
+        else
+            lv_label_set_text(identity_info, s.message);
         return;
     }
     const char *states[] = {"UNAVAILABLE", "UNKNOWN", "AMBIGUOUS", "KNOWN"};

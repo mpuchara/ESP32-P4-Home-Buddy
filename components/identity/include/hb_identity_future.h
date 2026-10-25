@@ -16,7 +16,7 @@ typedef struct
     hb_id_match face, voice;
     bool face_confirmed, voice_confirmed;
     uint64_t face_frame_ms, voice_window_end_ms;
-    uint32_t session;
+    uint32_t session, face_session, voice_session;
 } hb_identity_fusion_input;
 typedef enum
 {

@@ -216,3 +216,8 @@ AUTO has no fixed deadline and requires explicit enablement. At reboot it starts
 ## Iteration 10, 2026-10-25
 
 The face enrollment format, AUTO semantics, real-landmark path, thresholds, greetings and FACE HTTP policy are preserved. New pure fusion has no runtime caller; voice diagnostics cannot emit identity events. Current hardware regression is still required after an intentionally accepted restart; historical physical results remain tied to their tested versions.
+
+
+## Iteration 11, 2026-10-25
+
+Voice staging is keyed by the existing stable person ID. Rename preserves voice association; deleting a household member reconciles and clears its voice templates. Replacing voice templates does not touch face embeddings; face registration does not touch voice vectors. Voice capture/inference remains acceptance-gated and adds no FACE event delay or new HA publisher. Current firmware has not been installed; this iteration's regression evidence is automated only.

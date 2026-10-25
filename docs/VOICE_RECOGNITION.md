@@ -1,4 +1,4 @@
-# Local voice prototype, iteration 10
+# Local voice pipeline, iteration 11
 
 Status: implemented and host-tested foundations; device capture, numerical model
 inference, memory peaks, speaker accuracy and 72-hour stability are NOT accepted.
@@ -80,8 +80,8 @@ consistent, distinct, non-overlapping windows are needed before matching. Cosine
 agreement, unknown threshold, different-person margin and temporal confirmation
 are voice-specific inputs; calibrated=false fails closed. No production thresholds
 or calibration route is enabled. Unit-test values are synthetic, not product
-settings. Identity mapping is supplied by the future household owner workflow;
-there is no PC enrollment, active household voice button or persistent voice write.
+settings. Identity mapping is supplied by the household owner workflow;
+there is no PC enrollment, enabled public voice button or persistent voice write.
 A real enrollment journey remains gated by valid microphone capture, real model
 inference and measured thresholds. Concurrent speakers remain unsuitable input.
 
@@ -126,3 +126,62 @@ collector is prepared and parser-tested, not a completed hardware soak. Compare
 coverage/gaps, minimum/largest blocks, load/release counts, crashes, audio loss,
 network and camera evidence before accepting a continuous run. Existing 30-second
 system heap/uptime logs remain; optional diagnostics generate bounded extra data.
+
+
+## Household workflow and gates (0.10.0-dev)
+
+`household_voice.c` shares the household owner and stable IDs. Begin stages a replacement
+without touching existing vectors. Four mutually consistent, distinct non-overlapping
+windows enter VERIFY; a fifth fresh utterance must agree with every staged template,
+reject duplicates and maintain a different-person margin against other stored voices.
+Only explicit Commit replaces that person's voice templates in RAM. No face template
+is changed. Rename preserves the ID; deletion/disabled-profile reconciliation scrubs
+voice slots. Deadline, cancellation, epoch, stale PCM and failed verification block save.
+A household-aware open-set wrapper rejects orphan/disabled IDs before matching and
+confirms only fresh independent windows. Thresholds remain uncalibrated and unset.
+
+The firmware command path and Polish enrollment page are compiled. Begin, Sample,
+Verify and Save use the existing worker and a single-result mailbox. Opening setup
+never starts capture. The disabled public entry and voice switch reflect absent
+microphone/model/numerical-on-P4/resources/speech-selection/consent/calibration gates;
+there is no UI/NVS/network bypass. No voice/fused greeting or HTTP integration is enabled.
+A model failure leaves the facial worker and existing event transport independent.
+The 120-second cooperative inference budget checks hash chunks, frames and graph
+sections; it cannot preempt a constructor or a single section. Physical timing is pending.
+
+## Reproducible numerical comparison
+
+Run `python tools/generate_voice_reference.py build-host/voice_reference.inc` before
+CMake host configuration. Offline: add `--source local/iteration11` with the pinned
+source files. The generator verifies full-file hashes at upstream commit
+`eb72563e6a4e61d2bbc0d46e4c79f2c9f816c3c6` and extracts unmodified math/Fbank methods.
+Those source files are byte-equivalent to the locked ESP-DL 3.3.14 component.
+`test_voice_features` compiles the SAME `voice_features.hpp` used by firmware and
+compares all 300x80 log-mel entries on silence/sine/multitone/chirp/noise/transient.
+Acceptance: max absolute error<=2e-5 log units; INT16 after mean subtraction<=1 LSB
+at exponents -12,-8,-4,0. Observed log-mel max error=0 for all six host fixtures.
+PCM scaling/crop/padding, saturation, half-even ties, finite inputs, tensor shape,
+size/type/null buffers, exponent range/per-channel rejection, output normalization,
+allocation faults and greedy-arena aliasing have separate tests.
+
+Both feature paths use the SAME portable host FFT and scalar dot product. This
+isolates assembly/order/mel-table/CMVN/quantization defects but does not validate
+ESP32-P4 FFT assembly, optimized dot products or actual model operators. Device
+numerical execution and reliable speaker identity remain separate acceptance gates.
+
+## VAD admission decision
+
+The quality/activity gate remains active and is NOT production speech VAD.
+Compared options: existing gate adds no dependency; standalone libfvad/WebRTC uses
+integer GMM speech classification without AFE/model assets; ESP-SR VADNet requires
+AFE/model integration and measured coexistence, as documented by Espressif.
+A reproducible `evaluate_voice_vad.py` probe pins standalone libfvad commit
+`532ab666c20d3cfda38bca63abbb0f152706c369`. C11 ASan/UBSan passed synthetic fixtures;
+core-state size is 752 B (not total allocations/stack). At 16 kHz/20 ms, mode 3:
+silence 0/151, 440Hz sine 151/151, deterministic full-range noise 150/151,
+transient 5/151 frames classified positive. These are probe outcomes, not speech
+accuracy, TV/music trials, P4 CPU/Flash measurements or evidence of compatibility.
+The observed false positives and lack of household validation do not justify
+importing this backend yet. No vendor source or new AFE dependency is in firmware.
+The pinned probe is retained for repeatable evaluation; neither alternative is
+claimed to reject playback or simultaneous speakers. Continuous listening stays off.

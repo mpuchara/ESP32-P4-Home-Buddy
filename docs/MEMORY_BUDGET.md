@@ -157,3 +157,8 @@ FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases 
 ## Iteration 10, 2026-10-25
 
 Derived additional arrays: 96,480 B mono PCM window and 96,000 B filterbanks; 1,920 B capture stack PCM arrays; 5,120 B DMA; FFT/window/mel/model and 8 KiB voice task stack add to these. No 192,960 B full float-audio copy. The lazy SV provider requires >=128 KiB free internal, >=64 KiB largest internal and >=8 MiB largest PSRAM before construction. Those provisional admission floors are not measured usage/peaks. Metrics are sampled and include stack/load/preprocess/inference timing; physical peaks/coexistence remain pending.
+
+
+## Iteration 11, 2026-10-25
+
+Additional optional voice DB:65,768 B; staging holds one four-template person plus policy/session metadata, allocated lazily in PSRAM only after acceptance and an explicit Begin. Capture result is a single approximately2 KiB RAM mailbox with one worker-side consume slot. Schema2 uses312,416 B per snapshot; a transaction needs a separate same-size PSRAM scratch snapshot. The unused schema2 runtime path allocates nothing in this candidate. These are structure/array sizes, not measured board free memory or peak usage. Actual internal/PSRAM/stack/load/inference/coexistence measurements remain pending.

@@ -50,6 +50,19 @@ int main()
     fake::reset();
     fake::model_new_fail = true;
     assert(run() == ESP_ERR_NO_MEM);
+    for (auto *fault : {&fake::tensor_null, &fake::data_null, &fake::wrong_dtype, &fake::wrong_size,
+                        &fake::invalid_exponent, &fake::channel_exponent})
+    {
+        fake::reset();
+        *fault = true;
+        assert(run() == ESP_ERR_INVALID_VERSION);
+    }
+    for (int exponent : {-31, 17})
+    {
+        fake::reset();
+        fake::exponent_value = exponent;
+        assert(run() == ESP_ERR_INVALID_VERSION);
+    }
     fake::reset();
     fake::model_fail = true;
     assert(run() == ESP_ERR_INVALID_VERSION);

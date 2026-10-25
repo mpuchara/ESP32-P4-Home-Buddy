@@ -73,3 +73,8 @@ model allocation/inference and voice-specific open-set thresholds on the P4.
 ## Iteration 10, 2026-10-25
 
 Source-only assessment has advanced to a compiled checked 3s provider plus explicit diagnostic, optional USB image and synthetic safety tests. Real microphone/model inference, full numerical equivalence, heap peaks and speaker accuracy are not accepted. No 6s image, dependency upgrade or new partition. VOICE_RECOGNITION.md describes exact preprocessing and limitations.
+
+
+## Iteration 11, 2026-10-25
+
+Host comparison now compiles the actual checked feature extractor against SHA256-pinned Espressif math and Fbank frame processing. Six synthetic windows compare all 24,000 log-mel values and four INT16 exponents. Both paths share a host FFT/dot-product shim, so P4 DSP/operator equivalence and physical inference remain unaccepted. Standalone libfvad admission results and limitations are in VOICE_RECOGNITION.md. The packaged 3s model and partition layout remain unchanged.

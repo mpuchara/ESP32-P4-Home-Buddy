@@ -32,7 +32,11 @@ extern "C"
         HB_ID_CMD_LANDMARK_METHOD,
         HB_ID_CMD_EVALUATE,
         HB_ID_CMD_EXPECTED,
-        HB_ID_CMD_AUTO
+        HB_ID_CMD_AUTO,
+        HB_ID_CMD_VOICE_BEGIN,
+        HB_ID_CMD_VOICE_SAMPLE,
+        HB_ID_CMD_VOICE_VERIFY,
+        HB_ID_CMD_VOICE_SAVE
     } hb_id_command_type;
     typedef struct
     {
@@ -46,6 +50,7 @@ extern "C"
         uint64_t id;
         char name[HB_ID_NAME];
         unsigned samples;
+        unsigned voice_samples;
     } hb_id_profile;
     typedef struct
     {
@@ -55,6 +60,8 @@ extern "C"
         bool ready, confirmed, verified, official_landmarks, detection_valid;
         bool persistence_ready, auto_enabled;
         unsigned usable_profiles;
+        bool voice_available;
+        unsigned voice_enrollment_state, voice_enrollment_samples;
         uint64_t deadline_ms;
         uint32_t model_loads, model_unloads, command_rejections, stack_min;
         char last_error[160];

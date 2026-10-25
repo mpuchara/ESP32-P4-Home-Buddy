@@ -103,3 +103,8 @@ Use application-only USB update after scheduling loss of RAM enrollment; no inst
 ## Iteration 10, 2026-10-25
 
 Optional speaker image: prepare_voice_model.py validates pinned raw/PDL3 hashes. package_firmware.py --speaker-model PATH adds one 3s image. flash_usb.py --mode speaker-model dry-runs only 0xc20000 after exact subtype/size/label validation; --execute retains installed-table/security preflight. Application/full plans never automatically write the speaker image. Model/app USB writes restart and lose RAM profiles. See VOICE_RECOGNITION.md; no writes were performed.
+
+
+## Iteration 11, 2026-10-25
+
+Iteration11 candidate generation: build all four profiles, run effective-config checks, run identity_flash_budget.py --enforce for recognition, then package_firmware.py with --speaker-model local/iteration10/speaker-model/sv_model_3s.espdl. The optional model is verified and remains a separate speaker-model USB mode. App/full plans preserve profiles and do not add the optional SV write. ITERATION11_ACCEPTANCE.md is the one combined physical checklist. Firmware update resets the device and loses RAM enrollment; installation is not authorized by packaging.

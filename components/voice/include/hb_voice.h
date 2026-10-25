@@ -21,6 +21,16 @@ extern "C"
     esp_err_t hb_voice_diagnostic_start(unsigned slot);
     void hb_voice_diagnostic_stop(void);
     void hb_voice_diagnostic_status(char *text, size_t capacity);
+    typedef struct
+    {
+        uint32_t epoch;
+        uint64_t end_ms;
+        esp_err_t error;
+        hb_voice_embedding embedding;
+    } hb_voice_capture_result;
+    // Single-result RAM mailbox for the sole household worker. Start is explicit.
+    esp_err_t hb_voice_capture_start(unsigned slot, uint32_t epoch);
+    bool hb_voice_capture_take(hb_voice_capture_result *out);
 #ifdef __cplusplus
 }
 #endif

@@ -97,3 +97,8 @@ Candidate implements AUTO/OFF/TEST, reboot waiting, evaluation and bounded audio
 ## Iteration 10, 2026-10-25
 
 Implemented foundation: single-owner timestamped capture, preliminary activity gate, pinned 3s embedding adapter, synthetic RAM matching/enrollment and gated fusion. Next physical gate: one silence/speech/slot receipt, then real model numerical/resource tests and voice-specific calibration. Real household voice enrollment and secure persistence are still pending.
+
+
+## Iteration 11, 2026-10-25
+
+Implemented: pinned reference feature comparison; four-template voice enrollment with fresh verification and atomic RAM replacement; stable-ID reconciliation; separately authorized schema-2 transactions and synthetic migration. Remaining milestones: physical microphone/model/resource acceptance, speech-selection evaluation with consenting household data, voice-specific open-set calibration, then explicit voice enablement. Persistent unlock design is selected for further engineering in PERSISTENCE_DECISION.md; current operation remains RAM-only.

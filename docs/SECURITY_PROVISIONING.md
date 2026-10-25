@@ -79,3 +79,8 @@ can itself provision eFuses, so flashing that bootloader is not a reversible tes
 | Hardware encryption plus authenticated firmware | Device-bound protection with irreversible provisioning and reduced recovery choices; gated by the sequence above. |
 
 No weaker mode bypasses the gate. Synthetic transaction tests remain available.
+
+
+## Iteration 11, 2026-10-25
+
+PERSISTENCE_DECISION.md compares the concrete hardware-protected, owner-unlocked and RAM-only options, including USB recovery and key custody. Recommendation: retain RAM-only now; implement and review owner-unlocked AEAD next for reversible development. This is an engineering recommendation, not permission for plaintext storage, provisioning or migration. Existing secure USB helper refusal and all eFuse gates remain unchanged.

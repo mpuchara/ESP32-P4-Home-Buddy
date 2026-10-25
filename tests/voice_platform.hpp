@@ -29,6 +29,9 @@ namespace fake
 inline bool compute = true, small = false, partition = true, bad_hash = false, shape = false,
             zero = false, model_fail = false;
 inline bool model_new_fail = false, alias = false;
+inline bool tensor_null = false, data_null = false, wrong_dtype = false, wrong_size = false;
+inline bool invalid_exponent = false, channel_exponent = false;
+inline int exponent_value = -7;
 inline unsigned feature_frames = 0;
 inline int allocations = 0, fail_at = -1, live = 0, maps = 0, leases = 0, models = 0, stage = 0;
 inline unsigned char flash[0x300000];
@@ -44,6 +47,9 @@ inline void reset()
     model_fail = false;
     model_new_fail = false;
     alias = false;
+    tensor_null = data_null = wrong_dtype = wrong_size = false;
+    invalid_exponent = channel_exponent = false;
+    exponent_value = -7;
     feature_frames = 0;
     allocations = 0;
     fail_at = -1;
@@ -198,15 +204,15 @@ struct Scale
     int value = -7;
     operator int() const
     {
-        return value;
+        return fake::exponent_value;
     }
     bool is_valid() const
     {
-        return true;
+        return !fake::invalid_exponent;
     }
     bool is_per_channel() const
     {
-        return false;
+        return fake::channel_exponent;
     }
 };
 struct Tensor
@@ -249,9 +255,15 @@ class Model
         out.size = 512;
         if (fake::shape)
             in.shape = {1, 299, 80};
+        if (fake::data_null)
+            in.data = nullptr;
+        if (fake::wrong_dtype)
+            in.dtype = DATA_TYPE_INT8;
+        if (fake::wrong_size)
+            out.size = 511;
         if (!fake::model_fail)
         {
-            inputs["input"] = &in;
+            inputs["input"] = fake::tensor_null ? nullptr : &in;
             outputs["output"] = &out;
         }
     }

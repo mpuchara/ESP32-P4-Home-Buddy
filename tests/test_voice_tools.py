@@ -69,3 +69,5 @@ class VoiceTools(unittest.TestCase):
         self.assertEqual(record("uptime=60s internal_free=100000 private_name=Alice token=123"),{"uptime":60,"internal_free":100000})
         self.assertEqual(record("PCM slot=1 rms=300 dc=-12 samples=500 name=private"),{"slot":1,"rms":300,"dc":-12,"samples":500})
         self.assertEqual(record("Task watchdog got triggered private details"),{"fault":"Task watchdog"})
+        self.assertEqual(record("voice diagnostic only load_us=10 features_us=20 inference_us=30 voice_loads=2 voice_releases=2 person_id=99 embedding=100"),
+                         {"load_us":10,"features_us":20,"inference_us":30,"voice_loads":2,"voice_releases":2})

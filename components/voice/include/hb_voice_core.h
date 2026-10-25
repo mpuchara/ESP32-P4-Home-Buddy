@@ -76,11 +76,17 @@ extern "C"
                                            uint32_t rate, uint64_t end_ms);
     void hb_voice_gate_reset(hb_voice_gate *gate);
     bool hb_voice_normalize(hb_voice_embedding *embedding);
+    // Inputs must be validated normalized embeddings (same model namespace).
+    float hb_voice_similarity(const hb_voice_embedding *, const hb_voice_embedding *);
     bool hb_voice_dequantize(const int8_t *input, size_t size, int exponent,
                              hb_voice_embedding *out);
     bool hb_voice_quantize(float *features, size_t count, int exponent, int16_t *out);
     bool hb_voice_pcm_frame(const int16_t *pcm, size_t count, unsigned frame, float out[400]);
     void hb_voice_database_init(hb_voice_database *db);
+    bool hb_voice_database_valid(const hb_voice_database *db);
+    bool hb_voice_policy_valid(const hb_voice_policy *policy);
+    bool hb_voice_person_add(hb_voice_person *person, uint64_t id, const hb_voice_embedding *e,
+                             uint64_t end_ms, const hb_voice_policy *policy);
     bool hb_voice_enroll(hb_voice_database *db, uint64_t id, const hb_voice_embedding *e,
                          uint64_t end_ms, const hb_voice_policy *policy);
     void hb_voice_delete(hb_voice_database *db, uint64_t id);

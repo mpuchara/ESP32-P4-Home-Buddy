@@ -1062,3 +1062,8 @@ microSD deployment instructions above. Full receipts: ITERATION6_REPORT.md.
 ## Iteration 10, 2026-10-25
 
 Iteration 10 implements 0.9.0-dev foundations and fixes pre-dispatch audio Stop leaving busy latched. Added production-control-flow fault injection, optional isolated speaker provisioning and passive soak telemetry. No board writes or new physical acceptance. Final receipts: ITERATION10_REPORT.md.
+
+
+## Iteration 11, 2026-10-25
+
+0.10.0-dev continues from 15f7fd0 on codex/local-face-recognition. Added reference log-mel/CMVN/quantization regression, household voice enrollment/identification ownership, stale-session fusion rejection and a separate schema-2 engine with migration/torn-write/corruption/scrub tests. Evaluated pinned standalone libfvad with reproducible synthetic probes; not admitted into firmware. No board reset, Flash write, migration activation, security provisioning or hardware measurements. Exact validation is in ITERATION11_REPORT.md.

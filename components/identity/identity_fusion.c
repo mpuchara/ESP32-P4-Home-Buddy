@@ -10,10 +10,13 @@ hb_identity_fusion_result hb_identity_fuse(const hb_identity_fusion_input *in, u
     hb_identity_fusion_result r = {HB_FUSION_UNKNOWN, HB_ID_SOURCE_FACE, 0};
     if (!in || !session || in->session != session)
         return r;
-    bool face = in->face_confirmed && in->face.state == HB_ID_KNOWN && in->face.person_id &&
-                fresh(in->face_frame_ms, now);
-    bool voice = accepted && in->voice_confirmed && in->voice.state == HB_ID_KNOWN &&
-                 in->voice.person_id && fresh(in->voice_window_end_ms, now);
+    bool face_session = in->face_session == session;
+    bool voice_session = in->voice_session == session;
+    bool face = face_session && in->face_confirmed && in->face.state == HB_ID_KNOWN &&
+                in->face.person_id && fresh(in->face_frame_ms, now);
+    bool voice = accepted && voice_session && in->voice_confirmed &&
+                 in->voice.state == HB_ID_KNOWN && in->voice.person_id &&
+                 fresh(in->voice_window_end_ms, now);
     if (face && voice && in->face.person_id != in->voice.person_id)
     {
         r.status = HB_FUSION_CONFLICT;
@@ -27,8 +30,8 @@ hb_identity_fusion_result hb_identity_fuse(const hb_identity_fusion_input *in, u
                                  : HB_ID_SOURCE_FACE;
         r.person_id = face ? in->face.person_id : in->voice.person_id;
     }
-    else if ((in->face.state == HB_ID_AMBIGUOUS && fresh(in->face_frame_ms, now)) ||
-             (accepted && in->voice.state == HB_ID_AMBIGUOUS &&
+    else if ((face_session && in->face.state == HB_ID_AMBIGUOUS && fresh(in->face_frame_ms, now)) ||
+             (accepted && voice_session && in->voice.state == HB_ID_AMBIGUOUS &&
               fresh(in->voice_window_end_ms, now)))
         r.status = HB_FUSION_AMBIGUOUS;
     return r;

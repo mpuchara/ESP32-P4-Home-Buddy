@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import time
 
-ALLOWED = frozenset("uptime internal_free internal_largest internal_min psram_free psram_largest dma_free dma_largest samples rms peak dc clip repeat other_rms other_dc other_clip other_repeat errors dropped internal largest psram largest_psram stack processing_us internal_low psram_low slot".split())
+ALLOWED = frozenset("uptime internal_free internal_largest internal_min psram_free psram_largest dma_free dma_largest samples rms peak dc clip repeat other_rms other_dc other_clip other_repeat errors dropped internal largest psram largest_psram stack processing_us internal_low psram_low slot load_us features_us inference_us voice_loads voice_releases".split())
 
 
 def record(line):

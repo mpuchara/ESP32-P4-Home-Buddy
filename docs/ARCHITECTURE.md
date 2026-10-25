@@ -146,3 +146,8 @@ AUTO is a separate worker mode with resident admitted models, existing compute/c
 ## Iteration 10, 2026-10-25
 
 Audio has one I2S owner and one bounded synchronous consumer. A one-window PSRAM handoff separates capture from the voice worker; compute admission, cancellation and lazy model release preserve independent face/HTTP behavior. Pure fusion is implemented but has no runtime publisher. See VOICE_RECOGNITION.md.
+
+
+## Iteration 11, 2026-10-25
+
+The household worker now owns optional voice templates and staged enrollment by existing person ID. One bounded result mailbox receives embeddings from the existing capture/model worker; no second audio owner or publisher. Capture requires an explicit sample/verify action. Cancellation, deletion and session epochs invalidate pending work. Independent modality-session checks guard pure fusion. The runtime acceptance and calibrated-policy constants remain false. See VOICE_RECOGNITION.md and ITERATION11_REPORT.md.

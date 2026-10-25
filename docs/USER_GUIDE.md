@@ -144,3 +144,8 @@ Informacje > Diagnostyka zaawansowana. Microphone Start is always explicit.
 ## Iteration 10, 2026-10-25
 
 Domownicy/Rozpoznawanie/Ustawienia/Informacje stay the four main sections. Informacje > Diagnostyka zaawansowana > Mikrofon contains normal 60-second diagnostics and explicit experimental Model 3 s L/R tests. First validate silence/speech and the usable slot. Model tests need an intentionally provisioned optional model and never identify/enroll a household member. Stop/back cancels the test. Real voice registration remains unavailable.
+
+
+## Iteration 11, 2026-10-25
+
+Domownicy > selected person shows a disabled voice-enrollment entry while microphone/model/speech-selection/resource/calibration acceptance is pending. Recognition has a separate disabled voice control. The prepared enrollment page collects four distinct normal utterances, verifies with a fifth, and requires explicit RAM-save confirmation; it does not recognize words or require a password. It is unavailable in the delivered candidate. The four main categories and UBox screensaver remain. Restart still loses profiles. See ITERATION11_ACCEPTANCE.md.

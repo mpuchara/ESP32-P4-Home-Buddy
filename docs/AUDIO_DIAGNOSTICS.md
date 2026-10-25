@@ -86,3 +86,8 @@ There is still no signal capture receipt from the installed hardware revision.
 ## Iteration 10, 2026-10-25
 
 RX remains GPIO48. Default diagnostic measures L and the opposite R slot; model diagnostic lets the operator explicitly choose L/R. Both-slot DC/clipping/repetition, sample count, errors/drops, sampled heap/largest blocks, stack and processing microseconds are logged once per second during capture. Frame stamps are delivery time. Stop before worker dispatch now retires busy. One-shot model test consumes RAM PCM locally, never registers an identity. See VOICE_RECOGNITION.md.
+
+
+## Iteration 11, 2026-10-25
+
+Existing GPIO48 RX, I2C sharing, slot selection, single capture owner and bounded consumer are preserved. Enrollment reuses the same one-shot worker and result mailbox; capture never starts merely by opening setup. A 120-second cooperative inference deadline complements the 60-second capture deadline; constructors and individual graph sections are not preemptible. New numeric voice load/release/timing fields pass through monitor_soak.py. One combined operator check is in ITERATION11_ACCEPTANCE.md.

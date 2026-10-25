@@ -44,6 +44,9 @@ if args.speaker_model:
     shutil.copyfile(args.speaker_model, target)
     hashes.append(f"{hashlib.sha256(target.read_bytes()).hexdigest()}  espdl_models/sv_model_3s.espdl")
 for source_name, name in [
+    ("docs/ITERATION11_REPORT.md", "docs/ITERATION11_REPORT.md"),
+    ("docs/ITERATION11_ACCEPTANCE.md", "docs/ITERATION11_ACCEPTANCE.md"),
+    ("docs/PERSISTENCE_DECISION.md", "docs/PERSISTENCE_DECISION.md"),
     ("tools/voice_model_image.py", "tools/voice_model_image.py"),
     ("tools/monitor_soak.py", "tools/monitor_soak.py"),
     ("docs/VOICE_RECOGNITION.md", "docs/VOICE_RECOGNITION.md"),
@@ -95,6 +98,8 @@ metadata = {"schema": 1, "layout": "single-factory-v1", "partition_table_offset"
             "model_offset": 0x720000, "model_size": 0x400000,
             "security_enabled": bool(config.get("SECURE_FLASH_ENC_ENABLED") or config.get("SECURE_BOOT")),
             "recognition": bool(config.get("HB_IDENTITY_EXPERIMENTAL"))}
+description = build / "project_description.json"
+metadata["firmware_version"] = json.loads(description.read_text()).get("project_version") if description.is_file() else None
 try:
     metadata["source_commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     metadata["source_dirty"] = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=root, text=True).strip())

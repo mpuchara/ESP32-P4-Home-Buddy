@@ -152,14 +152,14 @@ hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *g, const int16_t *pcm, siz
                                                                                 : HB_VAD_REJECTED;
     return g->state;
 }
-static float similarity(const hb_voice_embedding *a, const hb_voice_embedding *b)
+float hb_voice_similarity(const hb_voice_embedding *a, const hb_voice_embedding *b)
 {
     float dot = 0;
     for (unsigned i = 0; i < HB_VOICE_DIM; ++i)
         dot += a->v[i] * b->v[i];
     return fmaxf(-1, fminf(1, dot));
 }
-static bool policy_valid(const hb_voice_policy *p)
+bool hb_voice_policy_valid(const hb_voice_policy *p)
 {
     return p && p->calibrated && isfinite(p->threshold) && p->threshold > 0 && p->threshold <= 1 &&
            isfinite(p->margin) && p->margin > 0 && p->margin <= 1 && isfinite(p->agreement) &&
@@ -175,14 +175,29 @@ void hb_voice_database_init(hb_voice_database *db)
     db->schema = 1;
     memcpy(db->model, HB_VOICE_MODEL, sizeof(HB_VOICE_MODEL));
 }
-static bool database_valid(const hb_voice_database *db)
+bool hb_voice_database_valid(const hb_voice_database *db)
 {
-    return db && db->schema == 1 && !memcmp(db->model, HB_VOICE_MODEL, sizeof(HB_VOICE_MODEL));
+    if (!db || db->schema != 1 || memcmp(db->model, HB_VOICE_MODEL, sizeof(HB_VOICE_MODEL)))
+        return false;
+    for (unsigned i = 0; i < HB_VOICE_PEOPLE; ++i)
+    {
+        const hb_voice_person *p = &db->people[i];
+        if (p->count > HB_VOICE_TEMPLATES || (!p->id && p->count))
+            return false;
+        if (p->id)
+            for (unsigned j = 0; j < i; ++j)
+                if (db->people[j].id == p->id)
+                    return false;
+        for (unsigned j = 0; j < p->count; ++j)
+            if (!valid(&p->samples[j]))
+                return false;
+    }
+    return true;
 }
 bool hb_voice_enroll(hb_voice_database *db, uint64_t id, const hb_voice_embedding *e, uint64_t end,
                      const hb_voice_policy *p)
 {
-    if (!database_valid(db) || !id || !valid(e) || !end || !policy_valid(p))
+    if (!hb_voice_database_valid(db))
         return false;
     hb_voice_person *person = NULL, *empty = NULL;
     for (unsigned i = 0; i < HB_VOICE_PEOPLE; ++i)
@@ -194,12 +209,18 @@ bool hb_voice_enroll(hb_voice_database *db, uint64_t id, const hb_voice_embeddin
     }
     if (!person)
         person = empty;
-    if (!person || person->count >= HB_VOICE_TEMPLATES ||
+    return hb_voice_person_add(person, id, e, end, p);
+}
+bool hb_voice_person_add(hb_voice_person *person, uint64_t id, const hb_voice_embedding *e,
+                         uint64_t end, const hb_voice_policy *p)
+{
+    if (!person || !id || !valid(e) || !end || !hb_voice_policy_valid(p) ||
+        (person->id && person->id != id) || person->count >= HB_VOICE_TEMPLATES ||
         (person->last_end && (end <= person->last_end || end - person->last_end < 3015)))
         return false;
     for (unsigned i = 0; i < person->count; ++i)
     {
-        float score = similarity(e, &person->samples[i]);
+        float score = hb_voice_similarity(e, &person->samples[i]);
         if (score < p->agreement || score >= p->duplicate)
             return false;
     }
@@ -219,7 +240,7 @@ hb_voice_match hb_voice_identify(const hb_voice_database *db, const hb_voice_emb
                                  const hb_voice_policy *p)
 {
     hb_voice_match r = {HB_VOICE_UNAVAILABLE, 0, -1, -1};
-    if (!database_valid(db) || !valid(e) || !policy_valid(p))
+    if (!hb_voice_database_valid(db) || !valid(e) || !hb_voice_policy_valid(p))
         return r;
     uint64_t best_id = 0;
     bool winner_agrees = false;
@@ -234,7 +255,7 @@ hb_voice_match hb_voice_identify(const hb_voice_database *db, const hb_voice_emb
         {
             if (!valid(&person->samples[j]))
                 return r;
-            float score = similarity(e, &person->samples[j]);
+            float score = hb_voice_similarity(e, &person->samples[j]);
             if (score > best)
                 best = score;
             agree += score >= p->agreement;
@@ -265,7 +286,7 @@ bool hb_voice_confirm(hb_voice_tracker *t, hb_voice_match m, uint32_t epoch, uin
 {
     if (!t)
         return false;
-    if (!policy_valid(p) || !epoch || !end || end > now || now - end > 5000 ||
+    if (!hb_voice_policy_valid(p) || !epoch || !end || end > now || now - end > 5000 ||
         m.state != HB_VOICE_KNOWN || !m.person_id ||
         (t->end_ms && (end <= t->end_ms || end - t->end_ms < 3015)))
     {

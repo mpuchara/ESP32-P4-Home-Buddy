@@ -58,6 +58,16 @@ int main(void)
     features[5] = NAN;
     assert(!hb_voice_quantize(features, 24000, 0, quantized));
     assert(!hb_voice_quantize(features, 23999, 0, quantized));
+    features[5] = 0;
+    for (unsigned t = 0; t < 300; ++t)
+        for (unsigned d = 0; d < 80; ++d)
+            features[t * 80 + d] = t % 2 ? 1000000.0f : -1000000.0f;
+    assert(hb_voice_quantize(features, 24000, -30, quantized));
+    assert(quantized[0] == -32768 && quantized[80] == 32767);
+    assert(!hb_voice_quantize(features, 24000, -31, quantized));
+    assert(!hb_voice_quantize(features, 24000, 17, quantized));
+    features[1] = INFINITY;
+    assert(!hb_voice_quantize(features, 24000, -8, quantized));
     for (unsigned i = 0; i < HB_VOICE_SAMPLES + 100; ++i)
         pcm[i] = (int16_t)(i % 30000);
     float frame[401];
@@ -118,6 +128,7 @@ int main(void)
     assert(!hb_voice_confirm(&tracker, match, 1, 7100, 13000, &policy));
     hb_identity_fusion_input in = {0};
     in.session = 1;
+    in.face_session = in.voice_session = 1;
     in.face.state = HB_ID_KNOWN;
     in.face.person_id = 1;
     in.voice.state = HB_ID_KNOWN;
@@ -128,6 +139,12 @@ int main(void)
     assert(hb_identity_fuse(&in, 1, 9001, true).status == HB_FUSION_CONFLICT);
     in.voice.person_id = 1;
     assert(hb_identity_fuse(&in, 1, 9001, true).source == HB_ID_SOURCE_BOTH);
+    in.voice_session = 2;
+    assert(hb_identity_fuse(&in, 1, 9001, true).source == HB_ID_SOURCE_FACE);
+    in.voice_session = 1;
+    in.face_session = 2;
+    assert(hb_identity_fuse(&in, 1, 9001, true).source == HB_ID_SOURCE_VOICE);
+    in.face_session = 1;
     in.face_frame_ms = 1;
     assert(hb_identity_fuse(&in, 1, 9001, true).source == HB_ID_SOURCE_VOICE);
     assert(hb_identity_fuse(&in, 2, 9001, true).status == HB_FUSION_UNKNOWN);

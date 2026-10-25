@@ -10,9 +10,11 @@
 #include "hb_config.h"
 #include "hb_enrollment_flow.h"
 #include "hb_face.h"
+#include "hb_household_voice.h"
 #include "hb_identity.h"
 #include "hb_identity_lifecycle.h"
 #include "hb_profile_flash.h"
+#include "hb_voice.h"
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -50,6 +52,14 @@ static uint64_t boot_id;
 static hb_profile_io profile_io{};
 static hb_profile_revision profile_revision{0, -1};
 static hb_id_database *storage_scratch;
+static hb_voice_database *voice_database;
+static hb_household_voice_enrollment *voice_enrollment;
+// No accepted microphone/model/resource/speech/calibration evidence yet.
+// There is intentionally no UI, NVS or network bypass of these acceptance gates.
+static const hb_voice_acceptance voice_acceptance{};
+static const hb_voice_policy voice_policy{};
+static uint32_t voice_epoch = 1;
+static bool voice_verifying;
 // Initial engineering thresholds, deliberately not described as calibrated probabilities.
 static const hb_id_policy policy{CONFIG_HB_IDENTITY_THRESHOLD_MILLI / 1000.0f,
                                  CONFIG_HB_IDENTITY_MARGIN_MILLI / 1000.0f,
@@ -83,9 +93,13 @@ static void publish(hb_id_status &s)
             auto &d = s.profiles[s.profile_count++];
             d.id = p.id;
             d.samples = p.count;
+            d.voice_samples = hb_household_voice_count(voice_database, p.id);
             snprintf(d.name, sizeof(d.name), "%s", p.name);
         }
     s.psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    s.voice_available = hb_voice_accepted(&voice_acceptance, &voice_policy);
+    s.voice_enrollment_state = voice_enrollment ? voice_enrollment->state : HB_VEN_IDLE;
+    s.voice_enrollment_samples = voice_enrollment ? voice_enrollment->staging.count : 0;
     s.psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
     s.internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     s.internal_largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -469,8 +483,33 @@ static void worker(void *)
 #endif
     for (;;)
     {
+        static hb_voice_capture_result voice_result;
+        if (hb_voice_capture_take(&voice_result))
+        {
+            if (voice_enrollment && voice_result.epoch == voice_epoch)
+            {
+                auto r =
+                    voice_result.error == ESP_OK
+                        ? hb_household_voice_sample(voice_enrollment, database, voice_database,
+                                                    &voice_result.embedding, voice_epoch,
+                                                    voice_result.end_ms, now_ms(), voice_verifying)
+                        : HB_VEN_SAMPLE;
+                message(state, hb_household_voice_error(r));
+            }
+            memset(&voice_result, 0, sizeof(voice_result));
+        }
+        if (voice_enrollment && voice_enrollment->deadline_ms &&
+            now_ms() > voice_enrollment->deadline_ms)
+        {
+            hb_voice_diagnostic_stop();
+            hb_household_voice_cancel(voice_enrollment);
+            ++voice_epoch;
+        }
         if (stop_requested.exchange(false))
         {
+            hb_voice_diagnostic_stop();
+            hb_household_voice_cancel(voice_enrollment);
+            ++voice_epoch;
             memset(enrollment, 0, sizeof(*enrollment));
             state.mode = HB_ID_STOP;
             state.confirmed = false;
@@ -491,6 +530,12 @@ static void worker(void *)
         hb_id_command c{};
         while (xQueueReceive(jobs, &c, 0) == pdTRUE)
         {
+            if (c.type < HB_ID_CMD_VOICE_BEGIN)
+            {
+                hb_voice_diagnostic_stop();
+                hb_household_voice_cancel(voice_enrollment);
+                ++voice_epoch;
+            }
             if (c.type == HB_ID_CMD_EVALUATE)
             {
                 if (state.mode == HB_ID_TEST && !evaluate)
@@ -531,6 +576,62 @@ static void worker(void *)
             evaluate = false;
             switch (c.type)
             {
+            case HB_ID_CMD_VOICE_BEGIN:
+            {
+                if (!hb_voice_accepted(&voice_acceptance, &voice_policy))
+                {
+                    message(state, hb_household_voice_error(HB_VEN_GATED));
+                    break;
+                }
+                if (!voice_database)
+                {
+                    voice_database = (hb_voice_database *)heap_caps_calloc(
+                        1, sizeof(*voice_database), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+                    if (voice_database)
+                        hb_voice_database_init(voice_database);
+                }
+                if (!voice_enrollment)
+                    voice_enrollment = (hb_household_voice_enrollment *)heap_caps_calloc(
+                        1, sizeof(*voice_enrollment), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+                if (!voice_database || !voice_enrollment)
+                {
+                    message(state, "Brak pamięci do rejestracji głosu");
+                    break;
+                }
+                hb_voice_diagnostic_stop();
+                ++voice_epoch;
+                auto r =
+                    hb_household_voice_begin(voice_enrollment, database, c.person_id, voice_epoch,
+                                             now_ms(), &voice_acceptance, &voice_policy);
+                message(state, r == HB_VEN_OK ? "Naciśnij Pobierz próbkę i mów normalnie"
+                                              : hb_household_voice_error(r));
+                break;
+            }
+            case HB_ID_CMD_VOICE_SAMPLE:
+            case HB_ID_CMD_VOICE_VERIFY:
+                if (voice_enrollment && c.person_id == voice_enrollment->staging.id &&
+                    hb_voice_accepted(&voice_acceptance, &voice_policy) &&
+                    voice_enrollment->state ==
+                        (c.type == HB_ID_CMD_VOICE_VERIFY ? HB_VEN_VERIFY : HB_VEN_COLLECT))
+                {
+                    voice_verifying = c.type == HB_ID_CMD_VOICE_VERIFY;
+                    auto err = hb_voice_capture_start(0, voice_epoch);
+                    message(state, err == ESP_OK
+                                       ? "Mów normalnie; jedna osoba, inne zdanie"
+                                       : "Mikrofon zajęty lub brak pamięci; spróbuj ponownie");
+                }
+                else
+                    message(state, hb_household_voice_error(HB_VEN_GATED));
+                break;
+            case HB_ID_CMD_VOICE_SAVE:
+                if (voice_enrollment && c.person_id == voice_enrollment->staging.id &&
+                    hb_voice_accepted(&voice_acceptance, &voice_policy))
+                    message(state, hb_household_voice_error(hb_household_voice_commit(
+                                       voice_enrollment, database, voice_database, voice_epoch,
+                                       now_ms())));
+                else
+                    message(state, hb_household_voice_error(HB_VEN_GATED));
+                break;
             case HB_ID_CMD_CREATE:
                 state.created_id = hb_id_create(database, c.name);
                 message(state,
@@ -548,6 +649,7 @@ static void worker(void *)
                 state.mode = resting_mode(state.auto_enabled);
                 message(state, "Profil i próbki usunięte z RAM");
                 persistence_commit(state, true);
+                hb_household_voice_reconcile(database, voice_database);
                 break;
             case HB_ID_CMD_BEGIN:
                 capture = verify = false;
