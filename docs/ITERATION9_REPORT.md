@@ -45,7 +45,9 @@ touch bounds and allocation-pool recovery. It emits synthetic main/settings/diag
 Host timeout tests include tick wraparound and protected operations. Enrollment
 uses the same extracted worker policy with synthetic embeddings, invalid/multiple
 faces, frame spacing, fresh verification, explicit commit and replacement isolation.
-PCM tests cover bounds, signed extremes, DC, zero/full-scale suspicion, both slots
+A synthetic pipeline joins actual matching/confirmation, independent event consumers,
+HA serialization/privacy, HTTP outage classification, cooldown and epoch cancellation.
+Sanitizer checks for identity/enrollment and PCM run in CI. PCM tests cover bounds, signed extremes, DC, zero/full-scale suspicion, both slots
 and nonperiodic data. Python checks guard actual top-level wiring and audio direction.
 
 This is not a full hardware-free simulation of every ui.c callback, all peripheral

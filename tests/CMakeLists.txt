@@ -206,3 +206,16 @@ add_test(NAME product_menu_lvgl COMMAND test_product_menu)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(NAME product_visual_regression COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/check_ui_render.py" "${CMAKE_CURRENT_BINARY_DIR}")
 set_tests_properties(product_visual_regression PROPERTIES DEPENDS product_menu_lvgl)
+add_executable(test_identity_pipeline test_identity_pipeline.c
+ ../components/identity/identity_core.c ../components/identity/identity_events.c
+ ../components/home_assistant/ha_payload.c ../components/home_assistant/ha_policy.c
+ "${CJSON_SOURCE_DIR}/cJSON.c")
+target_include_directories(test_identity_pipeline PRIVATE ha_platform ../components/face/include
+ ../components/identity/include ../components/home_assistant/include "${CJSON_SOURCE_DIR}")
+if(MSVC)
+ target_compile_options(test_identity_pipeline PRIVATE /W4 /WX /UNDEBUG)
+else()
+ target_compile_options(test_identity_pipeline PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+ target_link_libraries(test_identity_pipeline PRIVATE m)
+endif()
+add_test(NAME synthetic_identity_pipeline COMMAND test_identity_pipeline)
