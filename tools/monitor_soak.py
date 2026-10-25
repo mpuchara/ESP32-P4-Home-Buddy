@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import time
 
-ALLOWED = frozenset("uptime internal_free internal_largest internal_min psram_free psram_largest dma_free dma_largest samples rms peak dc clip repeat other_rms other_dc other_clip other_repeat errors dropped internal largest psram largest_psram stack processing_us internal_low psram_low slot load_us features_us inference_us voice_loads voice_releases".split())
+ALLOWED = frozenset("uptime internal_free internal_largest internal_min psram_free psram_largest dma_free dma_largest samples rms peak dc clip repeat other_rms other_dc other_clip other_repeat errors dropped internal largest psram largest_psram stack processing_us internal_low psram_low slot load_us features_us inference_us voice_loads voice_releases stage storage_us workspace".split())
 
 
 def record(line):
@@ -14,7 +14,7 @@ def record(line):
     fault = next((x for x in ("Guru Meditation", "Task watchdog", "Interrupt wdt", "Brownout", "ESP-ROM:") if x in line), None)
     if fault:
         return {"fault": fault}
-    if not any(x in line for x in ("uptime=", "PCM slot=", "diagnostic only", "MODEL_LOAD", "MODEL_RELEASE")):
+    if not any(x in line for x in ("uptime=", "PCM slot=", "diagnostic only", "MODEL_LOAD", "MODEL_RELEASE", "PROFILE_STORAGE")):
         return None
     values = {key: int(value) for key, value in re.findall(r"\b([a-z_]+)=(-?\d+)(?:s)?\b", line) if key in ALLOWED}
     if "MODEL_LOAD begin" in line:

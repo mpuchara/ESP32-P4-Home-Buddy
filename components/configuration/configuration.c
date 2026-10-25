@@ -13,6 +13,7 @@ static hb_weather_config_t weather = {.schema = 1};
 static SemaphoreHandle_t mutex;
 static atomic_bool ready;
 static atomic_bool identity_auto;
+static atomic_bool biometric_notice;
 typedef struct
 {
     hb_config_t settings;
@@ -82,6 +83,8 @@ esp_err_t hb_config_start(void)
     uint8_t automatic = 0;
     esp_err_t ae = nvs_get_u8(h, "identity_auto", &automatic);
     identity_auto = ae == ESP_OK && automatic == 1;
+    uint8_t notice = 0;
+    biometric_notice = nvs_get_u8(h, "bio_notice", &notice) == ESP_OK && notice == 1;
     if (ae != ESP_OK && ae != ESP_ERR_NVS_NOT_FOUND)
         ESP_LOGW("configuration", "AUTO preference unavailable; disabled");
     nvs_close(h);
@@ -184,5 +187,33 @@ esp_err_t hb_config_identity_auto_save(bool enabled)
     nvs_close(h);
     if (e == ESP_OK)
         identity_auto = enabled;
+    return e;
+}
+
+bool hb_config_biometric_notice(void)
+{
+    return ready && biometric_notice;
+}
+esp_err_t hb_config_biometric_notice_save(void)
+{
+    if (hb_config_biometric_notice())
+        return ESP_OK;
+    if (!ready)
+        return ESP_ERR_INVALID_STATE;
+    nvs_handle_t h;
+    esp_err_t e = nvs_open("hb_config", NVS_READWRITE, &h);
+    if (e != ESP_OK)
+        return e;
+    e = nvs_set_u8(h, "bio_notice", 1);
+    if (e == ESP_OK)
+        e = nvs_commit(h);
+    uint8_t check = 2;
+    if (e == ESP_OK)
+        e = nvs_get_u8(h, "bio_notice", &check);
+    if (e == ESP_OK && check != (1))
+        e = ESP_FAIL;
+    nvs_close(h);
+    if (e == ESP_OK)
+        biometric_notice = true;
     return e;
 }

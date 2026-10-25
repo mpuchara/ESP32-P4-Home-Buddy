@@ -36,7 +36,10 @@ extern "C"
         HB_ID_CMD_VOICE_BEGIN,
         HB_ID_CMD_VOICE_SAMPLE,
         HB_ID_CMD_VOICE_VERIFY,
-        HB_ID_CMD_VOICE_SAVE
+        HB_ID_CMD_VOICE_SAVE,
+        HB_ID_CMD_NOTICE_ACK,
+        HB_ID_CMD_RETRY_SAVE,
+        HB_ID_CMD_ENABLE
     } hb_id_command_type;
     typedef struct
     {
@@ -51,6 +54,7 @@ extern "C"
         char name[HB_ID_NAME];
         unsigned samples;
         unsigned voice_samples;
+        bool enabled;
     } hb_id_profile;
     typedef struct
     {
@@ -59,6 +63,10 @@ extern "C"
         hb_id_match match;
         bool ready, confirmed, verified, official_landmarks, detection_valid;
         bool persistence_ready, auto_enabled;
+        bool storage_saved, storage_saving;
+        unsigned storage_mode;
+        uint64_t storage_generation, storage_last_save_ms;
+        int storage_bank;
         unsigned usable_profiles;
         bool voice_available;
         unsigned voice_enrollment_state, voice_enrollment_samples;

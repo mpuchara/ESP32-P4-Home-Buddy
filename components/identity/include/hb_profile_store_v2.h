@@ -15,7 +15,10 @@ extern "C"
         uint64_t reserved; // Explicit 16-byte write alignment, must remain zero.
     } hb_household_snapshot;
     bool hb_profile_v2_valid(const hb_household_snapshot *);
-    // Prepared engine only. No firmware runtime caller, no plaintext adapter.
+    // Runtime boot: restore schema 2, migrate validated legacy only into blank upper bank.
+    hb_store_result hb_profile_v2_boot(const hb_profile_io *, hb_household_snapshot *,
+                                       hb_household_snapshot *, hb_profile_revision *,
+                                       uint32_t seed);
     hb_store_result hb_profile_v2_restore(const hb_profile_io *, hb_household_snapshot *,
                                           hb_household_snapshot *, hb_profile_revision *);
     hb_store_result hb_profile_v2_commit(const hb_profile_io *, const hb_household_snapshot *,

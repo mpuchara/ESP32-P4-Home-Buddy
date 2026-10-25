@@ -6,7 +6,8 @@
 #include <stdio.h>
 #include <string.h>
 static bool exists, failed_commit, failed_read;
-static uint8_t disk, staged;
+static uint8_t disk, staged, notice_disk;
+static bool notice_exists, staged_notice;
 static unsigned char record[900];
 static bool record_exists;
 SemaphoreHandle_t xSemaphoreCreateMutex(void)
@@ -37,9 +38,16 @@ void nvs_close(nvs_handle_t h)
 esp_err_t nvs_get_u8(nvs_handle_t h, const char *k, uint8_t *v)
 {
     (void)h;
-    assert(!strcmp(k, "identity_auto"));
+    assert(!strcmp(k, "identity_auto") || !strcmp(k, "bio_notice"));
     if (failed_read)
         return ESP_FAIL;
+    if (!strcmp(k, "bio_notice"))
+    {
+        if (!notice_exists)
+            return ESP_ERR_NVS_NOT_FOUND;
+        *v = notice_disk;
+        return ESP_OK;
+    }
     if (!exists)
         return ESP_ERR_NVS_NOT_FOUND;
     *v = disk;
@@ -48,7 +56,8 @@ esp_err_t nvs_get_u8(nvs_handle_t h, const char *k, uint8_t *v)
 esp_err_t nvs_set_u8(nvs_handle_t h, const char *k, uint8_t v)
 {
     (void)h;
-    assert(!strcmp(k, "identity_auto"));
+    assert(!strcmp(k, "identity_auto") || !strcmp(k, "bio_notice"));
+    staged_notice = !strcmp(k, "bio_notice");
     staged = v;
     return ESP_OK;
 }
@@ -57,8 +66,16 @@ esp_err_t nvs_commit(nvs_handle_t h)
     (void)h;
     if (failed_commit)
         return ESP_FAIL;
-    disk = staged;
-    exists = true;
+    if (staged_notice)
+    {
+        notice_disk = staged;
+        notice_exists = true;
+    }
+    else
+    {
+        disk = staged;
+        exists = true;
+    }
     return ESP_OK;
 }
 esp_err_t nvs_get_blob(nvs_handle_t h, const char *key, void *v, size_t *n)
@@ -91,6 +108,12 @@ int main(void)
     assert(hb_config_identity_auto_save(false) != ESP_OK && hb_config_identity_auto());
     failed_read = false;
     assert(hb_config_start() == ESP_OK && !hb_config_identity_auto());
+    assert(!hb_config_biometric_notice());
+    failed_commit = true;
+    assert(hb_config_biometric_notice_save() != ESP_OK && !hb_config_biometric_notice());
+    failed_commit = false;
+    assert(hb_config_biometric_notice_save() == ESP_OK && hb_config_biometric_notice());
+    assert(hb_config_start() == ESP_OK && hb_config_biometric_notice());
     disk = 2;
     assert(hb_config_start() == ESP_OK && !hb_config_identity_auto());
     assert(hb_config_identity_auto_save(true) == ESP_OK);

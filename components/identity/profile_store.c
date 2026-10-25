@@ -27,7 +27,8 @@ static void put64(uint8_t *p, uint64_t v)
 }
 static hb_store_result admission(const hb_profile_io *io)
 {
-    if (!io || !io->protected_storage)
+    if (!io || (io->storage_mode != HB_PROFILE_STORAGE_LOCAL_UNENCRYPTED &&
+                io->storage_mode != HB_PROFILE_STORAGE_HARDWARE_PROTECTED))
         return HB_STORE_LOCKED;
     if (!io->read || !io->write || !io->erase || !io->sha256)
         return HB_STORE_IO;
@@ -46,6 +47,10 @@ bool hb_profile_database_valid(const hb_id_database *db)
                 return false;
             continue;
         }
+        unsigned char enabled;
+        memcpy(&enabled, &p->enabled, sizeof(enabled));
+        if (enabled > 1)
+            return false;
         if (p->id >= db->next_id || !p->name[0] || !memchr(p->name, 0, HB_ID_NAME) ||
             p->count > HB_ID_TEMPLATES)
             return false;

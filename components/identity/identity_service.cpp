@@ -14,6 +14,7 @@
 #include "hb_identity.h"
 #include "hb_identity_lifecycle.h"
 #include "hb_profile_flash.h"
+#include "hb_profile_store_v2.h"
 #include "hb_voice.h"
 #include <atomic>
 #include <cstdio>
@@ -51,7 +52,12 @@ static hb_event_bus event_bus;
 static uint64_t boot_id;
 static hb_profile_io profile_io{};
 static hb_profile_revision profile_revision{0, -1};
-static hb_id_database *storage_scratch;
+static hb_household_snapshot *household;
+static hb_household_snapshot *storage_scratch;
+static bool storage_dirty, cleanup_pending;
+static uint64_t pending_saved_id;
+static uint8_t durable_digest[32];
+static bool digest_valid;
 static hb_voice_database *voice_database;
 static hb_household_voice_enrollment *voice_enrollment;
 // No accepted microphone/model/resource/speech/calibration evidence yet.
@@ -93,6 +99,7 @@ static void publish(hb_id_status &s)
             auto &d = s.profiles[s.profile_count++];
             d.id = p.id;
             d.samples = p.count;
+            d.enabled = p.enabled;
             d.voice_samples = hb_household_voice_count(voice_database, p.id);
             snprintf(d.name, sizeof(d.name), "%s", p.name);
         }
@@ -157,7 +164,7 @@ static void identity_events(const hb_id_status &s)
                                                 : HB_ID_EVENT_UNKNOWN;
     e.confirmed = s.confirmed;
     e.person_id = s.confirmed ? s.confirmed_id : 0;
-    e.persistent_id = s.persistence_ready;
+    e.persistent_id = s.storage_saved;
     if (e.person_id)
         for (unsigned i = 0; i < s.profile_count; ++i)
             if (s.profiles[i].id == e.person_id)
@@ -168,46 +175,111 @@ static void identity_events(const hb_id_status &s)
     portEXIT_CRITICAL(&event_lock);
 }
 
+// Hash only durable fields; recognition counters and cooldowns remain RAM-only.
+static bool persistence_fingerprint(uint8_t digest[32])
+{
+    memcpy(storage_scratch, household, sizeof(*household));
+    for (auto &p : storage_scratch->face.people)
+    {
+        p.last_greeting_ms = p.last_sample_ms = p.last_sample_sequence = 0;
+    }
+    for (auto &p : storage_scratch->voice.people)
+        p.last_end = 0;
+    bool ok = profile_io.sha256(storage_scratch, sizeof(*storage_scratch), digest);
+    memset(storage_scratch, 0, sizeof(*storage_scratch));
+    return ok;
+}
+static void persistence_metrics(unsigned stage, uint64_t started)
+{
+    ESP_LOGI("identity",
+             "PROFILE_STORAGE stage=%u storage_us=%llu workspace=%u internal_low=%u psram_low=%u",
+             stage, (unsigned long long)(esp_timer_get_time() - started),
+             (unsigned)(2 * sizeof(hb_household_snapshot)),
+             (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+             (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM));
+}
 static void persistence_start(hb_id_status &s)
 {
     snprintf(s.persistence_message, sizeof(s.persistence_message),
-             "RAM-only: brak bezpiecznego provisioningu; profile znikają po restarcie");
+             "RAM-only: profile znikają po restarcie");
     if (!hb_profile_flash_open(&profile_io))
         return;
-    storage_scratch = (hb_id_database *)heap_caps_calloc(1, sizeof(*database),
-                                                         MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    s.storage_mode = profile_io.storage_mode;
+    storage_scratch = (hb_household_snapshot *)heap_caps_calloc(
+        1, sizeof(*storage_scratch), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!storage_scratch)
+    {
+        snprintf(s.persistence_message, sizeof(s.persistence_message),
+                 "Brak pamięci bazy; zapis zablokowany");
         return;
-    hb_store_result r =
-        hb_profile_restore(&profile_io, database, storage_scratch, &profile_revision);
+    }
+    uint64_t storage_started = esp_timer_get_time();
+    hb_store_result r = hb_profile_v2_boot(&profile_io, household, storage_scratch,
+                                           &profile_revision, esp_random());
+    persistence_metrics(0, storage_started);
     s.persistence_ready = r == HB_STORE_OK || r == HB_STORE_EMPTY;
+    if (!s.persistence_ready)
+    {
+        // Restore may have inspected invalid bytes. Never expose them as live records.
+        memset(household, 0, sizeof(*household));
+        hb_id_database_init(database, esp_random());
+        hb_voice_database_init(voice_database);
+    }
+    s.storage_saved = r == HB_STORE_OK;
+    s.storage_generation = profile_revision.generation;
+    s.storage_bank = profile_revision.bank;
+    digest_valid = s.storage_saved && persistence_fingerprint(durable_digest);
     snprintf(s.persistence_message, sizeof(s.persistence_message),
-             s.persistence_ready ? "Profile: chroniony Flash, schemat 1"
-                                 : "Baza profili uszkodzona lub niezgodna. Zapis zablokowany");
+             s.storage_saved       ? "Profile zapisane na urządzeniu"
+             : s.persistence_ready ? "Pusta baza lokalna, bez szyfrowania"
+                                   : "Baza uszkodzona lub niezgodna. Zapis zablokowany");
 }
 
-static void persistence_commit(hb_id_status &s, bool deletion)
+static bool persistence_commit(hb_id_status &s, bool deletion)
 {
-    if (!s.persistence_ready)
-        return;
-    hb_store_result r =
-        hb_profile_commit(&profile_io, database, storage_scratch, &profile_revision);
-    if (r == HB_STORE_OK && deletion)
-        r = hb_profile_scrub(&profile_io, &profile_revision);
+    storage_dirty = true;
+    cleanup_pending |= deletion;
+    s.storage_saved = false;
+    if (!s.persistence_ready || !hb_config_biometric_notice())
+    {
+        message(s, "Zmiany w RAM, niezapisane trwale. Sprawdź status bazy i zgodę.");
+        return false;
+    }
+    uint8_t digest[32];
+    bool same = digest_valid && persistence_fingerprint(digest) &&
+                !memcmp(digest, durable_digest, sizeof(digest));
+    s.storage_saving = true;
+    snprintf(s.persistence_message, sizeof(s.persistence_message), "Zapisywanie profili...");
+    publish(s);
+    uint64_t storage_started = esp_timer_get_time();
+    hb_store_result r = same ? HB_STORE_OK
+                             : hb_profile_v2_commit(&profile_io, household, storage_scratch,
+                                                    &profile_revision, true);
+    persistence_metrics(1, storage_started);
+    s.storage_saving = false;
     if (r != HB_STORE_OK)
     {
-        // Never report unsaved RAM changes as durable. Re-read last valid committed copy.
-        hb_store_result restored =
-            hb_profile_restore(&profile_io, database, storage_scratch, &profile_revision);
-        s.persistence_ready = false;
         snprintf(s.persistence_message, sizeof(s.persistence_message),
-                 "Błąd zapisu (%u/%u). Zapis zablokowany; sprawdź bazę po restarcie", (unsigned)r,
-                 (unsigned)restored);
-        message(s, "Nie potwierdzono trwałego zapisu profili");
+                 "Błąd zapisu (%u). Zmiany w RAM; ponów zapis", (unsigned)r);
+        message(s, s.persistence_message);
+        return false;
     }
-    else
-        message(s, deletion ? "Profil usunięty z Flash; stara kopia wymazana"
-                            : "Profile zapisane we Flash");
+    storage_dirty = false;
+    s.storage_saved = true;
+    s.storage_generation = profile_revision.generation;
+    s.storage_bank = profile_revision.bank;
+    s.storage_last_save_ms = now_ms();
+    digest_valid = persistence_fingerprint(durable_digest);
+    if (cleanup_pending)
+    {
+        r = hb_profile_v2_scrub(&profile_io, &profile_revision, true);
+        cleanup_pending = r != HB_STORE_OK;
+    }
+    snprintf(s.persistence_message, sizeof(s.persistence_message),
+             cleanup_pending ? "Zapisano. Błąd czyszczenia starego banku; ponów"
+                             : "Profile zapisane na urządzeniu");
+    message(s, s.persistence_message);
+    return true;
 }
 
 #if CONFIG_HB_IDENTITY_EXPERIMENTAL
@@ -471,12 +543,14 @@ static void worker(void *)
     if (hb_id_auto_ready(state.auto_enabled, usable))
         state.mode = HB_ID_AUTO;
     else if (state.auto_enabled)
-        message(state, "AUTO oczekuje: zarejestruj domownika; profile RAM zniknęły po restarcie");
+        message(state, "AUTO oczekuje na prawidłowe profile domowników");
     bool capture = false, verify = false, evaluate = false, guided = false;
     unsigned evaluation_frames = 0;
     uint64_t evaluation_expected = 0;
     uint32_t evaluation_sequence = 0;
     uint64_t until = 0;
+    unsigned load_attempts = 0;
+    uint64_t next_load_ms = 0;
 #if CONFIG_HB_IDENTITY_EXPERIMENTAL
     Models models;
     hb_id_embedding embedding{};
@@ -553,6 +627,8 @@ static void worker(void *)
             }
             if (c.type == HB_ID_CMD_AUTO)
             {
+                load_attempts = 0;
+                next_load_ms = 0;
                 if (hb_config_identity_auto_save(true) != ESP_OK)
                 {
                     snprintf(state.last_error, sizeof(state.last_error),
@@ -574,8 +650,38 @@ static void worker(void *)
             state.match = {HB_ID_UNAVAILABLE, 0, -1, -1};
             hb_id_tracker_reset(&tracker, epoch.load());
             evaluate = false;
+            if ((c.type == HB_ID_CMD_CREATE || c.type == HB_ID_CMD_BEGIN ||
+                 c.type == HB_ID_CMD_VOICE_BEGIN) &&
+                !hb_config_biometric_notice())
+            {
+                message(state, "Najpierw potwierdź lokalny zapis bez szyfrowania");
+                continue;
+            }
             switch (c.type)
             {
+            case HB_ID_CMD_NOTICE_ACK:
+                message(state, hb_config_biometric_notice_save() == ESP_OK
+                                   ? "Przyjęto zgodę na lokalny zapis bez szyfrowania"
+                                   : "Błąd zapisu zgody");
+                break;
+            case HB_ID_CMD_RETRY_SAVE:
+                if ((storage_dirty || cleanup_pending) && persistence_commit(state, false))
+                {
+                    state.saved_id = pending_saved_id;
+                    pending_saved_id = 0;
+                }
+                break;
+            case HB_ID_CMD_ENABLE:
+            {
+                hb_id_person *person = hb_id_find(database, c.person_id);
+                if (person)
+                {
+                    person->enabled = c.guided;
+                    persistence_commit(state, false);
+                    state.mode = resting_mode(state.auto_enabled);
+                }
+                break;
+            }
             case HB_ID_CMD_VOICE_BEGIN:
             {
                 if (!hb_voice_accepted(&voice_acceptance, &voice_policy))
@@ -626,9 +732,13 @@ static void worker(void *)
             case HB_ID_CMD_VOICE_SAVE:
                 if (voice_enrollment && c.person_id == voice_enrollment->staging.id &&
                     hb_voice_accepted(&voice_acceptance, &voice_policy))
-                    message(state, hb_household_voice_error(hb_household_voice_commit(
-                                       voice_enrollment, database, voice_database, voice_epoch,
-                                       now_ms())));
+                {
+                    auto result = hb_household_voice_commit(voice_enrollment, database,
+                                                            voice_database, voice_epoch, now_ms());
+                    message(state, hb_household_voice_error(result));
+                    if (result == HB_VEN_OK)
+                        persistence_commit(state, false);
+                }
                 else
                     message(state, hb_household_voice_error(HB_VEN_GATED));
                 break;
@@ -636,20 +746,23 @@ static void worker(void *)
                 state.created_id = hb_id_create(database, c.name);
                 message(state,
                         state.created_id ? "Profil utworzony w RAM" : "Nie można dodać profilu");
-                persistence_commit(state, false);
+                if (state.created_id)
+                    persistence_commit(state, false);
                 break;
             case HB_ID_CMD_RENAME:
-                message(state, hb_id_rename(database, c.person_id, c.name) ? "Nazwa zmieniona"
-                                                                           : "Nieprawidłowa nazwa");
-                persistence_commit(state, false);
+                if (hb_id_rename(database, c.person_id, c.name))
+                    persistence_commit(state, false);
+                else
+                    message(state, "Nieprawidłowa nazwa");
                 break;
             case HB_ID_CMD_DELETE:
                 state.deleted_id = hb_id_delete(database, c.person_id) ? c.person_id : 0;
                 memset(enrollment, 0, sizeof(*enrollment));
                 state.mode = resting_mode(state.auto_enabled);
                 message(state, "Profil i próbki usunięte z RAM");
-                persistence_commit(state, true);
                 hb_household_voice_reconcile(database, voice_database);
+                if (state.deleted_id)
+                    persistence_commit(state, true);
                 break;
             case HB_ID_CMD_BEGIN:
                 capture = verify = false;
@@ -676,9 +789,12 @@ static void worker(void *)
                 if (state.mode == HB_ID_ENROLL && hb_id_enroll_commit(database, enrollment))
                 {
                     state.mode = resting_mode(state.auto_enabled);
-                    state.saved_id = c.person_id;
-                    message(state, "Próbki zapisane tylko w RAM");
-                    persistence_commit(state, false);
+                    pending_saved_id = c.person_id;
+                    if (persistence_commit(state, false))
+                    {
+                        state.saved_id = c.person_id;
+                        pending_saved_id = 0;
+                    }
                 }
                 else
                     message(state, "Najpierw 8 próbek i weryfikacja nową klatką");
@@ -786,7 +902,21 @@ static void worker(void *)
             state.faces = 0;
             state.detection_valid = false;
             bool was_loaded = models.mbf != nullptr;
+            if (!models.mbf && (load_attempts >= 3 || now_ms() < next_load_ms))
+            {
+                hb_compute_leave();
+                publish(state);
+                vTaskDelay(pdMS_TO_TICKS(100));
+                continue;
+            }
+            if (!models.mbf)
+            {
+                ++load_attempts;
+                next_load_ms = now_ms() + 30000;
+            }
             state.ready = models.load(state);
+            if (state.ready)
+                load_attempts = 0;
             if (state.ready && !was_loaded)
                 ++state.model_loads;
             if (!state.ready)
@@ -953,8 +1083,10 @@ esp_err_t hb_identity_start(void)
     // Called before UI startup, or exclusively by the UI command producer.
     if (!jobs)
     {
-        database = (hb_id_database *)heap_caps_calloc(1, sizeof(*database),
-                                                      MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        household = (hb_household_snapshot *)heap_caps_calloc(1, sizeof(*household),
+                                                              MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        database = household ? &household->face : nullptr;
+        voice_database = household ? &household->voice : nullptr;
         enrollment = (hb_id_enrollment *)heap_caps_calloc(1, sizeof(*enrollment),
                                                           MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         published_preview =
@@ -963,7 +1095,7 @@ esp_err_t hb_identity_start(void)
         jobs = xQueueCreate(8, sizeof(hb_id_command));
         if (!database || !enrollment || !published_preview || !guard || !jobs)
         {
-            free(database);
+            free(household);
             free(enrollment);
             free(published_preview);
             if (guard)
@@ -975,13 +1107,14 @@ esp_err_t hb_identity_start(void)
             return ESP_ERR_NO_MEM;
         }
         hb_id_database_init(database, esp_random());
+        hb_voice_database_init(voice_database);
         boot_id = ((uint64_t)esp_random() << 32) | esp_random();
         portENTER_CRITICAL(&event_lock);
         hb_event_bus_init(&event_bus);
         portEXIT_CRITICAL(&event_lock);
         if (xTaskCreate(worker, "local_identity", 12288, nullptr, 1, nullptr) != pdPASS)
         {
-            free(database);
+            free(household);
             free(enrollment);
             free(published_preview);
             vSemaphoreDelete(guard);
@@ -995,7 +1128,7 @@ esp_err_t hb_identity_start(void)
 }
 esp_err_t hb_identity_command(const hb_id_command *c)
 {
-    if (!c || (unsigned)c->type > HB_ID_CMD_AUTO || !memchr(c->name, 0, HB_ID_NAME))
+    if (!c || (unsigned)c->type > HB_ID_CMD_ENABLE || !memchr(c->name, 0, HB_ID_NAME))
         return ESP_ERR_INVALID_ARG;
     esp_err_t start = hb_identity_start();
     if (start)

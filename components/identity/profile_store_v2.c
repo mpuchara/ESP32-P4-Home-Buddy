@@ -29,7 +29,8 @@ static void put64(uint8_t *p, uint64_t v)
 }
 static hb_store_result admission(const hb_profile_io *io)
 {
-    if (!io || !io->protected_storage)
+    if (!io || (io->storage_mode != HB_PROFILE_STORAGE_LOCAL_UNENCRYPTED &&
+                io->storage_mode != HB_PROFILE_STORAGE_HARDWARE_PROTECTED))
         return HB_STORE_LOCKED;
     if (!io->read || !io->write || !io->erase || !io->sha256)
         return HB_STORE_IO;
@@ -64,7 +65,18 @@ static hb_store_result bank_read(const hb_profile_io *io, int bank, hb_household
     for (size_t i = 0; i < sizeof(h); i++)
         blank &= h[i] == 0xff;
     if (blank)
-        return HB_STORE_EMPTY; // Interrupted write before commit marker.
+    {
+        uint8_t block[256];
+        for (size_t o = sizeof(h); o < HB_PROFILE_V2_BANK; o += sizeof(block))
+        {
+            if (!io->read(io->context, offset + o, block, sizeof(block)))
+                return HB_STORE_IO;
+            for (size_t i = 0; i < sizeof(block); ++i)
+                if (block[i] != 0xff)
+                    return HB_STORE_CORRUPT;
+        }
+        return HB_STORE_EMPTY;
+    }
     if (memcmp(h, "HBP2", 4) || u32(h + 4) != 2 || u32(h + 8) != sizeof(*db) ||
         u32(h + 12) != HB_ID_DIM ||
         (memcmp(h + 56, HB_ID_MODEL, sizeof(HB_ID_MODEL)) ||
@@ -139,6 +151,19 @@ hb_store_result hb_profile_v2_commit(const hb_profile_io *io, const hb_household
     memcpy(h + 104, HB_VOICE_MODEL, sizeof(HB_VOICE_MODEL));
     int target = revision->bank <= 0 ? 1 : 0; // First commit preserves BOTH schema-1 banks.
     size_t offset = (size_t)target * HB_PROFILE_V2_BANK;
+    // Fresh initialization and migration may only touch a verified blank target.
+    if (revision->bank == -1)
+    {
+        uint8_t block[256];
+        for (size_t o = 0; o < HB_PROFILE_V2_BANK; o += sizeof(block))
+        {
+            if (!io->read(io->context, offset + o, block, sizeof(block)))
+                return HB_STORE_IO;
+            for (size_t i = 0; i < sizeof(block); ++i)
+                if (block[i] != 0xff)
+                    return HB_STORE_INCOMPATIBLE;
+        }
+    }
     bool ok = io->sha256(scratch, sizeof(*scratch), h + 24) && io->sha256(h, 224, h + 224) &&
               io->erase(io->context, offset, HB_PROFILE_V2_BANK) &&
               io->write(io->context, offset + sizeof(h), scratch, sizeof(*scratch));
@@ -209,4 +234,35 @@ hb_store_result hb_profile_v2_migrate(const hb_profile_io *io, hb_household_snap
     hb_voice_database_init(&out->voice);
     *revision = (hb_profile_revision){0, -1};
     return hb_profile_v2_commit(io, out, scratch, revision, true);
+}
+
+// Does not create an empty database over unrecognized or partially written data.
+hb_store_result hb_profile_v2_boot(const hb_profile_io *io, hb_household_snapshot *db,
+                                   hb_household_snapshot *scratch, hb_profile_revision *rev,
+                                   uint32_t seed)
+{
+    hb_store_result r = hb_profile_v2_restore(io, db, scratch, rev);
+    if (r == HB_STORE_OK)
+        return r;
+    if (r == HB_STORE_EMPTY)
+    {
+        memset(db, 0, sizeof(*db));
+        hb_id_database_init(&db->face, seed);
+        hb_voice_database_init(&db->voice);
+        return HB_STORE_EMPTY;
+    }
+    if (r == HB_STORE_LOCKED || r == HB_STORE_CAPACITY || r == HB_STORE_IO)
+        return r;
+    // A schema-2 marker anywhere prevents reinterpretation as legacy.
+    uint8_t magic[4];
+    bool legacy = false;
+    for (unsigned bank = 0; bank < 4; ++bank)
+    {
+        if (!io->read(io->context, bank * HB_PROFILE_BANK, magic, sizeof(magic)))
+            return HB_STORE_IO;
+        if (!memcmp(magic, "HBP2", 4))
+            return r;
+        legacy |= bank < 2 && !memcmp(magic, "HBP1", 4);
+    }
+    return legacy ? hb_profile_v2_migrate(io, db, scratch, rev, true) : r;
 }

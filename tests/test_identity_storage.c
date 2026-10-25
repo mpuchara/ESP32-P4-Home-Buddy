@@ -65,7 +65,8 @@ static void profiles(void)
     memset(d->flash, 255, sizeof(d->flash));
     hb_id_database *db = calloc(1, sizeof(*db)), *scratch = calloc(1, sizeof(*db)),
                    *loaded = calloc(1, sizeof(*db));
-    hb_profile_io io = {d, sizeof(d->flash), true, rd, wr, erase, checksum};
+    hb_profile_io io = {d,     sizeof(d->flash), HB_PROFILE_STORAGE_HARDWARE_PROTECTED, rd, wr,
+                        erase, checksum};
     hb_profile_revision rev = {0, -1};
     hb_id_database_init(db, 123);
     uint64_t id = hb_id_create(db, "Maciej");
@@ -98,9 +99,9 @@ static void profiles(void)
         }
     *d = *original;
     rev = (hb_profile_revision){1, 0};
-    io.protected_storage = false;
+    io.storage_mode = HB_PROFILE_STORAGE_RAM_ONLY;
     assert(hb_profile_commit(&io, db, scratch, &rev) == HB_STORE_LOCKED);
-    io.protected_storage = true;
+    io.storage_mode = HB_PROFILE_STORAGE_HARDWARE_PROTECTED;
     io.size--;
     assert(hb_profile_commit(&io, db, scratch, &rev) == HB_STORE_CAPACITY);
     io.size++;

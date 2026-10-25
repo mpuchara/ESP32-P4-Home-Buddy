@@ -51,7 +51,7 @@ static char network_state[128] = "Wi-Fi: oczekiwanie";
 static lv_obj_t *network_info;
 static lv_obj_t *network_list;
 static char displayed_networks[300];
-static lv_obj_t *page_error;
+static lv_obj_t *page_error, *profile_enable_button;
 static lv_obj_t *system_info;
 static lv_obj_t *test_banner;
 static uint32_t image_since;
@@ -234,7 +234,7 @@ static void close_page(void)
     audio_info = NULL;
     identity_saver_intent = false;
     ha_enable = ha_publish = ha_tls = ha_info = ha_mode = NULL;
-    identity_info = identity_choice = identity_box = NULL;
+    identity_info = identity_choice = identity_box = profile_enable_button = NULL;
     memset(identity_marks, 0, sizeof(identity_marks));
     hb_face_enable(false);
     face_label = NULL;
@@ -465,7 +465,8 @@ static void identity_guest(lv_event_t *e)
 }
 static uint64_t profile_signature(const hb_id_status *s)
 {
-    uint64_t hash = s->profile_count;
+    uint64_t hash = s->profile_count + s->storage_saved + 3 * s->storage_saving +
+                    7 * hb_config_biometric_notice();
     for (unsigned i = 0; i < s->profile_count; ++i)
     {
         hash =
@@ -492,6 +493,21 @@ static void identity_delete(lv_event_t *e)
 static void add_person(lv_event_t *e)
 {
     (void)e;
+    if (!hb_config_biometric_notice())
+    {
+        page_base("Lokalny zapis profili");
+        lv_obj_t *notice = label(
+            page,
+            "Profile twarzy i głosu będą zapisywane lokalnie w pamięci urządzenia bez szyfrowania.",
+            LV_ALIGN_TOP_LEFT, 24, 90);
+        lv_obj_set_width(notice, 740);
+        button(page, "Rozumiem i akceptuję", 24, 250, 460, identity_send,
+               (void *)(uintptr_t)HB_ID_CMD_NOTICE_ACK);
+        button(page, "Dalej", 24, 350, 350, add_person, NULL);
+        identity_info = label(page, "", LV_ALIGN_TOP_LEFT, 24, 190);
+        lv_scr_load(page);
+        return;
+    }
     page_base("Dodaj domownika");
     field[0] = input(page, "Imię", "", 60, false, 100);
     button(page, "Dalej: rejestracja twarzy", 24, 200, 420, profile_page, (void *)1);
@@ -508,8 +524,7 @@ static void household_page(lv_event_t *e)
     hb_id_status s;
     hb_identity_get(&s);
     household_signature = profile_signature(&s);
-    label(page, "Profile tymczasowe - znikną po restarcie.", LV_ALIGN_TOP_LEFT, 24, 52);
-    // The installed device is RAM-only; secure storage has no physical acceptance yet.
+    label(page, s.persistence_message, LV_ALIGN_TOP_LEFT, 24, 52);
     lv_obj_t *list = lv_obj_create(page);
     lv_obj_set_pos(list, 24, 90);
     lv_obj_set_size(list, 752, 244);
@@ -526,7 +541,25 @@ static void household_page(lv_event_t *e)
     if (!s.profile_count)
         label(list, "Dodaj pierwszego domownika.", LV_ALIGN_TOP_LEFT, 0, 0);
     button(page, "+ Dodaj domownika", 24, 356, 420, add_person, NULL);
+    button(page, "Ponów zapis", 470, 356, 306, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_RETRY_SAVE);
     lv_scr_load(page);
+}
+static void profile_enable(lv_event_t *e)
+{
+    (void)e;
+    hb_id_status s;
+    hb_identity_get(&s);
+    for (unsigned i = 0; i < s.profile_count; ++i)
+        if (s.profiles[i].id == identity_selected)
+        {
+            hb_id_command c = {.type = HB_ID_CMD_ENABLE,
+                               .person_id = identity_selected,
+                               .guided = !s.profiles[i].enabled};
+            if (hb_identity_command(&c) != ESP_OK)
+                form_error("Polecenie nieprzyjęte");
+            break;
+        }
 }
 static void profile_page(lv_event_t *e)
 {
@@ -559,17 +592,19 @@ static void profile_page(lv_event_t *e)
     hb_identity_get(&s);
     const char *name = "";
     unsigned samples = 0, voice_samples = 0;
+    bool enabled = false;
     for (unsigned i = 0; i < s.profile_count; ++i)
         if (s.profiles[i].id == id)
         {
             name = s.profiles[i].name;
             samples = s.profiles[i].samples;
             voice_samples = s.profiles[i].voice_samples;
+            enabled = s.profiles[i].enabled;
         }
     label(page, samples ? "Twarz: zarejestrowana" : "Twarz: brak rejestracji", LV_ALIGN_TOP_LEFT,
           24, 70);
-    label(page, voice_samples ? "Głos: próbki w RAM" : "Głos: brak rejestracji", LV_ALIGN_TOP_LEFT,
-          412, 70);
+    label(page, voice_samples ? "Głos: próbki lokalne" : "Głos: brak rejestracji",
+          LV_ALIGN_TOP_LEFT, 412, 70);
     field[0] = input(page, "Imię", name, 60, false, 130);
     button(page, "Zmień nazwę", 24, 210, 350, identity_send, (void *)(uintptr_t)HB_ID_CMD_RENAME);
     button(page, "Uzupełnij rejestrację", 412, 210, 364, identity_page, (void *)1);
@@ -579,7 +614,11 @@ static void profile_page(lv_event_t *e)
                364, voice_enrollment_page, NULL);
     if (!s.voice_available)
         lv_obj_add_state(voice_button, LV_STATE_DISABLED);
-    identity_info = label(page, "", LV_ALIGN_TOP_LEFT, 24, 360);
+    profile_enable_button = button(page, enabled ? "Wyłącz profil" : "Włącz profil", 24, 345, 350,
+                                   profile_enable, (void *)(uintptr_t)!enabled);
+    button(page, "Ponów zapis", 412, 345, 364, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_RETRY_SAVE);
+    identity_info = label(page, "", LV_ALIGN_TOP_LEFT, 24, 400);
     lv_obj_set_width(identity_info, 745);
     lv_scr_load(page);
 }
@@ -599,7 +638,7 @@ static void voice_enrollment_page(lv_event_t *e)
     voice_screen = true;
     resume_auto = s.auto_enabled;
     label(page, "Cztery różne wypowiedzi, potem nowa do weryfikacji.", LV_ALIGN_TOP_LEFT, 24, 78);
-    label(page, "Mów samodzielnie, naturalnie. Próbki pozostają tylko w RAM.", LV_ALIGN_TOP_LEFT,
+    label(page, "Mów samodzielnie, naturalnie. Zapis profilu po potwierdzeniu.", LV_ALIGN_TOP_LEFT,
           24, 110);
     button(page, "Rozpocznij", 24, 160, 350, identity_send,
            (void *)(uintptr_t)HB_ID_CMD_VOICE_BEGIN);
@@ -607,7 +646,7 @@ static void voice_enrollment_page(lv_event_t *e)
            (void *)(uintptr_t)HB_ID_CMD_VOICE_SAMPLE);
     button(page, "Weryfikuj nową wypowiedzią", 24, 230, 350, identity_send,
            (void *)(uintptr_t)HB_ID_CMD_VOICE_VERIFY);
-    button(page, "Potwierdź zapis w RAM", 412, 230, 364, identity_send,
+    button(page, "Potwierdź zapis profilu", 412, 230, 364, identity_send,
            (void *)(uintptr_t)HB_ID_CMD_VOICE_SAVE);
     identity_info =
         label(page, "Naciśnij Rozpocznij. Mikrofon jest wyłączony.", LV_ALIGN_TOP_LEFT, 24, 320);
@@ -687,7 +726,7 @@ static void identity_page(lv_event_t *e)
     lv_obj_set_width(identity_info, 575);
     lv_obj_set_pos(page_error, 205, 390);
     lv_obj_set_width(page_error, 575);
-    lv_label_set_text(page_error, "RAM-only. Progi niekalibrowane.");
+    lv_label_set_text(page_error, "Profile lokalne. Progi niekalibrowane.");
     if (!enroll)
         button(page, "Włącz tło na 10 min", 205, 420, 280, identity_send,
                (void *)(uintptr_t)HB_ID_CMD_BACKGROUND);
@@ -723,15 +762,26 @@ static void identity_update(void)
         household_page(NULL);
         return;
     }
-    if (confirming && s.deleted_id == identity_selected)
+    if (confirming && s.deleted_id == identity_selected && s.storage_saved)
     {
         household_page(NULL);
         return;
     }
+    if (guided_enrollment && s.mode != HB_ID_ENROLL && !s.storage_saved && enrollment_observed)
+    {
+        form_error(s.persistence_message);
+        if (commit_button)
+        {
+            lv_obj_clear_state(commit_button, LV_STATE_DISABLED);
+            lv_obj_remove_event_cb(commit_button, identity_send);
+            lv_obj_add_event_cb(commit_button, identity_send, LV_EVENT_CLICKED,
+                                (void *)(uintptr_t)HB_ID_CMD_RETRY_SAVE);
+        }
+    }
     if (guided_enrollment && s.mode == HB_ID_ENROLL)
         enrollment_observed = true;
     if (guided_enrollment && enrollment_observed && s.saved_id == identity_selected &&
-        s.mode != HB_ID_ENROLL)
+        s.storage_saved && s.mode != HB_ID_ENROLL)
     {
         household_page(NULL);
         return;
@@ -742,7 +792,7 @@ static void identity_update(void)
         hb_camera_get_status(&camera);
         hb_ha_status ha;
         hb_ha_get_status(&ha);
-        lv_label_set_text(product_info, "Home Buddy | firmware 0.10.0-dev");
+        lv_label_set_text(product_info, "Home Buddy | firmware 0.11.0-dev");
         const char *names[] = {"Wi-Fi", "UBox", "Kamera", "Rozpoznawanie", "Home Assistant"};
         const char *values[] = {network_state, image.data ? "Obraz dostępny" : "Oczekiwanie",
                                 camera.running ? "Dostępna" : "Oczekiwanie",
@@ -787,6 +837,11 @@ static void identity_update(void)
             (unsigned)a.right_peak, (unsigned long long)a.sample_count,
             a.suspicious ? "Sygnał podejrzany: stały lub powtarzalny" : a.message, voice_status);
     }
+    if (profile_enable_button)
+        for (unsigned i = 0; i < s.profile_count; ++i)
+            if (s.profiles[i].id == identity_selected)
+                lv_label_set_text(lv_obj_get_child(profile_enable_button, 0),
+                                  s.profiles[i].enabled ? "Wyłącz profil" : "Włącz profil");
     if (!identity_info)
         return;
     if (recognition_settings)
@@ -811,7 +866,7 @@ static void identity_update(void)
             lv_label_set_text_fmt(identity_info, "Próbki: %u/4\n%s", s.voice_enrollment_samples,
                                   s.message);
         else
-            lv_label_set_text(identity_info, s.message);
+            lv_label_set_text_fmt(identity_info, "%s\n%s", s.persistence_message, s.message);
         return;
     }
     const char *states[] = {"UNAVAILABLE", "UNKNOWN", "AMBIGUOUS", "KNOWN"};
@@ -851,11 +906,14 @@ static void identity_update(void)
             s.samples >= HB_ID_MIN_SAMPLES && !s.verified ? "Poczekaj na weryfikację nową klatką."
                                                           : "");
         lv_bar_set_value(enroll_progress, s.samples, LV_ANIM_OFF);
-        if (s.verified)
+        if (s.verified || (s.mode != HB_ID_ENROLL && !s.storage_saved))
             lv_obj_clear_state(commit_button, LV_STATE_DISABLED);
         else
             lv_obj_add_state(commit_button, LV_STATE_DISABLED);
-        lv_label_set_text(page_error, "Profile tymczasowe - znikną po restarcie.");
+        lv_label_set_text(page_error, s.persistence_message);
+        lv_label_set_text(lv_obj_get_child(commit_button, 0),
+                          s.mode != HB_ID_ENROLL && !s.storage_saved ? "Ponów zapis"
+                                                                     : "Potwierdź zapis profilu");
     }
     else
         lv_label_set_text(identity_info, text);
@@ -1917,6 +1975,28 @@ static void information_page(lv_event_t *e)
     button(page, "Diagnostyka zaawansowana", 24, 370, 752, advanced_page, NULL);
     lv_scr_load(page);
 }
+static void storage_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Pamięć profili");
+    hb_id_status s;
+    hb_identity_get(&s);
+    char info[512];
+    snprintf(info, sizeof(info),
+             "Tryb: %s\nSchemat: 2 | bank: %d | generacja: %llu\nDomownicy: %u | ostatni zapis: "
+             "%llu ms od startu\n%s",
+             s.storage_mode == 2   ? "LOCAL_UNENCRYPTED"
+             : s.storage_mode == 1 ? "HARDWARE_PROTECTED"
+                                   : "RAM_ONLY",
+             s.storage_bank, (unsigned long long)s.storage_generation, s.profile_count,
+             (unsigned long long)s.storage_last_save_ms, s.persistence_message);
+    lv_obj_t *text = label(page, info, LV_ALIGN_TOP_LEFT, 24, 80);
+    lv_obj_set_width(text, 745);
+    button(page, "Ponów zapis", 24, 350, 350, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_RETRY_SAVE);
+    identity_info = label(page, "", LV_ALIGN_TOP_LEFT, 24, 285);
+    lv_scr_load(page);
+}
 static void advanced_page(lv_event_t *e)
 {
     (void)e;
@@ -1928,8 +2008,9 @@ static void advanced_page(lv_event_t *e)
         {"Test dotyku", touch_test, NULL},      {"Kamera lokalna", local_camera, NULL},
         {"Obecność w tle", monitor_page, NULL}, {"Jakość twarzy", quality_page, NULL},
         {"System", system_test, NULL},          {"Ocena rozpoznawania", identity_page, (void *)2},
-        {"Mikrofon", audio_page, NULL},         {"Połączenie HA", ha_diagnostics_page, NULL}};
-    hb_product_rows(page, items, 10);
+        {"Mikrofon", audio_page, NULL},         {"Połączenie HA", ha_diagnostics_page, NULL},
+        {"Pamięć profili", storage_page, NULL}};
+    hb_product_rows(page, items, 11);
     lv_scr_load(page);
 }
 static void screens(void)

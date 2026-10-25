@@ -138,7 +138,7 @@ def main():
         (backup.parent / "security-info.txt").write_text(security)
         if not unchanged:
             files.extend(private_relocation(data, backup.parent))
-        # Fresh layout has no encrypted database yet. Never write plaintext templates.
+        # Firmware packages never contain household templates; private backups stay local.
         print("Verified private 16 MiB backup SHA256:", digest)
     args = ["write_flash", "--flash_mode", "dio", "--flash_freq", "80m", "--flash_size", "16MB"]
     for offset, file in sorted(files):

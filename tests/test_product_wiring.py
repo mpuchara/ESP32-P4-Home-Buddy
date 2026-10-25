@@ -34,5 +34,25 @@ class ProductWiring(unittest.TestCase):
         self.assertIn('keyboard && !lv_obj_has_flag', ui)
         self.assertIn('enrollment_observed && s.saved_id', ui)
 
+    def test_persistent_enrollment_receipts_and_worker_order(self):
+        service = (ROOT / 'components/identity/identity_service.cpp').read_text(encoding='utf-8')
+        ui = (ROOT / 'components/ui/ui.c').read_text(encoding='utf-8')
+        worker = service.split('static void worker(void *)', 1)[1]
+        self.assertLess(worker.index('persistence_start(state)'), worker.index('hb_config_identity_auto()'))
+        save = worker.split('case HB_ID_CMD_SAVE:', 1)[1].split('case HB_ID_CMD_TEST:', 1)[0]
+        self.assertLess(save.index('if (persistence_commit'), save.index('state.saved_id ='))
+        deletion = worker.split('case HB_ID_CMD_DELETE:', 1)[1].split('case HB_ID_CMD_BEGIN:', 1)[0]
+        self.assertLess(deletion.index('hb_household_voice_reconcile'), deletion.index('persistence_commit'))
+        failure = service.split('if (r != HB_STORE_OK)', 1)[1].split('storage_dirty = false', 1)[0]
+        self.assertNotIn('hb_profile_v2_restore', failure)  # Never lose new RAM templates on save failure.
+        self.assertIn('HB_ID_CMD_RETRY_SAVE', ui)
+        self.assertIn('s.persistence_message', ui)
+        self.assertIn('s.saved_id == identity_selected &&', ui)
+        self.assertNotIn('Profile tymczasowe - znikną po restarcie.', ui)
+        self.assertIn('hb_config_biometric_notice()', ui)
+        self.assertIn('HB_ID_CMD_NOTICE_ACK', ui)
+        self.assertIn('load_attempts >= 3', worker)
+        self.assertIn('next_load_ms = now_ms() + 30000', worker)
+
 if __name__ == '__main__':
     unittest.main()

@@ -6,12 +6,17 @@ config HB_IDENTITY_EXPERIMENTAL
         Explicit development opt-in. Requires the provisioned human_face_feat
         onboard Flash partition. Never downloads models during operation.
 config HB_IDENTITY_PERSISTENCE
-    bool "Enable profile persistence on an already securely provisioned device"
+    bool "Enable local profile persistence"
     default n
     help
-        Does NOT provision security or burn eFuses. Writes remain blocked unless
-        hardware Flash encryption and Secure Boot are both active and the
-        dedicated profiles partition is encrypted. Otherwise RAM-only mode.
+        Uses the existing profiles partition. Never provisions device security.
+config HB_IDENTITY_LOCAL_UNENCRYPTED
+    bool "Explicit local unencrypted household storage policy"
+    depends on HB_IDENTITY_PERSISTENCE
+    default n
+    help
+        Owner selected automatic local storage without encryption or unlock.
+        With this off, persistence requires hardware encryption and Secure Boot.
 config HB_IDENTITY_THRESHOLD_MILLI
     int "Experimental cosine acceptance threshold (thousandths)"
     range 0 1000

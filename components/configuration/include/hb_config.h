@@ -24,6 +24,8 @@ extern "C"
         bool has_location;
     } hb_weather_config_t;
     bool hb_config_identity_auto(void);
+    bool hb_config_biometric_notice(void);
+    esp_err_t hb_config_biometric_notice_save(void);
     esp_err_t hb_config_identity_auto_save(bool enabled);
     void hb_config_weather_get(hb_weather_config_t *out);
     esp_err_t hb_config_weather_save(const hb_weather_config_t *value);

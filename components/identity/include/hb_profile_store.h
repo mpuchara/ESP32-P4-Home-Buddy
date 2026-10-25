@@ -9,11 +9,17 @@ extern "C"
 #define HB_PROFILE_BANK 0x40000U
 #define HB_PROFILE_HEADER 128U
 #define HB_PROFILE_PARTITION 0x100000U
+    typedef enum
+    {
+        HB_PROFILE_STORAGE_RAM_ONLY,
+        HB_PROFILE_STORAGE_HARDWARE_PROTECTED,
+        HB_PROFILE_STORAGE_LOCAL_UNENCRYPTED
+    } hb_profile_storage_mode;
     typedef struct
     {
         void *context;
         size_t size;
-        bool protected_storage;
+        hb_profile_storage_mode storage_mode;
         bool (*read)(void *, size_t, void *, size_t);
         bool (*write)(void *, size_t, const void *, size_t);
         bool (*erase)(void *, size_t, size_t);

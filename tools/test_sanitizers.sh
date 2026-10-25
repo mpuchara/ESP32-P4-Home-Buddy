@@ -47,3 +47,11 @@ c++ -std=c++17 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-f
  -DHB_VOICE_DIAG_HOST_TEST -Icomponents/voice/include -Icomponents/audio/include -Itests -Itests/ha_platform \
  tests/test_voice_diagnostic.cpp components/voice/voice_diagnostic.cpp "$build_dir/voice_core.o" -lm -o "$build_dir/voice_diagnostic"
 "$build_dir/voice_diagnostic"
+
+for local in 0 1; do
+ cc -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+  -DCONFIG_HB_IDENTITY_PERSISTENCE=1 -DCONFIG_HB_IDENTITY_LOCAL_UNENCRYPTED=$local \
+  -Itests/storage_platform -Icomponents/identity/include tests/test_profile_flash.c \
+  components/identity/profile_flash.c -o "$build_dir/profile_flash_$local"
+ "$build_dir/profile_flash_$local"
+done
