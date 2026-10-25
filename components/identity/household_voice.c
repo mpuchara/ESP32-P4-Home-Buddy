@@ -23,7 +23,7 @@ static hb_voice_enrollment_result session(hb_household_voice_enrollment *en, hb_
     hb_id_person *p = hb_id_find(db, en->staging.id);
     if (!p || !p->enabled)
         return HB_VEN_PROFILE;
-    if (!now || now > en->deadline_ms)
+    if (!now || now > en->deadline_ms || now < en->deadline_ms - 600000)
         return HB_VEN_TIMEOUT;
     return HB_VEN_OK;
 }
@@ -61,7 +61,8 @@ hb_voice_enrollment_result hb_household_voice_sample(hb_household_voice_enrollme
         hb_household_voice_cancel(en);
         return r;
     }
-    if (!hb_voice_database_valid(voice) || !e || !end || end > now || now - end > 5000)
+    if (!hb_voice_database_valid(voice) || !e || !end || end > now || now - end > 5000 ||
+        end < en->deadline_ms - 600000 + 3015)
         return HB_VEN_SAMPLE;
     if (verify)
     {

@@ -80,6 +80,9 @@ int main(void)
     assert(hb_household_voice_count(&voice, id) == 4);
     prior = voice;
     assert(hb_household_voice_begin(&en, &face, id, 8, 21000, &accepted, &policy) == HB_VEN_OK);
+    assert(hb_household_voice_sample(&en, &face, &voice, &e, 8, 20000, 22000, false) ==
+           HB_VEN_SAMPLE);
+    assert(en.staging.count == 0); // Even a fresh cached utterance predating Begin is forbidden.
     hb_household_voice_cancel(&en);
     assert(!memcmp(&voice, &prior, sizeof(voice)));
     // Face re-enrollment does not touch voice templates.
