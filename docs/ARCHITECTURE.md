@@ -2,7 +2,7 @@
 
 The default profile keeps outputs disabled; bringup enables board/UI and wifi also
 enables the ESP-Hosted station worker. Dependencies remain locked to IDF 5.5.1,
-LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from LVGL/networking. The recognition profile adds opt-in local face inference; audio capture/voice recognition is not implemented.
+LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from LVGL/networking. The recognition profile adds opt-in local face inference; bounded local audio capture and a one-shot voice-embedding diagnostic are implemented; household speaker identification remains physically gated.
 
 * board: native DSI 480x800 RGB565 ping-pong and PPA rotation 270 degrees from
   logical 800x480. GT911 mapping remains x=physical_y, y=479-physical_x.
@@ -141,3 +141,8 @@ and independent HA cooldown prevents inference spam. See HOME_ASSISTANT_HTTP.md.
 ## Iteration 8 continuation
 
 AUTO is a separate worker mode with resident admitted models, existing compute/camera ownership and cancellation epochs. Navigation never starts/extends a session. Ordinary NVS stores enablement only; profile persistence stays gated. Audio uses a separate bounded manual worker. Fusion is architecture only, including CONFLICT; no VOICE/BOTH event.
+
+
+## Iteration 10, 2026-10-25
+
+Audio has one I2S owner and one bounded synchronous consumer. A one-window PSRAM handoff separates capture from the voice worker; compute admission, cancellation and lazy model release preserve independent face/HTTP behavior. Pure fusion is implemented but has no runtime publisher. See VOICE_RECOGNITION.md.

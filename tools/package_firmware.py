@@ -1,4 +1,5 @@
 """Package only explicit public build outputs, never local/ or full-flash backups."""
+import argparse
 import hashlib
 from pathlib import Path
 import shutil
@@ -6,7 +7,15 @@ import sys
 import json
 from identity_model_image import validate_image
 
-build, output = map(Path, sys.argv[1:3])
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("build", type=Path)
+parser.add_argument("output", type=Path)
+parser.add_argument("--speaker-model", type=Path, help="Optional verified single 3s PDL3 image; never auto-flashed")
+args = parser.parse_args()
+build, output = args.build, args.output
+if args.speaker_model:
+    from voice_model_image import validate_image as validate_voice_image
+    validate_voice_image(args.speaker_model.read_bytes())
 root = Path(__file__).resolve().parents[1]
 files = [
     "home_buddy.bin", "home_buddy.elf", "home_buddy.map",
@@ -28,7 +37,16 @@ for name in files:
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, target)
     hashes.append(f"{hashlib.sha256(target.read_bytes()).hexdigest()}  {name}")
+if args.speaker_model:
+    target = output / "espdl_models/sv_model_3s.espdl"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(args.speaker_model, target)
+    hashes.append(f"{hashlib.sha256(target.read_bytes()).hexdigest()}  espdl_models/sv_model_3s.espdl")
 for source_name, name in [
+    ("tools/voice_model_image.py", "tools/voice_model_image.py"),
+    ("tools/monitor_soak.py", "tools/monitor_soak.py"),
+    ("docs/VOICE_RECOGNITION.md", "docs/VOICE_RECOGNITION.md"),
+    ("docs/ITERATION10_REPORT.md", "docs/ITERATION10_REPORT.md"),
     ("LICENSE", "licenses/Apache-2.0.txt"),
     ("tools/flash_usb.py", "tools/flash_usb.py"),
     ("tools/flash_layout.py", "tools/flash_layout.py"),

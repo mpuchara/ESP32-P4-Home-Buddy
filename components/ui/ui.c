@@ -19,6 +19,7 @@
 #include "hb_raw_frame.h"
 #include "hb_services.h"
 #include "hb_ui.h"
+#include "hb_voice.h"
 #include "hb_wifi.h"
 #include "identity_navigation.h"
 #include "lvgl.h"
@@ -223,6 +224,7 @@ static void close_page(void)
     memset(product_states, 0, sizeof(product_states));
     brightness_manual = brightness_day = brightness_night = NULL;
     audio_testing = false;
+    hb_voice_diagnostic_stop();
     hb_audio_stop();
     audio_info = NULL;
     identity_saver_intent = false;
@@ -405,7 +407,16 @@ static void audio_start(lv_event_t *e)
 static void audio_stop(lv_event_t *e)
 {
     (void)e;
+    hb_voice_diagnostic_stop();
     hb_audio_stop();
+}
+static void voice_test(lv_event_t *e)
+{
+    unsigned slot = (unsigned)(uintptr_t)lv_event_get_user_data(e);
+    if (hb_voice_diagnostic_start(slot) != ESP_OK)
+        form_error("Test modelu głosu niedostępny");
+    else
+        audio_testing = true;
 }
 static void audio_page(lv_event_t *e)
 {
@@ -420,6 +431,8 @@ static void audio_page(lv_event_t *e)
     audio_info = label(page, "Test wyłączony. Dźwięk pozostaje lokalny; bez zapisu i wysyłania.",
                        LV_ALIGN_TOP_LEFT, 24, 150);
     lv_obj_set_width(audio_info, 745);
+    button(page, "Model 3 s: slot L", 24, 350, 350, voice_test, (void *)(uintptr_t)0);
+    button(page, "Model 3 s: slot R", 412, 350, 364, voice_test, (void *)(uintptr_t)1);
 }
 static void recognition_page(lv_event_t *e)
 {
@@ -712,18 +725,20 @@ static void identity_update(void)
         hb_audio_get(&a);
         if (a.frames || a.errors)
             audio_testing = a.active;
+        char voice_status[160];
+        hb_voice_diagnostic_status(voice_status, sizeof(voice_status));
         lv_bar_set_value(audio_meter, a.rms, LV_ANIM_OFF);
         lv_label_set_text_fmt(
             audio_info,
             "%s | układ: %s\nPCM mono: %u Hz | RMS %u peak %u clip %u\n"
             "Bufor: %u B | DMA: %u B\nRamki: %u | błędy: %u | utracone: %u\n"
-            "DC: %ld | prawy RMS/peak: %u/%u | próbki: %llu\n%s",
+            "DC: %ld | drugi slot RMS/peak: %u/%u | próbki: %llu\n%s\n%s",
             a.active ? "AKTYWNY" : "Wyłączony", a.available ? "dostępny" : "niezweryfikowany",
             (unsigned)a.sample_rate, (unsigned)a.rms, (unsigned)a.peak, a.clipped,
             (unsigned)a.app_bytes, (unsigned)a.dma_bytes, (unsigned)a.frames, (unsigned)a.errors,
             (unsigned)a.dropped_samples, (long)a.dc_offset, (unsigned)a.right_rms,
             (unsigned)a.right_peak, (unsigned long long)a.sample_count,
-            a.suspicious ? "Sygnał podejrzany: stały lub powtarzalny" : a.message);
+            a.suspicious ? "Sygnał podejrzany: stały lub powtarzalny" : a.message, voice_status);
     }
     if (!identity_info)
         return;

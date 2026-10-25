@@ -152,3 +152,8 @@ The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
 HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
+
+
+## Iteration 10, 2026-10-25
+
+Derived additional arrays: 96,480 B mono PCM window and 96,000 B filterbanks; 1,920 B capture stack PCM arrays; 5,120 B DMA; FFT/window/mel/model and 8 KiB voice task stack add to these. No 192,960 B full float-audio copy. The lazy SV provider requires >=128 KiB free internal, >=64 KiB largest internal and >=8 MiB largest PSRAM before construction. Those provisional admission floors are not measured usage/peaks. Metrics are sampled and include stack/load/preprocess/inference timing; physical peaks/coexistence remain pending.

@@ -81,3 +81,8 @@ is corrected using a real receipt. Constant zero/full scale and exact periods
 heuristic and can also mark a periodic test tone; it does not identify speech.
 RMS during silence is the observed noise level, not a calibrated noise floor.
 There is still no signal capture receipt from the installed hardware revision.
+
+
+## Iteration 10, 2026-10-25
+
+RX remains GPIO48. Default diagnostic measures L and the opposite R slot; model diagnostic lets the operator explicitly choose L/R. Both-slot DC/clipping/repetition, sample count, errors/drops, sampled heap/largest blocks, stack and processing microseconds are logged once per second during capture. Frame stamps are delivery time. Stop before worker dispatch now retires busy. One-shot model test consumes RAM PCM locally, never registers an identity. See VOICE_RECOGNITION.md.

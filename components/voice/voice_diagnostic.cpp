@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: Apache-2.0
+#include "esp_heap_caps.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "hb_audio.h"
+#include "hb_voice.h"
+#include <atomic>
+#include <cstdio>
+#include <cstring>
+static std::atomic<bool> busy{false}, cancelled{false}, ready{false};
+static portMUX_TYPE status_lock = portMUX_INITIALIZER_UNLOCKED;
+static char message[160] = "Model głosu: test wyłączony";
+static int16_t *window;
+static hb_voice_gate gate;
+static unsigned slot;
+static void status(const char *text)
+{
+    portENTER_CRITICAL(&status_lock);
+    snprintf(message, sizeof(message), "%s", text);
+    portEXIT_CRITICAL(&status_lock);
+}
+void hb_voice_diagnostic_status(char *text, size_t capacity)
+{
+    if (!text || !capacity)
+        return;
+    portENTER_CRITICAL(&status_lock);
+    snprintf(text, capacity, "%s", message);
+    portEXIT_CRITICAL(&status_lock);
+}
+static bool cancel(void *)
+{
+    return cancelled.load();
+}
+void hb_voice_diagnostic_stop(void)
+{
+    cancelled.store(true);
+}
+static void consume(const int16_t *pcm, size_t n, uint32_t rate, uint64_t end_us,
+                    bool discontinuity, void *)
+{
+    if (ready.load() || cancelled.load())
+        return;
+    if (discontinuity)
+    {
+        hb_voice_gate_reset(&gate);
+    }
+    size_t remaining = HB_VOICE_SAMPLES - gate.samples;
+    if (n > remaining)
+        n = remaining;
+    unsigned offset = gate.samples;
+    hb_voice_gate_state state = hb_voice_gate_feed(&gate, pcm, n, rate, end_us / 1000);
+    if (state == HB_VAD_REJECTED)
+    {
+        hb_voice_gate_reset(&gate);
+        return;
+    }
+    memcpy(window + offset, pcm, n * sizeof(int16_t));
+    if (state == HB_VAD_READY)
+        ready.store(true);
+}
+static void worker(void *)
+{
+    status("Model głosu: przygotowanie lokalnego testu");
+    window = (int16_t *)heap_caps_calloc(HB_VOICE_SAMPLES, sizeof(int16_t),
+                                         MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    esp_err_t err = window ? ESP_OK : ESP_ERR_NO_MEM;
+    bool owns_audio = false;
+    if (err == ESP_OK && !cancelled.load())
+    {
+        err = hb_audio_start_capture(slot, consume, nullptr);
+        owns_audio = err == ESP_OK;
+    }
+    if (owns_audio)
+    {
+        status("Model głosu: mów normalnie; filtr aktywności jest eksperymentalny");
+        int64_t deadline = esp_timer_get_time() + 60000000;
+        while (!cancelled.load() && !ready.load() && hb_audio_busy() &&
+               esp_timer_get_time() < deadline)
+            vTaskDelay(pdMS_TO_TICKS(20));
+        hb_audio_stop();
+        // Retire the bounded callback, independent of driver cleanup progress.
+        hb_audio_detach_consumer(consume, nullptr);
+        if (!ready.load() || cancelled.load())
+            err = ESP_ERR_INVALID_STATE;
+    }
+    else if (err == ESP_OK)
+        err = ESP_ERR_INVALID_STATE;
+    hb_voice_embedding embedding{};
+    hb_voice_metrics metrics{};
+    if (err == ESP_OK)
+    {
+        status("Model głosu: lokalne osadzenie; brak identyfikacji osoby");
+        err = hb_voice_embedding_run(window, HB_VOICE_SAMPLES, 16000, cancel, nullptr, &embedding,
+                                     &metrics);
+    }
+    char result[160];
+    snprintf(result, sizeof(result), "Model głosu: %s; load/pre/infer %lu/%lu/%lu ms",
+             esp_err_to_name(err), (unsigned long)(metrics.load_us / 1000),
+             (unsigned long)(metrics.features_us / 1000),
+             (unsigned long)(metrics.inference_us / 1000));
+    status(result);
+    ESP_LOGI(
+        "voice",
+        "%s internal_low=%u psram_low=%u largest=%u largest_psram=%u stack=%u; diagnostic only",
+        result, (unsigned)metrics.internal_low, (unsigned)metrics.psram_low,
+        (unsigned)metrics.internal_largest, (unsigned)metrics.psram_largest,
+        (unsigned)metrics.stack_min);
+    memset(&embedding, 0, sizeof(embedding));
+    if (window)
+    {
+        memset(window, 0, HB_VOICE_SAMPLES * sizeof(int16_t));
+        free(window);
+        window = nullptr;
+    }
+    hb_voice_gate_reset(&gate);
+    ready.store(false);
+    busy.store(false);
+    vTaskDelete(nullptr);
+}
+esp_err_t hb_voice_diagnostic_start(unsigned selected)
+{
+    if (selected > 1)
+        return ESP_ERR_INVALID_ARG;
+    bool expected = false;
+    if (!busy.compare_exchange_strong(expected, true))
+        return ESP_ERR_INVALID_STATE;
+    slot = selected;
+    cancelled.store(false);
+    ready.store(false);
+    hb_voice_gate_reset(&gate);
+    if (xTaskCreate(worker, "voice_diag", 8192, nullptr, 1, nullptr) != pdPASS)
+    {
+        busy.store(false);
+        return ESP_ERR_NO_MEM;
+    }
+    return ESP_OK;
+}

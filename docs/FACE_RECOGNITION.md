@@ -211,3 +211,8 @@ benchmarks, not results from this GUITION device or this camera pipeline.
 ## Iteration 8 continuation
 
 AUTO has no fixed deadline and requires explicit enablement. At reboot it starts only with usable restored profiles; RAM-only reboot waits for enrollment and explicit AUTO selection. Models remain resident until Stop/suspension. Thresholds/templates/confirmation are unchanged. Ordinary settings are passive; explicit diagnostics/enrollment may replace the session.
+
+
+## Iteration 10, 2026-10-25
+
+The face enrollment format, AUTO semantics, real-landmark path, thresholds, greetings and FACE HTTP policy are preserved. New pure fusion has no runtime caller; voice diagnostics cannot emit identity events. Current hardware regression is still required after an intentionally accepted restart; historical physical results remain tied to their tested versions.

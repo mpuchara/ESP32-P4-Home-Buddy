@@ -73,3 +73,8 @@ requirements need an explicit schema/layout migration, not unbounded allocation.
 ## Iteration 8 continuation
 
 Persistence remains disabled on unprovisioned hardware. Adapter now verifies exact 1 MiB capacity. No biometric schema/layout change. Ordinary AUTO preference is not profile persistence. SECURITY_PROVISIONING.md covers USB recovery, alternatives and activation gates.
+
+
+## Iteration 10, 2026-10-25
+
+Preparatory voice vectors use an independent RAM schema/model namespace and stable person IDs. No active voice user workflow or storage write. Adding 65,536 B raw voice vectors exceeds a schema-1 256 KiB bank; do not reinterpret face bytes. ITERATION10_REPORT.md gives a future two-512-KiB-bank migration assessment within the current 1 MiB partition. Existing security gate remains closed.

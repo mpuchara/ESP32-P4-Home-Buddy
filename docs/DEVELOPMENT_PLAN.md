@@ -92,3 +92,8 @@ FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases 
 ## Iteration 8 continuation
 
 Candidate implements AUTO/OFF/TEST, reboot waiting, evaluation and bounded audio diagnostics. Physical gates: scheduled app update/profile loss, navigation/AUTO and microphone acceptance, consenting multi-person negatives, outages and 72-hour soak. Persistence needs reviewed secure USB recovery; speaker runtime remains conditional.
+
+
+## Iteration 10, 2026-10-25
+
+Implemented foundation: single-owner timestamped capture, preliminary activity gate, pinned 3s embedding adapter, synthetic RAM matching/enrollment and gated fusion. Next physical gate: one silence/speech/slot receipt, then real model numerical/resource tests and voice-specific calibration. Real household voice enrollment and secure persistence are still pending.

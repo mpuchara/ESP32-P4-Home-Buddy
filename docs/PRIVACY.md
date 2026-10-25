@@ -26,3 +26,8 @@ for the separately authorized security provisioning requirements.
 ## Iteration 8 continuation
 
 AUTO requires deliberate opt-in; ordinary NVS stores its boolean only. RAM-only profiles still disappear on reboot. Microphone test starts manually, expires after 60 seconds, clears PCM each block and sends/saves no audio. No weaker persistence or voice enrollment is enabled. See AUDIO_DIAGNOSTICS.md and SECURITY_PROVISIONING.md.
+
+
+## Iteration 10, 2026-10-25
+
+Microphone/model tests require explicit local Start, stop at one window or 60 s, and cancel on Stop/navigation. One bounded RAM window and temporary features are local; no PCM, embedding or voice identity is sent to HA. Speaker embeddings from the diagnostic are discarded. The passive soak collector writes only numeric whitelisted telemetry, not raw serial logs. Real voice enrollment remains gated.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 #include "hb_identity_events.h"
-// Architectural contracts only. No voice capture, VAD, embedding or fusion runs yet.
+// Independent providers; voice/fused publishing remains physically gated.
 // A future provider must copy/release capture leases before expensive inference,
 // honor the shared compute mutex, cancellation epoch and bounded memory admission.
 typedef struct
@@ -35,3 +35,14 @@ typedef struct
 // whichever source has a higher raw similarity across different model scales.
 // Voice templates require their own versioned schema/model namespace and storage
 // capacity assessment; schema-1 face slots must not be repurposed silently.
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+    hb_identity_fusion_result hb_identity_fuse(const hb_identity_fusion_input *input,
+                                               uint32_t session, uint64_t now_ms,
+                                               bool voice_physically_accepted);
+#ifdef __cplusplus
+}
+#endif

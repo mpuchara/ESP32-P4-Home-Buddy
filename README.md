@@ -3,10 +3,15 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.6.1-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.9.0-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
+
+Candidate additions: local face enrollment/AUTO and HTTP identity events, a four-section
+Polish product menu, bounded microphone diagnostics and a one-shot SV 3s embedding
+prototype. Voice accuracy, current microphone hardware acceptance and secure
+persistence remain pending. See [iteration 10](docs/ITERATION10_REPORT.md).
 
 ## Hardware and status
 
@@ -146,3 +151,8 @@ and [HA setup](docs/HOME_ASSISTANT_HTTP.md). Physical acceptance is tracked sepa
 ## Iteration 8 continuation
 
 Candidate 0.7.0-dev adds opt-in AUTO with ordinary NVS preference, preserved ten-minute TEST, RAM-only reboot waiting, fresh local evaluation and manual 60-second microphone diagnostics. Installed firmware remains unchanged. See docs/ITERATION8_REPORT.md and docs/ITERATION8_ACCEPTANCE.md.
+
+
+## Iteration 10, 2026-10-25
+
+0.9.0-dev adds an explicit one-shot speaker-embedding diagnostic under advanced microphone diagnostics, a bounded preliminary activity gate, checked Flash-backed SV adapter, optional USB model package and synthetic voice/fusion safety tests. Device microphone/model/accuracy acceptance remains pending; real voice enrollment and voice HA events stay unavailable. See docs/VOICE_RECOGNITION.md and docs/ITERATION10_REPORT.md.

@@ -13,6 +13,7 @@ import sys
 import tempfile
 from flash_layout import installed_table, parse_table
 from identity_model_image import validate_image
+from voice_model_image import validate_image as validate_voice_image
 
 
 def package_plan(package, mode):
@@ -36,6 +37,13 @@ def package_plan(package, mode):
     if app.stat().st_size > 0x700000 - 0x40000:
         raise ValueError("Insufficient application growth margin")
     model = package / "espdl_models/human_face_feat.espdl"
+    if mode == "speaker-model":
+        row = next((r for r in rows if r["name"] == "sv_model_3s"), {})
+        if (row.get("type"), row.get("subtype"), row.get("offset"), row.get("size"), row.get("flags")) != (1, 0x43, 0xc20000, 0x300000, 0):
+            raise ValueError("Wrong speaker partition")
+        voice = package / "espdl_models/sv_model_3s.espdl"
+        validate_voice_image(voice.read_bytes(), row["size"])
+        return [(row["offset"], voice)], table
     if mode == "application":
         return [(0x20000, app)], table
     if mode == "model" or metadata["recognition"]:
@@ -86,7 +94,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("package", type=Path)
     p.add_argument("--port", required=True, help="Explicit P4 port; never auto-select C6")
-    p.add_argument("--mode", choices=("application", "model", "full"), required=True)
+    p.add_argument("--mode", choices=("application", "model", "speaker-model", "full"), required=True)
     p.add_argument("--execute", action="store_true")
     p.add_argument("--authorize-layout-change", action="store_true")
     p.add_argument("--backup", type=Path, help="New private full-backup path, outside repository")
@@ -141,7 +149,7 @@ def main():
     for offset, file in files:
         verify.extend([hex(offset), str(file)])
     run(verify)
-    print("P4 USB writes verified. Profiles/voice partitions were not written; C6/eFuses untouched.")
+    print("P4 USB writes verified. Only the selected ranges were written; profile partition/C6/eFuses untouched.")
 
 
 if __name__ == "__main__":

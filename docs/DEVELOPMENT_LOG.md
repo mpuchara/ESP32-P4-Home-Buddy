@@ -1057,3 +1057,8 @@ microSD deployment instructions above. Full receipts: ITERATION6_REPORT.md.
 ## Iteration 8 continuation
 
 2026-10-24: iteration 8 continues 6dab65c on codex/local-face-recognition. Baseline CI 40118442005 succeeded. Installed 00272f7 remains untouched, preserving RAM enrollment. ITERATION8_REPORT.md separates candidate validation and physical gates.
+
+
+## Iteration 10, 2026-10-25
+
+Iteration 10 implements 0.9.0-dev foundations and fixes pre-dispatch audio Stop leaving busy latched. Added production-control-flow fault injection, optional isolated speaker provisioning and passive soak telemetry. No board writes or new physical acceptance. Final receipts: ITERATION10_REPORT.md.

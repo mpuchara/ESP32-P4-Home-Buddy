@@ -68,3 +68,8 @@ observations. The household UI therefore exposes no voice-registration button.
 Next gate is a local silence/speech receipt with both slots, DC/clipping/errors
 and simultaneous face/JPEG operation; only then measure pinned 3s preprocessing,
 model allocation/inference and voice-specific open-set thresholds on the P4.
+
+
+## Iteration 10, 2026-10-25
+
+Source-only assessment has advanced to a compiled checked 3s provider plus explicit diagnostic, optional USB image and synthetic safety tests. Real microphone/model inference, full numerical equivalence, heap peaks and speaker accuracy are not accepted. No 6s image, dependency upgrade or new partition. VOICE_RECOGNITION.md describes exact preprocessing and limitations.

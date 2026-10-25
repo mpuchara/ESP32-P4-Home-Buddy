@@ -98,3 +98,8 @@ signed recovery on equivalent hardware before authorizing that separate stage.
 ## Iteration 8 continuation
 
 Use application-only USB update after scheduling loss of RAM enrollment; no installation was automatic. Current helper rejects secured packages/devices and is not a signed/encrypted updater. Security can disable ROM OTG/DFU; exact Serial/JTAG or USB-UART recovery needs validation per SECURITY_PROVISIONING.md. No C6/OTA/security provisioning added.
+
+
+## Iteration 10, 2026-10-25
+
+Optional speaker image: prepare_voice_model.py validates pinned raw/PDL3 hashes. package_firmware.py --speaker-model PATH adds one 3s image. flash_usb.py --mode speaker-model dry-runs only 0xc20000 after exact subtype/size/label validation; --execute retains installed-table/security preflight. Application/full plans never automatically write the speaker image. Model/app USB writes restart and lose RAM profiles. See VOICE_RECOGNITION.md; no writes were performed.
