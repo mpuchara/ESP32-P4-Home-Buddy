@@ -35,6 +35,9 @@ int main(void)
         block[2 * i] = (int16_t)(i * 31 - 5000);
     assert(hb_audio_pcm(block, 640, 16000, output, 320, &s));
     assert(!s.suspicious && s.rms > 2000);
+    assert(hb_audio_pcm_slot(block, 640, 16000, 1, output, 320, &s));
+    assert(output[100] == block[201] && s.selected_slot == 1 && !s.right_suspicious);
+    assert(!hb_audio_pcm_slot(block, 640, 16000, 2, output, 320, &s));
     puts("Bounded PCM16, stereo-left routing, clipping, DC and format validation passed");
     return 0;
 }

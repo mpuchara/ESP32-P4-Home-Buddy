@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
+#ifdef HB_AUDIO_HOST_TEST
+#include "audio_platform.h"
+#else
 #include "board_p4_pins.h"
 #include "driver/i2c_master.h"
 #include "driver/i2s_std.h"
 #include "esp_codec_dev.h"
 #include "esp_codec_dev_defaults.h"
+#include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "hb_audio.h"
+#endif
 #include "hb_audio.h"
 #include <stdatomic.h>
 #include <stdio.h>
@@ -14,19 +21,29 @@
 static atomic_bool requested, busy;
 static atomic_uint dropped;
 static TaskHandle_t task;
+static unsigned selected_slot;
+static hb_audio_consumer consumer;
+static void *consumer_context;
 static portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;
+static portMUX_TYPE consumer_lock = portMUX_INITIALIZER_UNLOCKED;
+static portMUX_TYPE control_lock = portMUX_INITIALIZER_UNLOCKED;
 static hb_audio_status published;
 static bool overflow(i2s_chan_handle_t handle, i2s_event_data_t *event, void *context)
 {
     (void)handle;
     (void)context;
-    atomic_fetch_add(&dropped, event->size / 4);
+    atomic_fetch_add(&dropped, (unsigned)(event->size / 4));
     return false;
 }
 static void publish(hb_audio_status *s)
 {
     s->dropped_samples = atomic_load(&dropped);
     s->stack_min = uxTaskGetStackHighWaterMark(NULL);
+    s->internal_free = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    s->internal_largest =
+        (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    s->psram_free = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    s->psram_largest = (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
     portENTER_CRITICAL(&lock);
     published = *s;
     portEXIT_CRITICAL(&lock);
@@ -36,7 +53,12 @@ static void worker(void *unused)
     (void)unused;
     for (;;)
     {
-        if (!atomic_load(&requested))
+        portENTER_CRITICAL(&control_lock);
+        bool idle = !atomic_load(&requested);
+        if (idle)
+            atomic_store(&busy, false); // Stop may precede worker startup.
+        portEXIT_CRITICAL(&control_lock);
+        if (idle)
         {
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
@@ -131,13 +153,17 @@ static void worker(void *unused)
             ++s.errors;
         publish(&s);
         int64_t end = esp_timer_get_time() + 60000000;
-        int16_t stereo[640], mono[320];
+        int16_t stereo[640] = {0}, mono[320] = {0};
+        unsigned previous_dropped = 0;
+        int64_t last_log = 0;
         while (err == ESP_OK && atomic_load(&requested) && esp_timer_get_time() < end)
         {
             size_t bytes = 0;
             err = i2s_channel_read(rx, stereo, sizeof(stereo), &bytes, 100);
+            int64_t processing_start = esp_timer_get_time();
+            s.frame_end_us = (uint64_t)processing_start;
             if (err != ESP_OK || bytes % 4 ||
-                !hb_audio_pcm(stereo, bytes / 2, 16000, mono, 320, &s))
+                !hb_audio_pcm_slot(stereo, bytes / 2, 16000, selected_slot, mono, 320, &s))
             {
                 ++s.errors;
                 if (err == ESP_OK)
@@ -145,7 +171,33 @@ static void worker(void *unused)
                 snprintf(s.message, sizeof(s.message), "Błąd PCM: %s", esp_err_to_name(err));
             }
             else
+            {
                 ++s.frames;
+                publish(&s);
+                unsigned current_dropped = atomic_load(&dropped);
+                portENTER_CRITICAL(&consumer_lock);
+                if (consumer && atomic_load(&requested))
+                    consumer(mono, bytes / 4, 16000, s.frame_end_us,
+                             current_dropped != previous_dropped, consumer_context);
+                portEXIT_CRITICAL(&consumer_lock);
+                previous_dropped = current_dropped;
+            }
+            s.processing_us = (uint32_t)(esp_timer_get_time() - processing_start);
+            if (processing_start - last_log >= 1000000)
+            {
+                ESP_LOGI(
+                    "audio",
+                    "PCM slot=%u samples=%llu rms=%u peak=%u dc=%ld clip=%u repeat=%u other_rms=%u "
+                    "other_dc=%ld other_clip=%u other_repeat=%u errors=%u dropped=%u internal=%u "
+                    "largest=%u psram=%u largest_psram=%u stack=%u processing_us=%u",
+                    selected_slot, (unsigned long long)s.sample_count, (unsigned)s.rms,
+                    (unsigned)s.peak, (long)s.dc_offset, s.clipped, s.suspicious,
+                    (unsigned)s.right_rms, (long)s.right_dc_offset, (unsigned)s.right_clipped,
+                    s.right_suspicious, (unsigned)s.errors, atomic_load(&dropped),
+                    (unsigned)s.internal_free, (unsigned)s.internal_largest, (unsigned)s.psram_free,
+                    (unsigned)s.psram_largest, (unsigned)s.stack_min, (unsigned)s.processing_us);
+                last_log = processing_start;
+            }
             memset(stereo, 0, sizeof(stereo));
             memset(mono, 0, sizeof(mono));
             publish(&s);
@@ -172,17 +224,48 @@ static void worker(void *unused)
         atomic_store(&busy, false);
     }
 }
+void hb_audio_detach_consumer(hb_audio_consumer callback, void *context)
+{
+    portENTER_CRITICAL(&consumer_lock);
+    if (consumer == callback && consumer_context == context)
+    {
+        consumer = NULL;
+        consumer_context = NULL;
+    }
+    portEXIT_CRITICAL(&consumer_lock);
+}
+bool hb_audio_busy(void)
+{
+    return atomic_load(&busy);
+}
 esp_err_t hb_audio_start(void)
 {
-    bool expected = false;
-    if (!atomic_compare_exchange_strong(&busy, &expected, true))
+    return hb_audio_start_capture(0, NULL, NULL);
+}
+esp_err_t hb_audio_start_capture(unsigned slot, hb_audio_consumer callback, void *context)
+{
+    if (slot > 1)
+        return ESP_ERR_INVALID_ARG;
+    portENTER_CRITICAL(&control_lock);
+    if (atomic_load(&busy))
+    {
+        portEXIT_CRITICAL(&control_lock);
         return ESP_ERR_INVALID_STATE;
+    }
+    atomic_store(&busy, true);
+    selected_slot = slot;
+    portENTER_CRITICAL(&consumer_lock);
+    consumer = callback;
+    consumer_context = context;
+    portEXIT_CRITICAL(&consumer_lock);
+    atomic_store(&requested, true);
+    portEXIT_CRITICAL(&control_lock);
     if (!task && xTaskCreate(worker, "audio_diag", 6144, NULL, 1, &task) != pdPASS)
     {
+        atomic_store(&requested, false);
         atomic_store(&busy, false);
         return ESP_ERR_NO_MEM;
     }
-    atomic_store(&requested, true);
     return ESP_OK;
 }
 void hb_audio_stop(void)
