@@ -1,7 +1,8 @@
 # Iteration 12 implementation and validation
 
 Date: 2026-10-25. Firmware: **0.11.0-dev**. Branch: `codex/local-face-recognition`.
-Implementation commit: `b941f201811559f9d7b25befca74b13cdf2c620d`.
+Initial implementation commit: `b941f201811559f9d7b25befca74b13cdf2c620d`;
+final resource-admission follow-up is in the branch history and package source hash.
 The final documentation commit and exact package source are recorded by Git and the
 package's `usb-package.json`; no personal database is part of the package.
 
@@ -14,7 +15,7 @@ package's `usb-package.json`; no personal database is part of the package.
 | Automatic restore | Local startup validates both banks, restores newest valid generation, preserves names/IDs/flags/both modalities. Empty only when fully erased; errors never format |
 | AUTO | NVS preference read after restore; starts asynchronously only with enabled enrolled face profiles, independently of network/HA. Model failure keeps preference/templates, with three bounded load attempts and 30-second spacing |
 | Capacity | Eight people, fifteen face templates and four voice templates per person. Snapshot 312,416 B + header 256 B; 211,616 B headroom per 512 KiB bank |
-| Flash | Existing 1 MiB profiles at 0xb20000; unchanged offsets/table/model partitions. Local application size 4,501,904 B; 2,838,128 B factory headroom. Face PDL3 3,522,944 B in 4 MiB partition |
+| Flash | Existing 1 MiB profiles at 0xb20000; unchanged offsets/table/model partitions. Exact final application bytes/headroom are recorded in usb-package.json. Face PDL3 3,522,944 B in 4 MiB partition |
 | Memory | Bounded live + scratch snapshots: 624,832 B PSRAM. No snapshot-sized stack objects; same scratch for serialization, fingerprint, restore and migration. Actual on-board peak is NOT measured. Numeric restore/commit telemetry and global heap low watermarks prepared |
 | Corruption/power loss | SHA256 payload/header checks plus structural/model validation; older valid generation recovers after injected erase/write/payload/header/readback failures. Torn first initialization and dirty migration fail closed, preserving data |
 | USB | Application-only plan writes 0x20000 only, preserving NVS/profiles/models. Selected model plans also exclude profiles. Layout mismatch/full recovery safeguards retained; no chip erase or C6 write |

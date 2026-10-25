@@ -45,6 +45,8 @@ class ProductWiring(unittest.TestCase):
         self.assertLess(deletion.index('hb_household_voice_reconcile'), deletion.index('persistence_commit'))
         failure = service.split('if (r != HB_STORE_OK)', 1)[1].split('storage_dirty = false', 1)[0]
         self.assertNotIn('hb_profile_v2_restore', failure)  # Never lose new RAM templates on save failure.
+        self.assertIn('hb_compute_enter(1000)', service)
+        self.assertIn('~ComputeLease()', service)
         self.assertIn('HB_ID_CMD_RETRY_SAVE', ui)
         self.assertIn('s.persistence_message', ui)
         self.assertIn('s.saved_id == identity_selected &&', ui)

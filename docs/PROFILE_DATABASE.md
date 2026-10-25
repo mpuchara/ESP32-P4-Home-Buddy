@@ -46,7 +46,10 @@ reinterpretation as legacy. Physical migration only follows an approved installa
 ## Saving and recovery
 
 Only successful intentional household mutations request a save in the identity
-worker, outside LVGL callbacks. A canonical fingerprint excludes greeting/sample
+worker, outside LVGL callbacks. Hash/write/scrub work acquires the existing shared
+compute admission mutex with a bounded one-second wait; busy resources preserve RAM
+and report an explicit retry. Scope-based release covers both success and failure.
+A canonical fingerprint excludes greeting/sample
 counters and suppresses identical saves. Detection, scores, greetings, HA events and
 diagnostics never request profile writes. Face/voice staging remains atomic in RAM.
 

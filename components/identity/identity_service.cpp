@@ -240,11 +240,26 @@ static bool persistence_commit(hb_id_status &s, bool deletion)
     storage_dirty = true;
     cleanup_pending |= deletion;
     s.storage_saved = false;
-    if (!s.persistence_ready || !hb_config_biometric_notice())
+    if (!s.persistence_ready)
     {
         message(s, "Zmiany w RAM, niezapisane trwale. Sprawdź status bazy i zgodę.");
         return false;
     }
+    // Serialize storage hashing/Flash work with existing AI/voice resource owners.
+    if (!hb_compute_enter(1000))
+    {
+        snprintf(s.persistence_message, sizeof(s.persistence_message),
+                 "Zasoby zajęte. Zmiany w RAM; ponów zapis");
+        message(s, s.persistence_message);
+        return false;
+    }
+    struct ComputeLease
+    {
+        ~ComputeLease()
+        {
+            hb_compute_leave();
+        }
+    } lease;
     uint8_t digest[32];
     bool same = digest_valid && persistence_fingerprint(digest) &&
                 !memcmp(digest, durable_digest, sizeof(digest));
