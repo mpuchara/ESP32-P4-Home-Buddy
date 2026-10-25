@@ -117,3 +117,25 @@ The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
 HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
+
+## 0.8.0-dev product navigation
+
+Touch the photo to open Domownicy / Rozpoznawanie / Ustawienia / Informacje.
+Wróć do zdjęcia returns to UBox. Ordinary inactive menus close after 30 seconds;
+a visible keyboard, enrollment, deletion confirmation or pending save protects
+the current operation. Settings group Wi-Fi (including scan), UBox, Open-Meteo,
+display and Home Assistant. Wstecz returns to the containing section.
+
+Domownicy lists real stable-ID profiles. Add a name, choose Dalej, keep one face
+in the preview and vary head position gently. The worker collects eight valid,
+nonduplicate samples at least one second apart and verifies a fresh frame.
+Potwierdź zapis profilu performs the only biometric commit. The list refreshes
+automatically. A repeat enrollment stages fresh templates while preserving old
+committed templates until success. Rename and confirmed deletion are on the
+person page. Profiles remain temporary on the installed unprovisioned unit.
+
+Rozpoznawanie has explicit automatic on/off and a direct household link. It does
+not start biometric recognition merely by opening the page. AUTO has no ten-minute
+limit; the diagnostic TEST keeps that bound. Advanced tools, including microphone,
+recognition evaluation, JPEG/touch/camera and HA connection tests, are under
+Informacje > Diagnostyka zaawansowana. Microphone Start is always explicit.

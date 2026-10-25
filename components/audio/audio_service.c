@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include "board_p4_pins.h"
 #include "driver/i2c_master.h"
 #include "driver/i2s_std.h"
 #include "esp_codec_dev.h"
@@ -10,7 +11,7 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
-static atomic_bool requested;
+static atomic_bool requested, busy;
 static atomic_uint dropped;
 static TaskHandle_t task;
 static portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;
@@ -73,11 +74,14 @@ static void worker(void *unused)
         }
         if (err == ESP_OK)
         {
-            i2s_std_config_t cfg = {
-                .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(16000),
-                .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
-                                                                I2S_SLOT_MODE_STEREO),
-                .gpio_cfg = {.mclk = 13, .bclk = 12, .ws = 10, .dout = I2S_GPIO_UNUSED, .din = 9}};
+            i2s_std_config_t cfg = {.clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(16000),
+                                    .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(
+                                        I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
+                                    .gpio_cfg = {.mclk = BOARD_P4_I2S_MCLK,
+                                                 .bclk = BOARD_P4_I2S_BCLK,
+                                                 .ws = BOARD_P4_I2S_LRCK,
+                                                 .dout = I2S_GPIO_UNUSED,
+                                                 .din = BOARD_P4_I2S_DIN}};
             err = i2s_channel_init_std_mode(rx, &cfg);
             i2s_event_callbacks_t cb = {.on_recv_q_ovf = overflow};
             if (err == ESP_OK)
@@ -165,12 +169,19 @@ static void worker(void *unused)
         s.active = false;
         atomic_store(&requested, false);
         publish(&s);
+        atomic_store(&busy, false);
     }
 }
 esp_err_t hb_audio_start(void)
 {
+    bool expected = false;
+    if (!atomic_compare_exchange_strong(&busy, &expected, true))
+        return ESP_ERR_INVALID_STATE;
     if (!task && xTaskCreate(worker, "audio_diag", 6144, NULL, 1, &task) != pdPASS)
+    {
+        atomic_store(&busy, false);
         return ESP_ERR_NO_MEM;
+    }
     atomic_store(&requested, true);
     return ESP_OK;
 }

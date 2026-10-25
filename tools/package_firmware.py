@@ -37,6 +37,8 @@ for source_name, name in [
     ("docs/FLASH_MIGRATION.md", "docs/FLASH_MIGRATION.md"),
     ("docs/SINGLE_IMAGE_FLASH_LAYOUT.md", "docs/SINGLE_IMAGE_FLASH_LAYOUT.md"),
     ("docs/HOME_ASSISTANT_HTTP.md", "docs/HOME_ASSISTANT_HTTP.md"),
+    ("docs/ITERATION9_REPORT.md", "docs/ITERATION9_REPORT.md"),
+    ("docs/ITERATION9_VALIDATION.md", "docs/ITERATION9_VALIDATION.md"),
     ("docs/ITERATION8_REPORT.md", "docs/ITERATION8_REPORT.md"),
     ("docs/ITERATION8_ACCEPTANCE.md", "docs/ITERATION8_ACCEPTANCE.md"),
     ("docs/SECURITY_PROVISIONING.md", "docs/SECURITY_PROVISIONING.md"),

@@ -1,6 +1,6 @@
 # Experimental microphone diagnostic
 
-Implemented software; not physically accepted. Ustawienia > Rozpoznawanie >
+Implemented software; not physically accepted. Informacje > Diagnostyka zaawansowana >
 Mikrofon opens a passive page. Start explicitly enables a maximum 60-second test;
 Stop/leaving requests cleanup. No recording, HA audio, VAD or speaker inference.
 The separate worker remains idle afterwards, owning no camera or AI model.
@@ -14,8 +14,12 @@ originally in the [vendor package](https://pan.jczn1688.com/directlink/1/HMI%20d
 show analog MIC1 MSM381A3729H9CP to ES8311 MIC1P, MIC1N grounded through R11,
 and codec MICBIAS powering MIC1 through R16. Codec supply is 3.3 V; microphone
 power is bias, not a GPIO. Existing pinned BSP mapping: MCLK13/BCLK12/LRCK10,
-ASDOUT from codec to P4 GPIO9; codec DSDIN from GPIO48 is playback. Names are
-codec-relative. Installed variant/routing still needs physical confirmation.
+P4 DIN48 receives codec ASDOUT; P4 DOUT9 is the transmit/playback pin.
+The previous iteration-8 interpretation reversed the P4 directions and was wrong.
+Firmware now uses BOARD_P4_I2S_DIN rather than a literal. Sheet 01 identifies
+ASDOUT (codec pin 7) as the ADC output and DSDIN (pin 9) as the DAC input;
+sheet 05 identifies the analog MSM381A3729H9CP/MICBIAS route. GPIO direction is
+cross-checked against the pinned BSP constants, not inferred from codec pin names. Installed variant/routing still needs physical confirmation.
 
 Driver: pinned Espressif esp_codec_dev 1.6.2 and IDF 5.5.1 standard RX. Reuses
 I2C0 SDA7/SCL8 without recreating bus or resetting touch/camera. Reads FD/FE chip ID
@@ -53,3 +57,27 @@ implemented VAD; voice activity does not identify the speaker.
 The official P4 AFE exposes VAD; its model-partition defaults do not match this
 layout. Prefer a separately pinned low-cost VAD after resource/ROM compatibility
 checks; do not import the complete AFE or change partitions just for VAD.
+
+## Iteration 9 routing and signal admission
+
+Inspected the vendor-extracted sheets 01 and 05, the committed BSP pin map from
+324970bade0d1f4e52880fe8016580368bc1e06e and IDF 5.5.1
+`components/esp_driver_i2s/include/driver/i2s_std.h` (`din` = data input).
+Driver source is the pinned esp_codec_dev 1.6.2 `device/es8311/es8311.c`:
+ADC-only resume configures analog input (SYSTEM14, digital_mic=false), input
+power/bias (SYSTEM0D/14), ADC gain (ADC16) and volume (ADC17); SDPOUT0A controls
+ADC serial format. Its I2C adapter shifts the configured 0x30 address right one
+bit; the pre-write identity probe uses the seven-bit 0x18 address. No second bus,
+touch reset, speaker PA or playback is enabled. Close deletes codec/data/control
+interfaces and disables/deletes the RX channel. Start rejects another request
+while an earlier capture is starting/stopping, so cleanup cannot consume a new Start.
+
+Stereo DMA is deliberately retained for slot diagnostics. Left is the candidate
+mono stream, not a physically accepted channel assumption. The display also
+reports right-slot RMS/peak, signed left DC and processed sample count. If only
+the right slot responds to speech, capture is not accepted until its alignment
+is corrected using a real receipt. Constant zero/full scale and exact periods
+1..8 over at least four repeats are flagged as suspicious. Such a flag is a
+heuristic and can also mark a periodic test tone; it does not identify speech.
+RMS during silence is the observed noise level, not a calibrated noise floor.
+There is still no signal capture receipt from the installed hardware revision.

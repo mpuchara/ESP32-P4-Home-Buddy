@@ -22,6 +22,7 @@
 #include "hb_wifi.h"
 #include "identity_navigation.h"
 #include "lvgl.h"
+#include "product_menu.h"
 #include "screen_lifecycle.h"
 #include "ui_commands.h"
 #include <stdatomic.h>
@@ -85,7 +86,23 @@ static lv_obj_t *identity_info, *identity_choice, *identity_marks[5], *identity_
 static uint64_t identity_selected;
 static bool identity_screen;
 static bool recognition_settings;
-static lv_obj_t *audio_info;
+static lv_obj_t *audio_info, *audio_meter, *product_info, *enroll_progress;
+static lv_obj_t *product_states[5];
+static unsigned nav_group, back_group;
+static bool household_list, guided_enrollment, confirming, creating_profile;
+static uint64_t created_before, household_signature;
+static uint32_t create_started;
+static uint64_t profile_ids[HB_ID_PEOPLE];
+static bool enrollment_observed, resume_auto;
+static lv_obj_t *commit_button;
+static bool audio_testing;
+static lv_obj_t *brightness_manual, *brightness_day, *brightness_night;
+static void brightness_tuning(lv_event_t *e);
+static void settings_page(lv_event_t *e);
+static void information_page(lv_event_t *e);
+static void advanced_page(lv_event_t *e);
+static void profile_page(lv_event_t *e);
+static void return_parent(lv_event_t *e);
 static bool identity_saver_intent;
 static uint32_t identity_tick;
 static void identity_page(lv_event_t *e);
@@ -145,7 +162,11 @@ static lv_obj_t *button(lv_obj_t *parent, const char *text, int x, int y, int wi
     lv_obj_t *b = lv_btn_create(parent);
     lv_obj_set_pos(b, x, y);
     lv_obj_set_size(b, width, 48);
-    label(b, text, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_t *caption = label(b, text, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_width(caption, width - 24);
+    lv_obj_set_height(caption, 28);
+    lv_label_set_long_mode(caption, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_align(caption, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, user);
     return b;
 }
@@ -155,6 +176,7 @@ static void return_menu(lv_event_t *event)
     if (critical)
         return;
     close_page();
+    nav_group = 0;
     in_menu = true;
     last_touch = lv_tick_get();
     lv_scr_load(menu);
@@ -162,6 +184,7 @@ static void return_menu(lv_event_t *event)
 static void open_menu(lv_event_t *event)
 {
     (void)event;
+    nav_group = 0;
     in_menu = true;
     last_touch = lv_tick_get();
     lv_scr_load(menu);
@@ -184,10 +207,22 @@ static void close_page(void)
         ESP_LOGI("identity_ui", "close identity screen stack_min=%u",
                  (unsigned)uxTaskGetStackHighWaterMark(NULL));
         hb_id_command stop = {.type = HB_ID_CMD_CANCEL};
+        // Cancellation is admitted outside the bounded queue and invalidates stale work.
         hb_identity_command(&stop);
+        if (resume_auto)
+        {
+            hb_id_command resume = {.type = HB_ID_CMD_AUTO};
+            hb_identity_command(&resume);
+        }
     }
     identity_screen = false;
+    resume_auto = false;
     recognition_settings = false;
+    household_list = guided_enrollment = confirming = creating_profile = false;
+    product_info = audio_meter = enroll_progress = commit_button = NULL;
+    memset(product_states, 0, sizeof(product_states));
+    brightness_manual = brightness_day = brightness_night = NULL;
+    audio_testing = false;
     hb_audio_stop();
     audio_info = NULL;
     identity_saver_intent = false;
@@ -237,6 +272,23 @@ static void close_page(void)
     keyboard = NULL;
     memset(&editor, 0, sizeof(editor));
 }
+static void brightness_visibility(void)
+{
+    if (!brightness_manual)
+        return;
+    if (brightness_editor.mode == HB_BRIGHT_AUTO)
+    {
+        lv_obj_add_flag(brightness_manual, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(brightness_day, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(brightness_night, LV_OBJ_FLAG_HIDDEN);
+    }
+    else
+    {
+        lv_obj_clear_flag(brightness_manual, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(brightness_day, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(brightness_night, LV_OBJ_FLAG_HIDDEN);
+    }
+}
 static void brightness_sync_mode(void)
 {
     hb_brightness_config live;
@@ -253,6 +305,7 @@ static void brightness(lv_event_t *e)
     if (brightness_editor.mode == HB_BRIGHT_AUTO || calibration)
         brightness_editor.mode = HB_BRIGHT_MANUAL;
     hb_brightness_apply(&brightness_editor);
+    brightness_visibility();
 }
 static void focus(lv_event_t *e)
 {
@@ -295,7 +348,8 @@ static void page_base(const char *title)
     close_page();
     page = screen();
     label(page, title, LV_ALIGN_TOP_LEFT, 20, 18);
-    button(page, "Powrót", 650, 8, 130, return_menu, NULL);
+    back_group = nav_group;
+    button(page, "Wstecz", 650, 8, 130, return_parent, NULL);
     keyboard = lv_keyboard_create(page);
     lv_obj_set_size(keyboard, 800, 170);
     lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
@@ -318,6 +372,10 @@ static void identity_send(lv_event_t *e)
 {
     hb_id_command command = {.type = (hb_id_command_type)(uintptr_t)lv_event_get_user_data(e),
                              .person_id = identity_selected};
+    if (command.type == HB_ID_CMD_SAVE && commit_button)
+        lv_obj_add_state(commit_button, LV_STATE_DISABLED);
+    if (command.type == HB_ID_CMD_BEGIN)
+        command.guided = true;
     if (field[0])
         snprintf(command.name, sizeof(command.name), "%s", lv_textarea_get_text(field[0]));
     bool accepted = hb_identity_command(&command) == ESP_OK;
@@ -326,6 +384,8 @@ static void identity_send(lv_event_t *e)
         form_error("Polecenie nieprzyjęte. Spróbuj ponownie.");
     else
     {
+        if (command.type == HB_ID_CMD_STOP)
+            resume_auto = false;
         if (keyboard)
             lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
         if (command.type == HB_ID_CMD_BACKGROUND)
@@ -339,6 +399,8 @@ static void audio_start(lv_event_t *e)
     (void)e;
     if (hb_audio_start() != ESP_OK)
         form_error("Nie można uruchomić mikrofonu");
+    else
+        audio_testing = true;
 }
 static void audio_stop(lv_event_t *e)
 {
@@ -351,6 +413,10 @@ static void audio_page(lv_event_t *e)
     page_base("Mikrofon: diagnostyka");
     button(page, "Uruchom test 60 s", 24, 70, 350, audio_start, NULL);
     button(page, "Stop", 400, 70, 230, audio_stop, NULL);
+    audio_meter = lv_bar_create(page);
+    lv_obj_set_pos(audio_meter, 24, 120);
+    lv_obj_set_size(audio_meter, 745, 18);
+    lv_bar_set_range(audio_meter, 0, 32768);
     audio_info = label(page, "Test wyłączony. Dźwięk pozostaje lokalny; bez zapisu i wysyłania.",
                        LV_ALIGN_TOP_LEFT, 24, 150);
     lv_obj_set_width(audio_info, 745);
@@ -360,20 +426,15 @@ static void recognition_page(lv_event_t *e)
     (void)e;
     page_base("Rozpoznawanie");
     recognition_settings = true;
-    button(page, "Wyłączone / Stop", 24, 70, 230, identity_send, (void *)(uintptr_t)HB_ID_CMD_STOP);
-    button(page, "Test na 10 minut", 282, 70, 230, identity_send,
-           (void *)(uintptr_t)HB_ID_CMD_BACKGROUND);
-    button(page, "Włącz AUTO", 540, 70, 230, identity_send, (void *)(uintptr_t)HB_ID_CMD_AUTO);
-    button(page, "Ocena dokładności", 24, 135, 300, identity_page, (void *)2);
-    button(page, "Mikrofon", 400, 135, 230, audio_page, NULL);
-    identity_info = label(page, "Oczekiwanie na stan", LV_ALIGN_TOP_LEFT, 24, 205);
-    lv_obj_set_height(identity_info, 165);
-    lv_label_set_long_mode(identity_info, LV_LABEL_LONG_DOT);
+    button(page, "Wyłącz", 24, 78, 350, identity_send, (void *)(uintptr_t)HB_ID_CMD_STOP);
+    button(page, "Włącz automatyczne", 412, 78, 364, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_AUTO);
+    button(page, "Dodaj domownika", 24, 350, 350, household_page, NULL);
+    identity_info = label(page, "Oczekiwanie na stan", LV_ALIGN_TOP_LEFT, 24, 160);
     lv_obj_set_width(identity_info, 745);
-    page_error = label(page, "AUTO wymaga świadomego włączenia. Profile RAM znikają po restarcie.",
-                       LV_ALIGN_TOP_LEFT, 24, 380);
-    lv_obj_set_width(page_error, 745);
-    button(page, "Wygaszacz", 590, 420, 190, close_menu, NULL);
+    lv_obj_set_pos(page_error, 24, 410);
+    lv_label_set_text(page_error, "Rozpoznawanie włączasz świadomie na tym urządzeniu.");
+    lv_scr_load(page);
 }
 static void identity_guest(lv_event_t *e)
 {
@@ -382,100 +443,160 @@ static void identity_guest(lv_event_t *e)
     if (hb_identity_command(&command) != ESP_OK)
         form_error("Polecenie nieprzyjęte");
 }
-static void identity_select(lv_event_t *e)
+static uint64_t profile_signature(const hb_id_status *s)
 {
-    (void)e;
-    hb_id_status s;
-    hb_identity_get(&s);
-    unsigned index = lv_dropdown_get_selected(identity_choice);
-    identity_selected = index < s.profile_count ? s.profiles[index].id : 0;
-    if (index < s.profile_count && field[0])
-        lv_textarea_set_text(field[0], s.profiles[index].name);
+    uint64_t hash = s->profile_count;
+    for (unsigned i = 0; i < s->profile_count; ++i)
+    {
+        hash = hash * 31 + s->profiles[i].id + s->profiles[i].samples;
+        for (const unsigned char *p = (const unsigned char *)s->profiles[i].name; *p; ++p)
+            hash = hash * 31 + *p;
+    }
+    return hash;
 }
 static void identity_delete(lv_event_t *e)
 {
     (void)e;
     uint64_t id = identity_selected;
-    page_base("Usuń domownika i wszystkie jego próbki?");
+    page_base("Usunąć domownika?");
     identity_selected = id;
-    label(page, "Potwierdzenie usuwa profil z pamięci RAM.", LV_ALIGN_TOP_LEFT, 24, 120);
+    confirming = true;
+    label(page, "Usuniesz profil i wszystkie jego próbki.", LV_ALIGN_TOP_LEFT, 24, 120);
     button(page, "Potwierdzam usunięcie", 24, 200, 350, identity_send,
            (void *)(uintptr_t)HB_ID_CMD_DELETE);
     button(page, "Anuluj", 420, 200, 300, household_page, NULL);
+    identity_info = label(page, "", LV_ALIGN_TOP_LEFT, 24, 270);
+    lv_scr_load(page);
+}
+static void add_person(lv_event_t *e)
+{
+    (void)e;
+    page_base("Dodaj domownika");
+    field[0] = input(page, "Imię", "", 60, false, 100);
+    button(page, "Dalej: rejestracja twarzy", 24, 200, 420, profile_page, (void *)1);
     lv_scr_load(page);
 }
 static void household_page(lv_event_t *e)
 {
     (void)e;
-    ESP_LOGI("identity_ui", "open household screen stack_min=%u",
-             (unsigned)uxTaskGetStackHighWaterMark(NULL));
     page_base("Domownicy");
-    diagnostic = true; // Keep an unfinished name edit open.
+    nav_group = 4;
+    back_group = 0;
+    household_list = true;
     hb_identity_start();
     hb_id_status s;
     hb_identity_get(&s);
-    label(page, s.persistence_ready ? "Chroniony Flash" : "RAM-only: dane znikają po restarcie",
-          LV_ALIGN_TOP_LEFT, 24, 45);
-    char options[HB_ID_PEOPLE * (HB_ID_NAME + 12)] = "";
+    household_signature = profile_signature(&s);
+    label(page, "Profile tymczasowe - znikną po restarcie.", LV_ALIGN_TOP_LEFT, 24, 52);
+    // The installed device is RAM-only; secure storage has no physical acceptance yet.
+    lv_obj_t *list = lv_obj_create(page);
+    lv_obj_set_pos(list, 24, 90);
+    lv_obj_set_size(list, 752, 244);
+    lv_obj_set_style_bg_color(list, lv_color_hex(0x10171c), 0);
+    lv_obj_set_scroll_dir(list, LV_DIR_VER);
     for (unsigned i = 0; i < s.profile_count; ++i)
     {
-        char row[HB_ID_NAME + 12];
-        snprintf(row, sizeof(row), "%s%s (%u)", i ? "\n" : "", s.profiles[i].name,
-                 s.profiles[i].samples);
-        strncat(options, row, sizeof(options) - strlen(options) - 1);
+        char row[HB_ID_NAME + 48];
+        snprintf(row, sizeof(row), "%s     %s", s.profiles[i].name,
+                 s.profiles[i].samples ? "Twarz: gotowa" : "Brak rejestracji");
+        profile_ids[i] = s.profiles[i].id;
+        button(list, row, 0, i * 60, 700, profile_page, (void *)(uintptr_t)(i + 2));
     }
-    identity_choice = lv_dropdown_create(page);
-    lv_obj_set_pos(identity_choice, 24, 70);
-    lv_obj_set_width(identity_choice, 745);
-    lv_obj_set_style_text_color(identity_choice, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(identity_choice, lv_color_white(), LV_PART_MAIN);
-    lv_obj_set_style_text_color(lv_dropdown_get_list(identity_choice), lv_color_black(),
-                                LV_PART_MAIN);
-    lv_obj_set_style_bg_color(lv_dropdown_get_list(identity_choice), lv_color_white(),
-                              LV_PART_MAIN);
-    lv_dropdown_set_options(identity_choice, options[0] ? options : "Brak domowników");
-    lv_obj_add_event_cb(identity_choice, identity_select, LV_EVENT_VALUE_CHANGED, NULL);
-    identity_selected = s.profile_count ? s.profiles[0].id : 0;
-    field[0] =
-        input(page, "Nazwa domownika", s.profile_count ? s.profiles[0].name : "", 60, false, 140);
-    button(page, "Potwierdź dodanie", 24, 200, 230, identity_send,
-           (void *)(uintptr_t)HB_ID_CMD_CREATE);
-    button(page, "Zmień nazwę", 282, 200, 230, identity_send, (void *)(uintptr_t)HB_ID_CMD_RENAME);
-    button(page, "Usuń domownika", 540, 200, 230, identity_delete, NULL);
-    button(page, "Rejestruj próbki", 24, 260, 230, identity_page, (void *)1);
-    button(page, "Odśwież listę", 282, 260, 230, household_page, NULL);
-    button(page, "Test rozpoznawania", 540, 260, 230, identity_page, (void *)2);
-    lv_obj_set_pos(page_error, 24, 390);
-    identity_info = label(page, s.message, LV_ALIGN_TOP_LEFT, 24, 335);
+    if (!s.profile_count)
+        label(list, "Dodaj pierwszego domownika.", LV_ALIGN_TOP_LEFT, 0, 0);
+    button(page, "+ Dodaj domownika", 24, 356, 420, add_person, NULL);
+    lv_scr_load(page);
+}
+static void profile_page(lv_event_t *e)
+{
+    unsigned action = (uintptr_t)lv_event_get_user_data(e);
+    uint64_t id = action >= 2 && action - 2 < HB_ID_PEOPLE ? profile_ids[action - 2] : 0;
+    // Add workflow waits for the worker receipt; no profile index/name guessing.
+    if (action == 1 && field[0])
+    {
+        if (creating_profile)
+            return;
+        hb_id_status s;
+        hb_identity_get(&s);
+        hb_id_command c = {.type = HB_ID_CMD_CREATE};
+        snprintf(c.name, sizeof(c.name), "%s", lv_textarea_get_text(field[0]));
+        if (hb_identity_command(&c) != ESP_OK)
+        {
+            form_error("Nie można przyjąć polecenia. Spróbuj ponownie.");
+            return;
+        }
+        created_before = s.created_id;
+        creating_profile = true;
+        create_started = lv_tick_get();
+        lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+        form_error("Przygotowywanie profilu...");
+        return;
+    }
+    page_base("Domownik");
+    identity_selected = id;
+    hb_id_status s;
+    hb_identity_get(&s);
+    const char *name = "";
+    unsigned samples = 0;
+    for (unsigned i = 0; i < s.profile_count; ++i)
+        if (s.profiles[i].id == id)
+        {
+            name = s.profiles[i].name;
+            samples = s.profiles[i].samples;
+        }
+    label(page, samples ? "Twarz: zarejestrowana" : "Twarz: brak rejestracji", LV_ALIGN_TOP_LEFT,
+          24, 70);
+    field[0] = input(page, "Imię", name, 60, false, 130);
+    button(page, "Zmień nazwę", 24, 210, 350, identity_send, (void *)(uintptr_t)HB_ID_CMD_RENAME);
+    button(page, "Uzupełnij rejestrację", 412, 210, 364, identity_page, (void *)1);
+    button(page, "Usuń domownika", 24, 280, 350, identity_delete, NULL);
+    identity_info = label(page, "", LV_ALIGN_TOP_LEFT, 24, 360);
     lv_obj_set_width(identity_info, 745);
     lv_scr_load(page);
 }
 static void identity_page(lv_event_t *e)
 {
     bool enroll = e && (uintptr_t)lv_event_get_user_data(e) == 1;
+    hb_id_status previous;
+    hb_identity_get(&previous);
+    bool restore = resume_auto || previous.auto_enabled;
     uint64_t id = identity_selected;
     ESP_LOGI("identity_ui", "open identity screen enroll=%d stack_min=%u", enroll,
              (unsigned)uxTaskGetStackHighWaterMark(NULL));
-    page_base(enroll ? "Rejestracja twarzy: 8-15 różnych próbek"
-                     : "Rozpoznawanie twarzy: eksperyment");
+    page_base(enroll ? "Rejestracja twarzy" : "Rozpoznawanie twarzy: eksperyment");
     identity_selected = id;
     identity_screen = true;
+    resume_auto = restore;
+    guided_enrollment = enroll;
+    enrollment_observed = false;
     diagnostic = true;
-    hb_id_command start = {.type = enroll ? HB_ID_CMD_BEGIN : HB_ID_CMD_TEST, .person_id = id};
+    hb_id_command start = {
+        .type = enroll ? HB_ID_CMD_BEGIN : HB_ID_CMD_TEST, .person_id = id, .guided = enroll};
     if (hb_identity_command(&start) != ESP_OK)
         form_error("Nie można uruchomić sesji");
     hb_id_command expected = {.type = HB_ID_CMD_EXPECTED, .person_id = id};
     hb_identity_command(&expected);
-    button(page, enroll ? "Pobierz próbkę" : "Oceń próbę", 205, 68, 180, identity_send,
-           (void *)(uintptr_t)(enroll ? HB_ID_CMD_SAMPLE : HB_ID_CMD_EVALUATE));
-    button(page, enroll ? "Weryfikuj" : "Gość", 398, 68, 180,
-           enroll ? identity_send : identity_guest, (void *)(uintptr_t)HB_ID_CMD_VERIFY);
-    button(page, enroll ? "Potwierdź zapis" : "Wybrana osoba", 590, 68, 190, identity_send,
-           (void *)(uintptr_t)(enroll ? HB_ID_CMD_SAVE : HB_ID_CMD_EXPECTED));
-    button(page, "Test", 205, 125, 180, identity_send, (void *)(uintptr_t)HB_ID_CMD_TEST);
-    button(page, "MSR / ESPDet", 398, 125, 180, identity_send,
-           (void *)(uintptr_t)HB_ID_CMD_LANDMARK_METHOD);
-    button(page, "Stop", 590, 125, 190, identity_send, (void *)(uintptr_t)HB_ID_CMD_STOP);
+    if (enroll)
+    {
+        enroll_progress = lv_bar_create(page);
+        lv_obj_set_pos(enroll_progress, 205, 90);
+        lv_obj_set_size(enroll_progress, 575, 24);
+        lv_bar_set_range(enroll_progress, 0, HB_ID_MIN_SAMPLES);
+        commit_button = button(page, "Potwierdź zapis profilu", 205, 320, 575, identity_send,
+                               (void *)(uintptr_t)HB_ID_CMD_SAVE);
+        lv_obj_add_state(commit_button, LV_STATE_DISABLED);
+    }
+    else
+    {
+        button(page, "Oceń próbę", 205, 68, 180, identity_send,
+               (void *)(uintptr_t)HB_ID_CMD_EVALUATE);
+        button(page, "Gość", 398, 68, 180, identity_guest, NULL);
+        button(page, "Wybrana osoba", 590, 68, 190, identity_send,
+               (void *)(uintptr_t)HB_ID_CMD_EXPECTED);
+        button(page, "MSR / ESPDet", 398, 125, 180, identity_send,
+               (void *)(uintptr_t)HB_ID_CMD_LANDMARK_METHOD);
+        button(page, "Stop", 590, 125, 190, identity_send, (void *)(uintptr_t)HB_ID_CMD_STOP);
+    }
     preview_pixels = heap_caps_calloc(180 * 318, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (preview_pixels)
     {
@@ -507,8 +628,9 @@ static void identity_page(lv_event_t *e)
     lv_obj_set_pos(page_error, 205, 390);
     lv_obj_set_width(page_error, 575);
     lv_label_set_text(page_error, "RAM-only. Progi niekalibrowane.");
-    button(page, "Włącz tło na 10 min", 205, 420, 280, identity_send,
-           (void *)(uintptr_t)HB_ID_CMD_BACKGROUND);
+    if (!enroll)
+        button(page, "Włącz tło na 10 min", 205, 420, 280, identity_send,
+               (void *)(uintptr_t)HB_ID_CMD_BACKGROUND);
     // Deliberate background start followed by saver preserves this independent session.
     button(page, "Wygaszacz UBox", 500, 420, 280, close_menu, NULL);
     lv_scr_load(page);
@@ -520,6 +642,64 @@ static void identity_update(void)
     identity_tick = lv_tick_get();
     hb_id_status s;
     hb_identity_get(&s);
+    if (creating_profile)
+    {
+        if (s.created_id && s.created_id != created_before)
+        {
+            identity_selected = s.created_id;
+            creating_profile = false;
+            lv_event_t event = {.user_data = (void *)1};
+            identity_page(&event);
+            return;
+        }
+        if ((uint32_t)(lv_tick_get() - create_started) > 5000)
+        {
+            creating_profile = false;
+            form_error("Nie dodano profilu. Sprawdź imię i liczbę domowników.");
+        }
+    }
+    if (household_list && household_signature != profile_signature(&s))
+    {
+        household_page(NULL);
+        return;
+    }
+    if (confirming && s.deleted_id == identity_selected)
+    {
+        household_page(NULL);
+        return;
+    }
+    if (guided_enrollment && s.mode == HB_ID_ENROLL)
+        enrollment_observed = true;
+    if (guided_enrollment && enrollment_observed && s.saved_id == identity_selected &&
+        s.mode != HB_ID_ENROLL)
+    {
+        household_page(NULL);
+        return;
+    }
+    if (product_info)
+    {
+        hb_camera_status camera;
+        hb_camera_get_status(&camera);
+        hb_ha_status ha;
+        hb_ha_get_status(&ha);
+        lv_label_set_text(product_info, "Home Buddy | firmware 0.8.0-dev");
+        const char *names[] = {"Wi-Fi", "UBox", "Kamera", "Rozpoznawanie", "Home Assistant"};
+        const char *values[] = {network_state, image.data ? "Obraz dostępny" : "Oczekiwanie",
+                                camera.running ? "Dostępna" : "Oczekiwanie",
+                                s.mode == HB_ID_AUTO && s.ready ? "Aktywne"
+                                                                : "Wyłączone / oczekiwanie",
+                                hb_ha_result_text(ha.result)};
+        bool good[] = {strstr(network_state, "IP ") != NULL ||
+                           strstr(network_state, "Połączono") != NULL,
+                       image.data != NULL, camera.running, s.mode == HB_ID_AUTO && s.ready,
+                       ha.result == HB_HA_HOST_OK || ha.result == HB_HA_DELIVERED};
+        for (unsigned i = 0; i < 5; ++i)
+        {
+            lv_label_set_text_fmt(product_states[i], "%s: %s", names[i], values[i]);
+            lv_obj_set_style_text_color(product_states[i],
+                                        lv_color_hex(good[i] ? 0x71dba2 : 0xb5bdc4), 0);
+        }
+    }
     if (!in_menu && !hb_ui_image_is_test())
     {
         char name[HB_ID_NAME];
@@ -530,37 +710,42 @@ static void identity_update(void)
     {
         hb_audio_status a;
         hb_audio_get(&a);
+        if (a.frames || a.errors)
+            audio_testing = a.active;
+        lv_bar_set_value(audio_meter, a.rms, LV_ANIM_OFF);
         lv_label_set_text_fmt(
             audio_info,
             "%s | układ: %s\nPCM mono: %u Hz | RMS %u peak %u clip %u\n"
-            "Bufor aplikacji: %u B | DMA: %u B\nRamki: %u | błędy: %u | utracone próbki: %u\n%s",
+            "Bufor: %u B | DMA: %u B\nRamki: %u | błędy: %u | utracone: %u\n"
+            "DC: %ld | prawy RMS/peak: %u/%u | próbki: %llu\n%s",
             a.active ? "AKTYWNY" : "Wyłączony", a.available ? "dostępny" : "niezweryfikowany",
             (unsigned)a.sample_rate, (unsigned)a.rms, (unsigned)a.peak, a.clipped,
             (unsigned)a.app_bytes, (unsigned)a.dma_bytes, (unsigned)a.frames, (unsigned)a.errors,
-            (unsigned)a.dropped_samples, a.message);
+            (unsigned)a.dropped_samples, (long)a.dc_offset, (unsigned)a.right_rms,
+            (unsigned)a.right_peak, (unsigned long long)a.sample_count,
+            a.suspicious ? "Sygnał podejrzany: stały lub powtarzalny" : a.message);
     }
     if (!identity_info)
         return;
     if (recognition_settings)
     {
-        const char *mode = s.mode == HB_ID_AUTO                                 ? "AUTO aktywne"
-                           : s.mode == HB_ID_BACKGROUND || s.mode == HB_ID_TEST ? "TEST aktywny"
-                           : s.mode == HB_ID_ENROLL                             ? "Rejestracja"
-                                                    : "Wyłączone / oczekiwanie";
+        const char *mode = !s.usable_profiles                ? "Oczekiwanie na domowników"
+                           : s.mode == HB_ID_AUTO && s.ready ? "Aktywne"
+                           : s.mode == HB_ID_AUTO            ? "Niedostępne / uruchamianie"
+                                                             : "Wyłączone";
         lv_label_set_text_fmt(identity_info,
-                              "%s | zgoda AUTO: %s\nDomownicy: %u (gotowi: %u) | MBF: %s\n"
-                              "Ostatni wynik: %s\n%s\nOstatni błąd: %s",
-                              mode, s.auto_enabled ? "TAK" : "NIE", s.profile_count,
-                              s.usable_profiles, s.ready ? "załadowany" : "niezaładowany",
-                              s.last_recognized_ms ? s.last_recognized : "brak",
-                              s.persistence_ready ? "Profile: chroniony Flash"
-                                                  : "RAM-only: profile znikają po restarcie",
-                              s.last_error[0] ? s.last_error : "brak");
+                              "Automatyczne rozpoznawanie: %s\nStatus: %s\nDomownicy: %u\nOstatnio "
+                              "rozpoznano: %s\nModel: %s\n%s",
+                              s.auto_enabled ? "Włączone" : "Wyłączone", mode, s.profile_count,
+                              s.last_recognized_ms ? s.last_recognized : "Brak",
+                              s.ready ? "Dostępny" : "Niezaładowany",
+                              s.usable_profiles ? ""
+                                                : "Dodaj domownika, aby rozpocząć rozpoznawanie.");
         return;
     }
     if (!identity_screen)
     {
-        lv_label_set_text_fmt(identity_info, "%s\n%s", s.message, s.persistence_message);
+        lv_label_set_text(identity_info, s.message);
         return;
     }
     const char *states[] = {"UNAVAILABLE", "UNKNOWN", "AMBIGUOUS", "KNOWN"};
@@ -590,7 +775,24 @@ static void identity_update(void)
              s.evaluation.false_reject, s.evaluation.confusion, s.evaluation.unknown_trials,
              s.evaluation.unknown_accept, s.evaluation.unknown_reject, s.evaluation.ambiguous,
              s.evaluation.unavailable, s.message);
-    lv_label_set_text(identity_info, text);
+    if (guided_enrollment)
+    {
+        lv_label_set_text_fmt(
+            identity_info, "Rejestracja twarzy: %u/%u próbek\n%s\n%s", s.samples, HB_ID_MIN_SAMPLES,
+            s.faces > 1  ? "W kadrze może być tylko jedna osoba."
+            : s.verified ? "Weryfikacja zakończona. Potwierdź zapis."
+                         : "Spójrz w kamerę. Zmieniaj lekko ułożenie głowy.",
+            s.samples >= HB_ID_MIN_SAMPLES && !s.verified ? "Poczekaj na weryfikację nową klatką."
+                                                          : "");
+        lv_bar_set_value(enroll_progress, s.samples, LV_ANIM_OFF);
+        if (s.verified)
+            lv_obj_clear_state(commit_button, LV_STATE_DISABLED);
+        else
+            lv_obj_add_state(commit_button, LV_STATE_DISABLED);
+        lv_label_set_text(page_error, "Profile tymczasowe - znikną po restarcie.");
+    }
+    else
+        lv_label_set_text(identity_info, text);
     if (preview_pixels)
     {
         hb_id_status preview;
@@ -779,6 +981,7 @@ static void show_form(void)
     lv_obj_t *fields = lv_obj_create(page);
     lv_obj_set_pos(fields, 12, 70);
     lv_obj_set_size(fields, 776, 226);
+    lv_obj_set_scroll_dir(fields, LV_DIR_VER);
     lv_obj_set_style_bg_color(fields, lv_color_hex(0x10171c), 0);
     lv_obj_set_style_pad_all(fields, 8, 0);
     char number[16];
@@ -1054,6 +1257,7 @@ static void brightness_mode(lv_event_t *e)
         hb_brightness_begin_override(&brightness_editor);
     else
         hb_brightness_apply(&brightness_editor);
+    brightness_visibility();
 }
 static void calibrate(lv_event_t *e)
 {
@@ -1115,6 +1319,7 @@ static void brightness_options(lv_event_t *e)
             brightness_editor.sample_seconds = seconds[option];
     }
     hb_brightness_apply(&brightness_editor);
+    brightness_visibility();
 }
 static void fallback_changed(lv_event_t *e)
 {
@@ -1123,6 +1328,7 @@ static void fallback_changed(lv_event_t *e)
     brightness_sync_mode();
     brightness_editor.fallback_pwm = (uint32_t)lv_slider_get_value(lv_event_get_target(e));
     hb_brightness_apply(&brightness_editor);
+    brightness_visibility();
 }
 static void brightness_page(lv_event_t *e)
 {
@@ -1134,6 +1340,7 @@ static void brightness_page(lv_event_t *e)
     button(page, "MANUAL", 200, 70, 160, brightness_mode, (void *)HB_BRIGHT_MANUAL);
     button(page, "TYMCZASOWO 5 min", 376, 70, 270, brightness_mode, (void *)HB_BRIGHT_OVERRIDE);
     lv_obj_t *slider = lv_slider_create(page);
+    brightness_manual = slider;
     lv_obj_set_pos(slider, 24, 150);
     lv_obj_set_size(slider, 620, 22);
     lv_slider_set_range(slider, 26, 255);
@@ -1142,9 +1349,19 @@ static void brightness_page(lv_event_t *e)
     pwm_info = label(page, "PWM", LV_ALIGN_TOP_LEFT, 670, 140);
     brightness_info = label(page, "", LV_ALIGN_TOP_LEFT, 24, 192);
     lv_obj_set_width(brightness_info, 750);
-    button(page, "Kalibruj dzień", 24, 250, 220, calibrate, (void *)1);
-    button(page, "Kalibruj noc", 262, 250, 220, calibrate, (void *)2);
+    brightness_day = button(page, "Kalibruj dzień", 24, 250, 220, calibrate, (void *)1);
+    brightness_night = button(page, "Kalibruj noc", 262, 250, 220, calibrate, (void *)2);
     button(page, "Zapisz", 500, 250, 270, save_brightness, NULL);
+    brightness_visibility();
+    button(page, "Ustawienia pomiaru", 24, 355, 420, brightness_tuning, NULL);
+    lv_scr_load(page);
+}
+static void brightness_tuning(lv_event_t *e)
+{
+    (void)e;
+    page_base("Ustawienia pomiaru jasności");
+    back_group = 5;
+    hb_brightness_get(&brightness_editor, NULL);
     label(page, "Pomiar", LV_ALIGN_TOP_LEFT, 24, 355);
     lv_obj_t *interval = lv_dropdown_create(page);
     lv_obj_set_pos(interval, 115, 345);
@@ -1171,9 +1388,10 @@ static void brightness_page(lv_event_t *e)
     lv_slider_set_range(fallback, 26, 255);
     lv_slider_set_value(fallback, brightness_editor.fallback_pwm, LV_ANIM_OFF);
     lv_obj_add_event_cb(fallback, fallback_changed, LV_EVENT_VALUE_CHANGED, NULL);
-    form_error("Wartości ujemne są prawidłowe. Noc kalibruj bez latarki.");
+    button(page, "Zapisz", 500, 250, 270, save_brightness, NULL);
     lv_scr_load(page);
 }
+
 static void camera_brightness_update(void)
 {
     if (!camera_info && !brightness_info && !monitor_info && !quality_info)
@@ -1372,7 +1590,11 @@ static void camera_brightness_update(void)
                                                               : "niepełna / zbyt bliskie punkty",
                  brightness_editor.day.valid ? "zapisany" : "brak",
                  brightness_editor.night.valid ? "zapisany" : "brak");
-        lv_label_set_text(brightness_info, text);
+        lv_label_set_text_fmt(
+            brightness_info, "Jasność: %s | Kalibracja: %s",
+            current.mode == HB_BRIGHT_AUTO ? "Automatyczna" : "Ręczna / tymczasowa",
+            hb_brightness_calibrated(&brightness_editor) ? "Gotowa" : "Ustaw dzień i noc");
+        brightness_visibility();
     }
 }
 bool hb_ui_publish_image(uint16_t *frame)
@@ -1496,14 +1718,12 @@ static void update(lv_timer_t *timer)
         else if (c.type == CMD_SAVED)
         {
             critical = false;
-            return_menu(NULL);
-            strlcpy(diagnostic_text, "Zapisano konfigurację", sizeof(diagnostic_text));
+            form_error("Zapisano konfigurację.");
         }
         else if (c.type == CMD_CONFIG_ERROR)
         {
             critical = false;
-            return_menu(NULL);
-            strlcpy(diagnostic_text, c.text, sizeof(diagnostic_text));
+            form_error(c.text);
         }
         else
         {
@@ -1537,8 +1757,7 @@ static void update(lv_timer_t *timer)
     }
     if (strcmp(lv_label_get_text(temp_label), text))
         lv_label_set_text(temp_label, text);
-    if (strcmp(lv_label_get_text(status), diagnostic_text))
-        lv_label_set_text(status, diagnostic_text);
+    lv_label_set_text(status, image.data ? "Obraz gotowy" : "Oczekiwanie na obraz");
     if (network_info && strcmp(lv_label_get_text(network_info), network_state))
         lv_label_set_text(network_info, network_state);
     refresh_networks();
@@ -1573,8 +1792,79 @@ static void update(lv_timer_t *timer)
             lv_obj_set_style_opa(bubble, (lv_opa_t)opacity, 0);
         }
     }
-    if (in_menu && !critical && !diagnostic && (uint32_t)(lv_tick_get() - last_touch) >= 30000)
+    if (in_menu && hb_product_timeout(lv_tick_get(), last_touch, critical || creating_profile,
+                                      keyboard && !lv_obj_has_flag(keyboard, LV_OBJ_FLAG_HIDDEN),
+                                      diagnostic || guided_enrollment || audio_testing, confirming))
         close_menu(NULL);
+}
+static void return_parent(lv_event_t *e)
+{
+    switch (back_group)
+    {
+    case 1:
+        settings_page(e);
+        break;
+    case 2:
+        information_page(e);
+        break;
+    case 3:
+        advanced_page(e);
+        break;
+    case 4:
+        household_page(e);
+        break;
+    case 5:
+        brightness_page(e);
+        break;
+    default:
+        return_menu(e);
+        break;
+    }
+}
+static void settings_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Ustawienia");
+    nav_group = 1;
+    back_group = 0;
+    const hb_menu_item items[] = {{"Sieć Wi-Fi", settings, (void *)0},
+                                  {"Obraz z kamery UBox", settings, (void *)1},
+                                  {"Pogoda", settings, (void *)2},
+                                  {"Wyświetlacz", brightness_page, NULL},
+                                  {"Home Assistant", ha_page, NULL}};
+    hb_product_rows(page, items, 5);
+    lv_scr_load(page);
+}
+static void information_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Informacje");
+    nav_group = 2;
+    back_group = 0;
+    product_info = label(page, "Odczytywanie stanu urządzenia...", LV_ALIGN_TOP_LEFT, 24, 80);
+    lv_obj_set_width(product_info, 745);
+    for (unsigned i = 0; i < 5; ++i)
+    {
+        product_states[i] = label(page, "Oczekiwanie", LV_ALIGN_TOP_LEFT, 24, 125 + i * 40);
+        lv_obj_set_width(product_states[i], 745);
+    }
+    button(page, "Diagnostyka zaawansowana", 24, 370, 752, advanced_page, NULL);
+    lv_scr_load(page);
+}
+static void advanced_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Diagnostyka zaawansowana");
+    nav_group = 3;
+    back_group = 2;
+    const hb_menu_item items[] = {
+        {"Test obrazu", test_image, NULL},      {"Test powitania", test_greeting, NULL},
+        {"Test dotyku", touch_test, NULL},      {"Kamera lokalna", local_camera, NULL},
+        {"Obecność w tle", monitor_page, NULL}, {"Jakość twarzy", quality_page, NULL},
+        {"System", system_test, NULL},          {"Ocena rozpoznawania", identity_page, (void *)2},
+        {"Mikrofon", audio_page, NULL},         {"Połączenie HA", ha_diagnostics_page, NULL}};
+    hb_product_rows(page, items, 10);
+    lv_scr_load(page);
 }
 static void screens(void)
 {
@@ -1610,25 +1900,11 @@ static void screens(void)
     lv_obj_add_flag(photo, LV_OBJ_FLAG_EVENT_BUBBLE);
     lv_obj_add_flag(photo, LV_OBJ_FLAG_CLICKABLE);
     menu = screen();
-    label(menu, "Home Buddy: ustawienia", LV_ALIGN_TOP_LEFT, 24, 14);
-    button(menu, "Wi-Fi", 24, 68, 230, settings, (void *)0);
-    button(menu, "Kamera UBox", 282, 68, 230, settings, (void *)1);
-    button(menu, "Pogoda", 540, 68, 230, settings, (void *)2);
-    button(menu, "Test JPEG", 24, 136, 230, test_image, NULL);
-    button(menu, "Test powitania", 282, 136, 230, test_greeting, NULL);
-    button(menu, "Test dotyku", 540, 136, 230, touch_test, NULL);
-    button(menu, "Wyświetlacz", 24, 204, 230, brightness_page, NULL);
-    button(menu, "Kamera lokalna", 282, 204, 230, local_camera, NULL);
-    button(menu, "Obecność w tle", 540, 204, 230, monitor_page, NULL);
-    button(menu, "Skanuj Wi-Fi", 24, 290, 230, scan, NULL);
-    button(menu, "System", 282, 290, 230, system_test, NULL);
-    button(menu, "Jakość twarzy", 540, 290, 230, quality_page, NULL);
-    button(menu, "Domownicy", 24, 355, 230, household_page, NULL);
-    button(menu, "Rozpoznawanie", 282, 355, 300, recognition_page, NULL);
-    button(menu, "Home Assistant", 594, 355, 180, ha_page, NULL);
-    button(menu, "Powrót", 620, 410, 150, close_menu, NULL);
-    status = label(menu, "", LV_ALIGN_TOP_LEFT, 24, 412);
-    lv_obj_set_width(status, 740);
+    const hb_menu_item main_items[4] = {{"Domownicy", household_page, NULL},
+                                        {"Rozpoznawanie", recognition_page, NULL},
+                                        {"Ustawienia", settings_page, NULL},
+                                        {"Informacje", information_page, NULL}};
+    status = hb_product_home(menu, main_items, close_menu);
     lv_timer_create(update, 20, NULL);
     lv_scr_load(saver);
 }

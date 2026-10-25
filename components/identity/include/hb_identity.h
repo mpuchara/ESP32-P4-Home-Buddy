@@ -39,6 +39,7 @@ extern "C"
         hb_id_command_type type;
         uint64_t person_id;
         char name[HB_ID_NAME];
+        bool guided; // Explicit user-started automatic enrollment only.
     } hb_id_command;
     typedef struct
     {
@@ -48,6 +49,7 @@ extern "C"
     } hb_id_profile;
     typedef struct
     {
+        uint64_t created_id, saved_id, deleted_id; // Worker completion receipts.
         hb_id_mode mode;
         hb_id_match match;
         bool ready, confirmed, verified, official_landmarks, detection_valid;

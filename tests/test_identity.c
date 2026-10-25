@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include "hb_enrollment_flow.h"
 #include "hb_identity_core.h"
 #include <assert.h>
 #include <math.h>
@@ -178,6 +179,31 @@ static void enrollment(void)
     assert(hb_id_enroll_sample(en, &e, 1, true, 11, 11000));
     assert(hb_id_enroll_verify(en, &e, 12, 12000, &policy));
     assert(hb_id_enroll_commit(db, en) && hb_id_find(db, id)->count == 9);
+    // The same worker policy drives this synthetic automatic enrollment.
+    assert(hb_enroll_fresh(db, en, id));
+    assert(en->count == 0 && hb_id_find(db, id)->count == 9);
+    for (unsigned i = 0; i < 8; ++i)
+    {
+        e = vector(0, 0.95f);
+        e.v[1] = 0;
+        e.v[i + 2] = sqrtf(1 - 0.95f * 0.95f);
+        uint32_t seq = 100 + i;
+        uint64_t ms = 20000 + i * 1000;
+        assert(hb_enroll_next(en, 2, true, seq, ms) == HB_ENROLL_WAIT);
+        assert(hb_enroll_next(en, 1, false, seq, ms) == HB_ENROLL_WAIT);
+        assert(hb_enroll_next(en, 1, true, seq, ms) == HB_ENROLL_SAMPLE);
+        assert(hb_id_enroll_sample(en, &e, 1, true, seq, ms));
+        assert(hb_enroll_next(en, 1, true, seq, ms) == HB_ENROLL_WAIT);
+        assert(hb_enroll_next(en, 1, true, seq + 1, ms + 999) == HB_ENROLL_WAIT);
+        assert(hb_id_find(db, id)->count == 9);
+    }
+    e = vector(0, 1);
+    assert(hb_enroll_next(en, 1, true, 108, 28000) == HB_ENROLL_VERIFY);
+    assert(!hb_id_enroll_commit(db, en)); // Explicit final confirmation needs fresh verification.
+    assert(hb_id_enroll_verify(en, &e, 108, 28000, &policy));
+    assert(hb_enroll_next(en, 1, true, 109, 29000) == HB_ENROLL_CONFIRM);
+    assert(hb_id_enroll_commit(db, en));
+    assert(hb_id_find(db, id)->count == 8);
     assert(hb_id_delete(db, id));
     assert(!hb_id_enroll_commit(db, en));
     free(en);

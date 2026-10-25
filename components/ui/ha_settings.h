@@ -61,6 +61,18 @@ static void ha_test_action(lv_event_t *e)
     hb_ha_test((uintptr_t)lv_event_get_user_data(e) != 0);
     form_error("Test używa zapisanych ustawień. POST ma typ connection_test.");
 }
+static void ha_diagnostics_page(lv_event_t *e)
+{
+    (void)e;
+    page_base("Diagnostyka połączenia HA");
+    button(page, "Test połączenia", 24, 80, 350, ha_test_action, NULL);
+    button(page, "Wyślij zdarzenie testowe", 412, 80, 364, ha_test_action, (void *)1);
+    ha_info = label(page, "Test używa zapisanej konfiguracji.", LV_ALIGN_TOP_LEFT, 24, 160);
+    lv_obj_set_width(ha_info, 745);
+    label(page, "Odpowiedź HTTP nie potwierdza wykonania automatyzacji.", LV_ALIGN_TOP_LEFT, 24,
+          220);
+    lv_scr_load(page);
+}
 static void ha_page(lv_event_t *e)
 {
     (void)e;
@@ -74,6 +86,7 @@ static void ha_page(lv_event_t *e)
     lv_obj_t *fields = lv_obj_create(page);
     lv_obj_set_pos(fields, 12, 70);
     lv_obj_set_size(fields, 776, 226);
+    lv_obj_set_scroll_dir(fields, LV_DIR_VER);
     lv_obj_set_style_bg_color(fields, lv_color_hex(0x10171c), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(fields, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_pad_all(fields, 8, LV_PART_MAIN);
@@ -97,9 +110,8 @@ static void ha_page(lv_event_t *e)
     ha_tls = ha_checkbox(fields, "HTTPS: weryfikuj CA i nazwę hosta", 390, cfg.tls);
     label(fields, "HTTP i NVS w trybie deweloperskim nie szyfrują sekretu.", LV_ALIGN_TOP_LEFT, 0,
           435);
-    button(fields, "Test połączenia", 0, 475, 320, ha_test_action, NULL);
-    button(fields, "Wyślij test diagnostyczny", 345, 475, 350, ha_test_action, (void *)1);
-    ha_info = label(fields, "", LV_ALIGN_TOP_LEFT, 0, 540);
+
+    ha_info = label(page, "", LV_ALIGN_TOP_LEFT, 24, 360);
     lv_obj_set_width(ha_info, 690);
     button(page, "Zapisz", 490, 8, 140, save_ha, NULL);
     memset(&cfg, 0, sizeof(cfg));

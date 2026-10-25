@@ -21,6 +21,30 @@ bool hb_audio_pcm(const int16_t *stereo, size_t samples, uint32_t rate, int16_t 
         sum += v;
         square += (int64_t)v * v;
     }
+    int64_t right_sum = 0, right_square = 0;
+    unsigned right_peak = 0;
+    for (size_t i = 0; i < n; ++i)
+    {
+        int32_t v = stereo[2 * i + 1];
+        unsigned a = v < 0 ? (unsigned)-v : (unsigned)v;
+        if (a > right_peak)
+            right_peak = a;
+        right_sum += v;
+        right_square += (int64_t)v * v;
+    }
+    status->right_peak = right_peak;
+    status->right_rms = (uint32_t)sqrt((double)(right_square * (int64_t)n - right_sum * right_sum) /
+                                       (double)(n * n));
+    status->sample_count += n;
+    status->dc_offset = (int32_t)(sum / (int64_t)n);
+    status->suspicious = false;
+    for (size_t period = 1; period <= 8 && n >= period * 4; ++period)
+    {
+        bool repeats = true;
+        for (size_t i = period; i < n; ++i)
+            repeats &= mono[i] == mono[i % period];
+        status->suspicious |= repeats;
+    }
     status->peak = peak;
     status->rms = (uint32_t)sqrt((double)(square * (int64_t)n - sum * sum) / (double)(n * n));
     status->clipped = clipped;

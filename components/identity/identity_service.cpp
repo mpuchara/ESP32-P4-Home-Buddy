@@ -8,6 +8,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "hb_config.h"
+#include "hb_enrollment_flow.h"
 #include "hb_face.h"
 #include "hb_identity.h"
 #include "hb_identity_lifecycle.h"
@@ -53,6 +54,13 @@ static hb_id_database *storage_scratch;
 static const hb_id_policy policy{CONFIG_HB_IDENTITY_THRESHOLD_MILLI / 1000.0f,
                                  CONFIG_HB_IDENTITY_MARGIN_MILLI / 1000.0f,
                                  CONFIG_HB_IDENTITY_AGREEMENT_MILLI / 1000.0f, 3};
+static hb_id_mode resting_mode(bool auto_enabled)
+{
+    unsigned usable = 0;
+    for (const auto &p : database->people)
+        usable += p.id && p.enabled && p.count;
+    return hb_id_auto_ready(auto_enabled, usable) ? HB_ID_AUTO : HB_ID_STOP;
+}
 static uint64_t now_ms()
 {
     return esp_timer_get_time() / 1000;
@@ -450,7 +458,7 @@ static void worker(void *)
         state.mode = HB_ID_AUTO;
     else if (state.auto_enabled)
         message(state, "AUTO oczekuje: zarejestruj domownika; profile RAM zniknęły po restarcie");
-    bool capture = false, verify = false, evaluate = false;
+    bool capture = false, verify = false, evaluate = false, guided = false;
     unsigned evaluation_frames = 0;
     uint64_t evaluation_expected = 0;
     uint32_t evaluation_sequence = 0;
@@ -524,8 +532,9 @@ static void worker(void *)
             switch (c.type)
             {
             case HB_ID_CMD_CREATE:
-                message(state, hb_id_create(database, c.name) ? "Profil utworzony w RAM"
-                                                              : "Nie można dodać profilu");
+                state.created_id = hb_id_create(database, c.name);
+                message(state,
+                        state.created_id ? "Profil utworzony w RAM" : "Nie można dodać profilu");
                 persistence_commit(state, false);
                 break;
             case HB_ID_CMD_RENAME:
@@ -534,16 +543,19 @@ static void worker(void *)
                 persistence_commit(state, false);
                 break;
             case HB_ID_CMD_DELETE:
-                hb_id_delete(database, c.person_id);
+                state.deleted_id = hb_id_delete(database, c.person_id) ? c.person_id : 0;
                 memset(enrollment, 0, sizeof(*enrollment));
-                state.mode = HB_ID_STOP;
+                state.mode = resting_mode(state.auto_enabled);
                 message(state, "Profil i próbki usunięte z RAM");
                 persistence_commit(state, true);
                 break;
             case HB_ID_CMD_BEGIN:
                 capture = verify = false;
+                guided = c.guided;
+                state.saved_id = 0;
                 state.sequence = 0;
-                if (hb_id_enroll_begin(database, enrollment, c.person_id))
+                if (guided ? hb_enroll_fresh(database, enrollment, c.person_id)
+                           : hb_id_enroll_begin(database, enrollment, c.person_id))
                 {
                     state.mode = HB_ID_ENROLL;
                     until = now_ms() + 600000;
@@ -561,7 +573,8 @@ static void worker(void *)
             case HB_ID_CMD_SAVE:
                 if (state.mode == HB_ID_ENROLL && hb_id_enroll_commit(database, enrollment))
                 {
-                    state.mode = HB_ID_STOP;
+                    state.mode = resting_mode(state.auto_enabled);
+                    state.saved_id = c.person_id;
                     message(state, "Próbki zapisane tylko w RAM");
                     persistence_commit(state, false);
                 }
@@ -639,7 +652,10 @@ static void worker(void *)
             message(state, "Koniec 10-minutowej sesji rozpoznawania");
         }
 #if CONFIG_HB_IDENTITY_EXPERIMENTAL
-        if (state.mode == HB_ID_STOP)
+        bool usable = false;
+        for (const auto &p : database->people)
+            usable |= p.id && p.enabled && p.count;
+        if (state.mode == HB_ID_STOP || (state.mode != HB_ID_ENROLL && !usable))
         {
             if (hb_compute_enter(0))
             {
@@ -706,6 +722,13 @@ static void worker(void *)
             {
                 if (ok && state.mode == HB_ID_ENROLL)
                 {
+                    if (guided && !enrollment->verified)
+                    {
+                        auto step = hb_enroll_next(enrollment, state.faces, ok, state.sequence,
+                                                   state.frame_ms);
+                        capture = step == HB_ENROLL_SAMPLE;
+                        verify = step == HB_ENROLL_VERIFY;
+                    }
                     if (capture)
                         message(state, hb_id_enroll_sample(enrollment, &embedding, state.faces,
                                                            true, state.sequence, state.frame_ms)

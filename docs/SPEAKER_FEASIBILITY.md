@@ -58,3 +58,13 @@ b503ff049a0cd5c62b4c1ac337cf20b7de1549857a4d5329a1821cfb55e9b3a8; margin
 301,104 bytes. The packer's printed package_sha256 is its internal integrity field,
 not the full-file digest. No runtime loading/operator or resource acceptance follows
 from parsing/packing; the future SV partition remains unchanged.
+
+## Iteration 9 gate, 2026-10-25
+
+The audio RX correction does not close microphone acceptance. No speaker model
+benchmark, voice enrollment, voice partition write or HA voice/fused event was
+performed. Existing asset/tensor/preprocessing findings above remain source/asset
+observations. The household UI therefore exposes no voice-registration button.
+Next gate is a local silence/speech receipt with both slots, DC/clipping/errors
+and simultaneous face/JPEG operation; only then measure pinned 3s preprocessing,
+model allocation/inference and voice-specific open-set thresholds on the P4.
