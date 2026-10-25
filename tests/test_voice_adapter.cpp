@@ -30,6 +30,9 @@ int main()
     assert(run(cancel_stage) == ESP_ERR_INVALID_STATE);
     assert(output.v[0] == 0);
     fake::reset();
+    fake::alias = true;
+    assert(run() == ESP_OK);
+    fake::reset();
     fake::compute = false;
     assert(run() == ESP_ERR_TIMEOUT);
     fake::reset();

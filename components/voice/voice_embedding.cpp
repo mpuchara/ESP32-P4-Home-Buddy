@@ -263,7 +263,8 @@ esp_err_t hb_voice_embedding_run(const int16_t *pcm, size_t n, uint32_t rate,
     metrics->features_us = (uint32_t)(esp_timer_get_time() - start);
     sample_memory(metrics);
     // Staged inference permits cancellation/yield between graph sections.
-    memset(output->data, 0, 512);
+    // Output may alias the model input in the greedy arena. Do not clear it
+    // before execution: that would corrupt freshly quantized input features.
     start = esp_timer_get_time();
     for (int stage = 0; stage < 16; ++stage)
     {

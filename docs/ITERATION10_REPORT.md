@@ -1,7 +1,8 @@
 # Iteration 10 candidate report, 2026-10-25
 
 Version 0.9.0-dev, continued from PR #2 head 53dbd23 on codex/local-face-recognition.
-Source receipt and final CI/build/package measurements are recorded below after validation.
+Source provenance and measured image sizes/hashes are recorded in the USB package
+usb-package.json and SHA256SUMS. Current CI status is linked from PR #2.
 
 | Required outcome | Actual status |
 |---|---|
@@ -18,7 +19,7 @@ Source receipt and final CI/build/package measurements are recorded below after 
 | HA regression | Existing FACE-only payload/configuration/dedup/outage policy tests retained. No new physical network acceptance and no voice events. |
 | Persistence | Existing transaction store/security gate unchanged. Separate voice schema/model namespace prepared; migration sizing below. No plaintext or eFuse activation. |
 | Automated tests | Final receipts below. Fault-injected audio owner and speaker adapter exercise production control flow with mocked drivers/FFT/model; not model accuracy or real preprocessing equivalence. |
-| GitHub Actions | Final-head status below; compilation is separate from hardware acceptance. |
+| GitHub Actions | Source 9be6e0e CI 40194481185 host passed; later adapter alias-safety correction has its own final-head CI linked from PR #2. Compilation is separate from hardware acceptance. |
 | Hardware acceptance | One concise combined session below; no automatic flash/reset. |
 | Next milestone | Accept actual slot/silence/speech on installed candidate, then pinned-model numerical/resource benchmark, speech-selective VAD and voice-specific enrollment/unknown calibration. |
 
@@ -67,7 +68,10 @@ The deterministic menu/settings/diagnostic render hashes remain unchanged; this
 is shared-menu geometry coverage, not a full peripheral/voice-page simulator.
 
 Recognition firmware compiled with ESP-IDF 5.5.1 and unchanged dependencies.lock;
-effective recognition config and enforced Flash budget passed. Application file
-before the committed-source rebuild: 4,487,504 B, factory margin 2,852,528 B.
-The final package/hash and CI receipt will be appended after the source commit.
+effective recognition config and enforced Flash budget passed. Final application size, factory margin, exact source commit and all file hashes
+are recorded by package_firmware.py in usb-package.json and SHA256SUMS. The
+optional speaker image is independently validated and never part of app/full writes.
+An additional greedy-arena alias test ensures output is not cleared before run:
+output and input buffers can share storage, so pre-clearing output corrupts input.
+The adapter correction is included in the final candidate.
 No physical inference, peak RAM, silence/speech or uninterrupted soak was measured.

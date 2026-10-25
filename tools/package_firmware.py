@@ -3,6 +3,7 @@ import argparse
 import hashlib
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import json
 from identity_model_image import validate_image
@@ -94,6 +95,19 @@ metadata = {"schema": 1, "layout": "single-factory-v1", "partition_table_offset"
             "model_offset": 0x720000, "model_size": 0x400000,
             "security_enabled": bool(config.get("SECURE_FLASH_ENC_ENABLED") or config.get("SECURE_BOOT")),
             "recognition": bool(config.get("HB_IDENTITY_EXPERIMENTAL"))}
+try:
+    metadata["source_commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    metadata["source_dirty"] = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=root, text=True).strip())
+except (subprocess.CalledProcessError, FileNotFoundError):
+    metadata["source_commit"] = None
+    metadata["source_dirty"] = None
+metadata["application_bytes"] = (output / "home_buddy.bin").stat().st_size
+metadata["application_sha256"] = hashlib.sha256((output / "home_buddy.bin").read_bytes()).hexdigest()
+metadata["application_headroom_bytes"] = 0x700000 - metadata["application_bytes"]
+metadata["optional_speaker_image"] = bool(args.speaker_model)
+if args.speaker_model:
+    metadata["speaker_image_bytes"] = args.speaker_model.stat().st_size
+    metadata["speaker_headroom_bytes"] = 0x300000 - metadata["speaker_image_bytes"]
 (output / "usb-package.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 hashes.append(f"{hashlib.sha256((output / 'usb-package.json').read_bytes()).hexdigest()}  usb-package.json")
 (output / "SHA256SUMS").write_text("\n".join(hashes) + "\n", encoding="utf-8")

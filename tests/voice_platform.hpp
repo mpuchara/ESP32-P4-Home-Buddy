@@ -28,7 +28,8 @@ namespace fake
 {
 inline bool compute = true, small = false, partition = true, bad_hash = false, shape = false,
             zero = false, model_fail = false;
-inline bool model_new_fail = false;
+inline bool model_new_fail = false, alias = false;
+inline unsigned feature_frames = 0;
 inline int allocations = 0, fail_at = -1, live = 0, maps = 0, leases = 0, models = 0, stage = 0;
 inline unsigned char flash[0x300000];
 inline void reset()
@@ -42,6 +43,8 @@ inline void reset()
     zero = false;
     model_fail = false;
     model_new_fail = false;
+    alias = false;
+    feature_frames = 0;
     allocations = 0;
     fail_at = -1;
     stage = 0;
@@ -240,7 +243,7 @@ class Model
         in.shape = {1, 300, 80};
         in.dtype = DATA_TYPE_INT16;
         in.size = 24000;
-        out.data = output_data;
+        out.data = fake::alias ? (void *)input_data : (void *)output_data;
         out.shape = {1, 512};
         out.dtype = DATA_TYPE_INT8;
         out.size = 512;
@@ -266,11 +269,13 @@ class Model
     }
     void run(int stages, int stage)
     {
+        if (fake::alias && stage == 0)
+            assert(input_data[0] != 0);
         fake::stage = stage + 1;
         if (stage == stages - 1 && !fake::zero)
         {
-            output_data[0] = 100;
-            output_data[1] = 20;
+            ((int8_t *)out.data)[0] = 100;
+            ((int8_t *)out.data)[1] = 20;
         }
     }
 };
@@ -313,7 +318,8 @@ inline void compute_spectrum(float *, int, bool)
 inline void mel_dotprod(float *, mel_filter_t *, float *out)
 {
     for (int i = 0; i < 80; ++i)
-        out[i] = 1;
+        out[i] = fake::feature_frames % 2 ? 2.0f : 1.0f;
+    ++fake::feature_frames;
 }
 } // namespace audio
 } // namespace dl
