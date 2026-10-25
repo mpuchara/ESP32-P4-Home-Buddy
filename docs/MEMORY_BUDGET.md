@@ -1,5 +1,19 @@
 # Memory and flash budget
 
+## Current iteration 12 policy (0.11.0-dev)
+
+The selected product mode is **persistent, unencrypted, local household storage with
+automatic restoration**. The recognition build runs the existing schema-2 engine in
+two 512 KiB banks inside the unchanged 1 MiB partition. Intentional household changes
+save automatically; valid face/voice profiles and the previously enabled AUTO mode
+restore locally at startup. No password, PIN, manual unlock, eFuse provisioning or
+mandatory encryption. Physical extraction is not prevented. Experimental voice
+identification remains gated. Implementation/host tests do not establish physical
+reboot persistence; installation and the combined acceptance session remain pending.
+See [storage decision](PERSISTENCE_DECISION.md), [database](PROFILE_DATABASE.md) and
+[iteration report](ITERATION12_REPORT.md). Older iteration notes below are historical.
+
+
 These are provisional allocations, not measured AI capacity.
 
 ## 16 MiB flash
@@ -150,7 +164,7 @@ See [face recognition implementation and limitations](FACE_RECOGNITION.md),
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
 The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
-HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
+HTTP. Iteration 12 selects LOCAL_UNENCRYPTED independently of hardware provisioning. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
 
 
@@ -161,4 +175,4 @@ Derived additional arrays: 96,480 B mono PCM window and 96,000 B filterbanks; 1,
 
 ## Iteration 11, 2026-10-25
 
-Additional optional voice DB:65,768 B; staging holds one four-template person plus policy/session metadata, allocated lazily in PSRAM only after acceptance and an explicit Begin. Capture result is a single approximately2 KiB RAM mailbox with one worker-side consume slot. Schema2 uses312,416 B per snapshot; a transaction needs a separate same-size PSRAM scratch snapshot. The unused schema2 runtime path allocates nothing in this candidate. These are structure/array sizes, not measured board free memory or peak usage. Actual internal/PSRAM/stack/load/inference/coexistence measurements remain pending.
+Voice DB inside the live unified snapshot:65,768 B; staging holds one four-template person plus policy/session metadata, allocated lazily in PSRAM only after acceptance and an explicit Begin. Capture result is a single approximately2 KiB RAM mailbox with one worker-side consume slot. Schema2 uses312,416 B per snapshot; a transaction needs a separate same-size PSRAM scratch snapshot. The iteration-12 runtime allocates 312,416 B live plus 312,416 B scratch = 624,832 B in bounded PSRAM. These are structure/array sizes, not measured board free memory or peak usage. Actual internal/PSRAM/stack/load/inference/coexistence measurements remain pending.

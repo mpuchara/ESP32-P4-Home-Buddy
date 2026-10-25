@@ -1,5 +1,19 @@
 # Incremental development plan
 
+## Current iteration 12 policy (0.11.0-dev)
+
+The selected product mode is **persistent, unencrypted, local household storage with
+automatic restoration**. The recognition build runs the existing schema-2 engine in
+two 512 KiB banks inside the unchanged 1 MiB partition. Intentional household changes
+save automatically; valid face/voice profiles and the previously enabled AUTO mode
+restore locally at startup. No password, PIN, manual unlock, eFuse provisioning or
+mandatory encryption. Physical extraction is not prevented. Experimental voice
+identification remains gated. Implementation/host tests do not establish physical
+reboot persistence; installation and the combined acceptance session remain pending.
+See [storage decision](PERSISTENCE_DECISION.md), [database](PROFILE_DATABASE.md) and
+[iteration report](ITERATION12_REPORT.md). Older iteration notes below are historical.
+
+
 Each phase needs a buildable commit and evidence in DEVELOPMENT_LOG.md.
 Physical acceptance cannot be inferred from successful compilation.
 
@@ -17,7 +31,7 @@ operator-confirmed absence of new notifications; its exact command/release timin
 was not independently captured.
 Quantified multi-person accuracy remains pending. Voice remains
 capacity planning only in this iteration. Secure provisioning needs separate
-authorization; the current profile mode remains visibly RAM-only.
+authorization; the current candidate profile mode is LOCAL_UNENCRYPTED.
 
 | Phase | Deliverable | Current state |
 |---|---|---|
@@ -85,13 +99,13 @@ See [face recognition implementation and limitations](FACE_RECOGNITION.md),
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
 The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
-HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
+HTTP. Iteration 12 selects LOCAL_UNENCRYPTED independently of hardware provisioning. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
 
 
 ## Iteration 8 continuation
 
-Candidate implements AUTO/OFF/TEST, reboot waiting, evaluation and bounded audio diagnostics. Physical gates: scheduled app update/profile loss, navigation/AUTO and microphone acceptance, consenting multi-person negatives, outages and 72-hour soak. Persistence needs reviewed secure USB recovery; speaker runtime remains conditional.
+Candidate implements AUTO/OFF/TEST, reboot waiting, evaluation and bounded audio diagnostics. Physical gates: scheduled app update/profile loss, navigation/AUTO and microphone acceptance, consenting multi-person negatives, outages and 72-hour soak. Iteration 12 selects automatic local unencrypted persistence with the existing USB updater; speaker runtime remains conditional.
 
 
 ## Iteration 10, 2026-10-25
@@ -101,4 +115,4 @@ Implemented foundation: single-owner timestamped capture, preliminary activity g
 
 ## Iteration 11, 2026-10-25
 
-Implemented: pinned reference feature comparison; four-template voice enrollment with fresh verification and atomic RAM replacement; stable-ID reconciliation; separately authorized schema-2 transactions and synthetic migration. Remaining milestones: physical microphone/model/resource acceptance, speech-selection evaluation with consenting household data, voice-specific open-set calibration, then explicit voice enablement. Persistent unlock design is selected for further engineering in PERSISTENCE_DECISION.md; current operation remains RAM-only.
+Implemented: pinned reference feature comparison; four-template voice enrollment with fresh verification and atomic RAM replacement; stable-ID reconciliation; separately authorized schema-2 transactions and synthetic migration. Remaining milestones: physical microphone/model/resource acceptance, speech-selection evaluation with consenting household data, voice-specific open-set calibration, then explicit voice enablement. Iteration 12 supersedes the unlock proposal with automatic local unencrypted persistence; see PERSISTENCE_DECISION.md.

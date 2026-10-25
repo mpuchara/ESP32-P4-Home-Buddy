@@ -1,5 +1,19 @@
 # Architecture, 0.6.1-dev
 
+## Current iteration 12 policy (0.11.0-dev)
+
+The selected product mode is **persistent, unencrypted, local household storage with
+automatic restoration**. The recognition build runs the existing schema-2 engine in
+two 512 KiB banks inside the unchanged 1 MiB partition. Intentional household changes
+save automatically; valid face/voice profiles and the previously enabled AUTO mode
+restore locally at startup. No password, PIN, manual unlock, eFuse provisioning or
+mandatory encryption. Physical extraction is not prevented. Experimental voice
+identification remains gated. Implementation/host tests do not establish physical
+reboot persistence; installation and the combined acceptance session remain pending.
+See [storage decision](PERSISTENCE_DECISION.md), [database](PROFILE_DATABASE.md) and
+[iteration report](ITERATION12_REPORT.md). Older iteration notes below are historical.
+
+
 The default profile keeps outputs disabled; bringup enables board/UI and wifi also
 enables the ESP-Hosted station worker. Dependencies remain locked to IDF 5.5.1,
 LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from LVGL/networking. The recognition profile adds opt-in local face inference; bounded local audio capture and a one-shot voice-embedding diagnostic are implemented; household speaker identification remains physically gated.
@@ -125,7 +139,7 @@ See [face recognition implementation and limitations](FACE_RECOGNITION.md),
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
 The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
-HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
+HTTP. Iteration 12 selects LOCAL_UNENCRYPTED independently of hardware provisioning. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
 
 ## Deployment and identity transport

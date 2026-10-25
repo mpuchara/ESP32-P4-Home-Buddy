@@ -1,5 +1,19 @@
 # Development firmware 0.3.0-dev user guide
 
+## Current iteration 12 policy (0.11.0-dev)
+
+The selected product mode is **persistent, unencrypted, local household storage with
+automatic restoration**. The recognition build runs the existing schema-2 engine in
+two 512 KiB banks inside the unchanged 1 MiB partition. Intentional household changes
+save automatically; valid face/voice profiles and the previously enabled AUTO mode
+restore locally at startup. No password, PIN, manual unlock, eFuse provisioning or
+mandatory encryption. Physical extraction is not prevented. Experimental voice
+identification remains gated. Implementation/host tests do not establish physical
+reboot persistence; installation and the combined acceptance session remain pending.
+See [storage decision](PERSISTENCE_DECISION.md), [database](PROFILE_DATABASE.md) and
+[iteration report](ITERATION12_REPORT.md). Older iteration notes below are historical.
+
+
 Tap the saver to open settings. All pages open directly, without administrator
 PIN, as requested. Thirty idle seconds return to the saver; pending saves are
 exempt. Touch diagnostics remain open until Return. Brightness has a 26/255 floor
@@ -115,7 +129,7 @@ See [face recognition implementation and limitations](FACE_RECOGNITION.md),
 [actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
 The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
 Flash for model storage, gated encrypted profile persistence and native identity
-HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
+HTTP. Iteration 12 selects LOCAL_UNENCRYPTED independently of hardware provisioning. See ITERATION7_REPORT.md and
 FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
 
 ## 0.8.0-dev product navigation
@@ -149,3 +163,15 @@ Domownicy/Rozpoznawanie/Ustawienia/Informacje stay the four main sections. Infor
 ## Iteration 11, 2026-10-25
 
 Domownicy > selected person shows a disabled voice-enrollment entry while microphone/model/speech-selection/resource/calibration acceptance is pending. Recognition has a separate disabled voice control. The prepared enrollment page collects four distinct normal utterances, verifies with a fifth, and requires explicit RAM-save confirmation; it does not recognize words or require a password. It is unavailable in the delivered candidate. The four main categories and UBox screensaver remain. Restart still loses profiles. See ITERATION11_ACCEPTANCE.md.
+
+## Persistent household profiles
+
+Before the first enrollment, read and acknowledge the one-time notice that face and
+voice profiles are stored locally without encryption. The acknowledgment is remembered
+in ordinary configuration; no unlock is requested on reboot. Add/enroll/rename/remove
+as usual. Wait for Profile zapisane na urządzeniu. If saving fails, the new data
+remains in RAM: use Ponów zapis before switching off. Do not assume RAM-only changes
+will survive power loss. Recognition resumes only if AUTO was previously enabled
+and valid enabled face profiles exist. Voice stays unavailable until separately accepted.
+Advanced bank/generation/status information is under Informacje -> Diagnostyka
+zaawansowana -> Pamięć profili; it contains no embeddings.

@@ -1,5 +1,19 @@
 # P4 USB installation, update and recovery
 
+## Current iteration 12 policy (0.11.0-dev)
+
+The selected product mode is **persistent, unencrypted, local household storage with
+automatic restoration**. The recognition build runs the existing schema-2 engine in
+two 512 KiB banks inside the unchanged 1 MiB partition. Intentional household changes
+save automatically; valid face/voice profiles and the previously enabled AUTO mode
+restore locally at startup. No password, PIN, manual unlock, eFuse provisioning or
+mandatory encryption. Physical extraction is not prevented. Experimental voice
+identification remains gated. Implementation/host tests do not establish physical
+reboot persistence; installation and the combined acceptance session remain pending.
+See [storage decision](PERSISTENCE_DECISION.md), [database](PROFILE_DATABASE.md) and
+[iteration report](ITERATION12_REPORT.md). Older iteration notes below are historical.
+
+
 Use the existing Windows ESP-IDF 5.5.1 environment. No Wi-Fi OTA, second app image,
 chip erase or C6 firmware update is supported/needed. P4 is COM5 in this session;
 identify the actual P4 port with python -m serial.tools.list_ports -v. Never select
@@ -108,3 +122,20 @@ Optional speaker image: prepare_voice_model.py validates pinned raw/PDL3 hashes.
 ## Iteration 11, 2026-10-25
 
 Iteration11 candidate generation: build all four profiles, run effective-config checks, run identity_flash_budget.py --enforce for recognition, then package_firmware.py with --speaker-model local/iteration10/speaker-model/sv_model_3s.espdl. The optional model is verified and remains a separate speaker-model USB mode. App/full plans preserve profiles and do not add the optional SV write. ITERATION11_ACCEPTANCE.md is the one combined physical checklist. Firmware update resets the device and loses RAM enrollment; installation is not authorized by packaging.
+
+## Iteration 12 candidate and single acceptance session
+
+Use the application-only helper for an unchanged installed layout. It writes only
+0x20000 application bytes; NVS (including AUTO/privacy acknowledgment), profiles and
+face/voice models are preserved. A selected model-only update also excludes profiles;
+namespace compatibility checks reject incompatible saved templates without reinterpretation.
+Full recovery requires an explicit decision and a new private backup. Never use chip
+erase as an ordinary update. No personal database is included in firmware packages.
+
+The first update from an installed RAM-only firmware destroys its current RAM enrollment
+when the device restarts. Explain this once before approving installation. No such
+installation was executed during this development iteration.
+
+After approved installation: enroll one member, wait for the saved status, enable AUTO,
+restart once, confirm the member and AUTO restore, then confirm one greeting and one
+eligible HA metadata event. Offline fault injection covers interrupted transactions.

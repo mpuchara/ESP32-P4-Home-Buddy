@@ -1,5 +1,19 @@
 # Privacy and security, 0.6.1-dev
 
+## Current iteration 12 policy (0.11.0-dev)
+
+The selected product mode is **persistent, unencrypted, local household storage with
+automatic restoration**. The recognition build runs the existing schema-2 engine in
+two 512 KiB banks inside the unchanged 1 MiB partition. Intentional household changes
+save automatically; valid face/voice profiles and the previously enabled AUTO mode
+restore locally at startup. No password, PIN, manual unlock, eFuse provisioning or
+mandatory encryption. Physical extraction is not prevented. Experimental voice
+identification remains gated. Implementation/host tests do not establish physical
+reboot persistence; installation and the combined acceptance session remain pending.
+See [storage decision](PERSISTENCE_DECISION.md), [database](PROFILE_DATABASE.md) and
+[iteration report](ITERATION12_REPORT.md). Older iteration notes below are historical.
+
+
 Local opt-in face enrollment/recognition uses onboard camera, ESPDet, MNP and MBF.
 Raw captures are transient; personal templates stay in RAM on unprovisioned boards.
 The secure transactional Flash adapter is implemented but refuses plaintext
@@ -25,7 +39,7 @@ for the separately authorized security provisioning requirements.
 
 ## Iteration 8 continuation
 
-AUTO requires deliberate opt-in; ordinary NVS stores its boolean only. RAM-only profiles still disappear on reboot. Microphone test starts manually, expires after 60 seconds, clears PCM each block and sends/saves no audio. No weaker persistence or voice enrollment is enabled. See AUDIO_DIAGNOSTICS.md and SECURITY_PROVISIONING.md.
+AUTO requires deliberate opt-in; ordinary NVS stores its boolean only. The iteration-12 candidate restores valid local profiles automatically. Microphone test starts manually, expires after 60 seconds, clears PCM each block and sends/saves no audio. Local unencrypted persistence is explicitly selected; experimental voice identification remains gated. See AUDIO_DIAGNOSTICS.md and SECURITY_PROVISIONING.md.
 
 
 ## Iteration 10, 2026-10-25

@@ -1067,3 +1067,10 @@ Iteration 10 implements 0.9.0-dev foundations and fixes pre-dispatch audio Stop 
 ## Iteration 11, 2026-10-25
 
 0.10.0-dev continues from 15f7fd0 on codex/local-face-recognition. Added reference log-mel/CMVN/quantization regression, household voice enrollment/identification ownership, stale-session fusion rejection and a separate schema-2 engine with migration/torn-write/corruption/scrub tests. Evaluated pinned standalone libfvad with reproducible synthetic probes; not admitted into firmware. No board reset, Flash write, migration activation, security provisioning or hardware measurements. Exact validation is in ITERATION11_REPORT.md.
+
+## 2026-10-25: iteration 12, 0.11.0-dev
+
+Implemented explicit local unencrypted schema-2 runtime, automatic save/restore,
+retained AUTO preference, privacy acknowledgment and retry UI. Preserved partitions,
+USB boundaries and experimental voice gates. See ITERATION12_REPORT.md for validation.
+No board flash, reboot, migration, eFuse or C6 operation was performed.

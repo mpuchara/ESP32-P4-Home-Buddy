@@ -3,16 +3,19 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.10.0-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.11.0-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
 
 Candidate additions: local face enrollment/AUTO and HTTP identity events, a four-section
 Polish product menu, bounded microphone diagnostics and a one-shot SV 3s embedding
-prototype. Voice accuracy, current microphone hardware acceptance and secure
-persistence remain pending. Iteration 11 adds a host-validated household voice workflow,
-reference feature comparison and a gated unified storage engine. See [current report](docs/ITERATION11_REPORT.md).
+prototype. Voice accuracy and microphone acceptance remain pending. Iteration 12
+activates the existing unified schema-2 database with automatic local unencrypted
+persistence, automatic restoration and retained AUTO preference. No password, PIN
+or unlock. Physical extraction is not prevented. Installation/reboot acceptance
+remain pending. See [current report](docs/ITERATION12_REPORT.md) and
+[owner storage decision](docs/PERSISTENCE_DECISION.md).
 
 ## Hardware and status
 
@@ -142,7 +145,7 @@ See [hardware evidence](docs/IDENTITY_VALIDATION.md).
 ESPDet416, real MNP landmarks, native ROI, MBF embeddings and multi-frame open-set
 matching. The 0.6.1-dev candidate uses one 7 MiB factory application, dedicated
 onboard MBF storage, a 1 MiB gated profile area and 3 MiB reserved for future voice.
-Unprovisioned devices remain explicitly RAM-only. HA uses native Webhook or REST
+The iteration-12 recognition candidate selects LOCAL_UNENCRYPTED. HA uses native Webhook or REST
 events without a broker. No microSD, external inference or OTA.
 See [current report](docs/ITERATION7_REPORT.md), [Flash map](docs/SINGLE_IMAGE_FLASH_LAYOUT.md),
 [USB updates/recovery](docs/USB_FLASHING.md), [migration](docs/FLASH_MIGRATION.md)
