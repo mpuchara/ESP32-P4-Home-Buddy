@@ -1,5 +1,21 @@
 # Iteration 12 implementation and validation
 
+## Physical persistence acceptance update, 2026-10-26
+
+Installed firmware: **0.11.2-dev**, source
+`88cfe34b714244928d087ad319db083cc9958c40`. Application-only COM5 flashing and
+readback verification completed. The owner explicitly approved the separate
+upper-bank recovery; current bytes matched the secured private backup, only
+0xba0000/0x80000 was erased, and both blank banks were read-verified.
+
+After new enrollment and a physical restart, the owner confirmed the household
+member remained stored and recognition remained enabled. This accepts profile
+retention and recognition-preference restoration in this single physical session.
+It does not independently verify stable numeric IDs, recognition accuracy,
+greeting/HA delivery, power-failure scenarios or measured peak resource usage.
+Those evidence limits remain explicit. No further restart is required to repeat
+this already completed test. Earlier pending status below is historical.
+
 ## Current storage recovery candidate, 2026-10-26
 
 **0.11.2-dev** supersedes the candidate status below. The owner completed the

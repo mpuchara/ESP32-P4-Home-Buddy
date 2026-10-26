@@ -13,16 +13,20 @@ Polish product menu, bounded microphone diagnostics and a one-shot SV 3s embeddi
 prototype. Voice accuracy and microphone acceptance remain pending. Iteration 12
 activates the existing unified schema-2 database with automatic local unencrypted
 persistence, automatic restoration and retained AUTO preference. No password, PIN
-or unlock. Physical extraction is not prevented. Installation/reboot acceptance
-remain pending. See [current report](docs/ITERATION12_REPORT.md) and
+or unlock. Physical extraction is not prevented. On 2026-10-26 the owner confirmed
+the household member and enabled recognition setting survived a restart on
+installed 0.11.2-dev after approved storage recovery. Greeting/HA delivery and
+physical resource peaks remain separately unconfirmed. See [current report](docs/ITERATION12_REPORT.md) and
 [owner storage decision](docs/PERSISTENCE_DECISION.md).
 
 ## 0.11.2-dev interrupted first write and diagnostics
 
 Physical enrollment now reaches completion after the stack fix. A private read-only
 Flash audit found a blank lower bank and headerless partial data in the upper bank,
-consistent with the earlier crash during the first create/save. Persistence remains
-blocked until explicitly approved recovery; the firmware never formats this state.
+consistent with the earlier crash during the first create/save. Approved recovery
+erased only the incomplete upper bank, with readback verification. The owner then
+confirmed profile retention and the enabled recognition setting after a restart;
+the firmware never automatically formats interrupted/unknown storage.
 The candidate fixes the 11-entry advanced menu, exposes storage result codes and
 delays the create navigation receipt until its save attempt completes. See
 [recovery scope and evidence](docs/ITERATION12_STORAGE_RECOVERY.md).
@@ -33,7 +37,8 @@ The first installed 0.11.0-dev candidate exposed an LVGL stack protection fault
 when moving from Add household member into guided enrollment. 0.11.1-dev uses
 three bounded UI-owned status buffers instead of nested automatic snapshots and
 checks actual P4 compiler stack frames on every firmware build. Physical
-re-enrollment/reboot acceptance remains pending the corrected installation.
+registration completed without the original reboot; profile retention and the
+enabled recognition setting after restart were confirmed on 0.11.2-dev.
 See [captured fault and fix](docs/ITERATION12_STACK_FIX.md).
 
 ## Hardware and status

@@ -2,6 +2,20 @@
 
 Date: 2026-10-26. Candidate: **0.11.2-dev**.
 
+## Completed recovery and owner-confirmed restart
+
+0.11.2-dev was installed application-only on COM5, with write/readback verification.
+The owner subsequently gave explicit permission to discard the incomplete bank.
+The helper verified security, the unchanged table and exact current profile bytes
+against the private backup, erased only 0xba0000/0x80000 and read-verified both
+banks blank. The private original backup remains outside Git and packages.
+
+The owner then confirmed that a newly enrolled household member remained stored
+after a physical restart and recognition remained enabled. This is physical
+acceptance of profile retention and recognition-preference restoration for this
+session, not a claim of greeting/HA delivery or measured recognition accuracy.
+Earlier authorization/pending statements below describe the pre-recovery state.
+
 ## Physical evidence
 
 The owner completed the face registration flow on installed 0.11.1-dev without
@@ -63,8 +77,10 @@ is implemented. The historical table encryption flag is preserved; hardware
 Flash Encryption must be disabled. A separate application-only update installs
 the corrected candidate.
 
-The read-only backup authorization does **not** authorize this erase or another
-firmware installation. Both remain pending explicit approval.
+The initial read-only backup authorization did not authorize erasing data.
+Installation followed the owner's standing installation permission; the separate
+bank erase followed explicit approval. Neither approval changes the firmware's
+fail-closed policy for future interrupted/unknown databases.
 
 ## Validation and remaining acceptance
 
@@ -76,9 +92,9 @@ failures, changed profile bytes, erase failure, post-erase verification failure,
 and exact erase scope. Target UI frame subtotal remains 2,736 B.
 
 CI result, exact clean-source package hash and final application size are in the
-package validation receipt and final task response. Corrected installation,
-recovery and persistence across reboot are not physically accepted yet. After
-approved recovery/installation: enroll once, confirm durable saved status, enable
-AUTO and return to UBox; only then perform the single planned restart and verify
-automatic restoration, greeting and eligible HA event. Physical peak memory,
+package validation receipt and final task response. Installation, scoped recovery,
+profile retention and enabled recognition preference after a physical restart
+are now confirmed as described above. Greeting and eligible HA-event delivery
+remain unconfirmed in this session; do not repeat enrollment/restart merely to
+reconfirm the already observed persistence. Physical peak memory,
 storage latency/responsiveness and independent voice acceptance remain open.

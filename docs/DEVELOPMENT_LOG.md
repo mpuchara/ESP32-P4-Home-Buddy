@@ -1093,3 +1093,15 @@ upper payload with no commit header. No erase/repair was performed. Fixed the
 eleven-item advanced menu and premature create receipt; added storage result
 metadata and an offline-default, explicitly authorized, backup-bound recovery
 helper. Evidence and test boundaries: ITERATION12_STORAGE_RECOVERY.md.
+
+## 2026-10-26: physical persistence and recognition preference confirmed
+
+Installed 0.11.2-dev (88cfe34), application-only COM5, readback verified. Following
+separate explicit approval, the recovery helper compared the current partition
+with the private backup, erased only the incomplete upper bank and verified both
+banks blank. The owner then confirmed the newly enrolled member remained stored
+after restart and recognition remained enabled. This confirms that physical
+persistence/preference session; greeting/HA delivery, numeric-ID continuity,
+accuracy and physical peak resources remain separately unconfirmed. The existing
+USB candidate is unchanged; no further flashing or restart was performed to
+record this documentation update.
