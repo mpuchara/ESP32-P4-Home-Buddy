@@ -1,5 +1,17 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-26: final 0.11.7 installed, final-source persistence verified
+
+098ede3 app-only installation passes verify_flash and full 16 MiB comparison; every
+other sector unchanged. Exact-source automated worker cycle commits 13/14, stable
+boot/identity/templates, model loads/releases 1/0. After debugger shutdown, valid
+14/13 readback proves canonical payload byte-identical to pre-test 4. Normal restart
+restores 14, saved/clean and ready AUTO, CSI ~30 FPS. No recovery or re-enrollment.
+CI 40411959469: five successes; local 32 CTest/24 Python/3 checks plus seventeen
+IRAM symbols and 2736 B UI guard pass. See ITERATION13_REPORT.md for actual memory,
+source/binary hash, public package and physical visual/greeting/HA/voice limits.
+
+
 ## 2026-10-26: six target commits and exact payload retention; final save-wait UI
 
 0.11.6 completed three automated disable/enable worker cycles, generations 7-12,

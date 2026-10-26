@@ -1,8 +1,49 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Final UI candidate: **0.11.7-dev**; 0.11.6 backend transactions and restart verified; 0.11.5 withdrawn, branch `codex/local-face-recognition`.
+Date: 2026-10-26. Installed final candidate: **0.11.7-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
+
+## Final installed 0.11.7 receipt
+
+Firmware source: `098ede32577a914bff544fe968cdd9bd418e2cb2`. Application 4,505,248 B,
+partition headroom 2,834,784 B, SHA256
+`2b66003749fd57daabbcd94fa32ebd3049429bfc27f0ff15e505a3a95bb559dc`.
+Fresh private full backup, app-only write at 0x20000, verify_flash and full 16 MiB
+readback pass. All other sectors, profiles, NVS, table and both models unchanged.
+No recovery erase, re-enrollment, partition, C6 or irreversible provisioning change.
+
+One final-source real worker disable/enable cycle committed generations 13/14,
+with stable boot ID, names, IDs, face/voice sample counts and models 1 load/0 releases.
+Ready is false while disabled and true after enabling. It uses checked queue
+injection while both harts are briefly halted; OpenOCD watchdog and touchscreen
+limitations described below still apply. After debugger shutdown, full profiles
+readback validates 14/13; generation 14's entire 312,416-byte canonical payload is
+byte-identical to pre-test generation 4. A debugger-free normal restart restores
+14, saved/clean, and automatically reaches ready AUTO. CSI continues about 30 FPS.
+This supersedes the earlier final-source installation/restore placeholders below.
+
+Actual first boot: restore 162,768 us; storage-stage internal lifetime low 285,239 B,
+PSRAM low 30,460,512 B. Uptime 3 s: internal free 202,967 B, largest 69,632 B,
+lifetime minimum 171,263 B, PSRAM free 18,167,508 B; identity stack watermark 5,920 B.
+These are sampled free space/lifetime lows, not isolated operation peaks. Checked
+UI frame subtotal remains 2,736 B; persistence snapshots remain 624,832 B PSRAM.
+
+Final firmware CI: all five jobs pass, including host ASan/UBSan and four firmware
+configurations: https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40411959469.
+Local 32/32 CTest, 24/24 Python, 3/3 checks, formatting/whitespace, recognition build,
+Flash budget and seventeen-function ELF IRAM placement pass. Public final package:
+`dist/0.11.7-dev-iteration13-final`, with source metadata, VALIDATION.md, SHA256SUMS
+and a separately hashed ZIP. Backups/raw logs remain private and outside Git.
+
+No outstanding installation authorization: the owner authorized these operations.
+Visual touchscreen/flicker acceptance, actual restored-member greeting/HA delivery,
+and real microphone/speech/model/calibration acceptance remain physical checks.
+Speaker weights are provisioned and numeric readiness/failure cleanup reporting is
+implemented; this is not a measured successful speaker inference. Voice/BOTH events
+remain gated. Next milestone: one combined debugger-free visual/greeting/HA and
+bounded silence/speech readiness session before considering 0.12.0-dev. PR stays
+draft/unmerged; this is a reproducible development candidate, not product release.
 
 ## Verified 0.11.6 hardware transactions and final 0.11.7 UI guard
 
@@ -63,7 +104,7 @@ changes watchdog behavior while halted, so final normal-mode/touchscreen/flicker
 acceptance still requires a debugger-free session. Source/CI/package/install and
 post-fix results are recorded below once actually obtained.
 
-## Latest 0.11.5-dev installation and boot
+## Historical 0.11.5-dev installation and boot (subsequently withdrawn)
 
 Following the existing owner authorization, installed only the app at 0x20000:
 4,505,248 B, SHA256 ccd13d196db6410d4617f0c1d16e951fd36358149cb1aab9c79e0051d984f8e8.

@@ -25,7 +25,9 @@ The corrected 0.11.6 backend completed six target disable/enable commits without
 reboot or model reload; exact profile payload preservation and a normal generation
 12/AUTO restart were verified. Measured saves can exceed five seconds, so the final
 UI guard waits for the durable creation receipt while storage is saving. See the
-current report for exact final-source installation and remaining visual/voice limits.
+current report for final-source app-only installation, generations 13/14, exact
+payload preservation and debugger-free generation 14/AUTO restart. All five final
+firmware CI jobs pass; visual, greeting/HA and voice acceptance remain separate.
 
 ## 0.11.6-dev measured Flash-time CSI fix
 
