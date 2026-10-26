@@ -1,5 +1,18 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-26: JTAG captures the Flash-time CSI fault, 0.11.6-dev
+
+Owner reproduced disable restart. Live serial: HP watchdog reset, previous valid
+profile generation 4 restored. Exact ELF/JTAG saved exception: mepc 0x402dd6be,
+ra 0x4ff01c7a, mcause 0x19/hart 0. The pinned SDK omitted
+`dw_gdma_channel_config_transfer` from its noflash mappings, although CSI calls it
+from its cache-safe ISR. Add a project-local conditional linker fragment and an
+expanded seventeen-function ELF guard. Existing 0.11.5 ELF now fails this precise
+guard. Debugger-injected command reproduction uses the real worker/transaction;
+it is not touchscreen or normal-watchdog acceptance. Owner explained dark camera
+metrics by darkness and device orientation; no image-path change is needed.
+
+
 ## 2026-10-26: 0.11.5-dev installed, CSI and automatic restore observed
 
 311dbe1 app-only update verified, plus full Flash readback against a fresh private

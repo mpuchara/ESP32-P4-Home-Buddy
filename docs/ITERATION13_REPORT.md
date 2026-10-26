@@ -1,8 +1,36 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Current installed firmware: **0.11.5-dev**, source `311dbe1c9453c3b1b56ea137365e4a4a1132ad6d`, branch `codex/local-face-recognition`.
+Date: 2026-10-26. Current correction candidate: **0.11.6-dev**; installed 0.11.5-dev is withdrawn after a captured Flash-time CSI fault, branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
+
+## 0.11.5 failure and measured 0.11.6-dev correction
+
+The owner confirmed the dark frame metrics were caused by darkness/device
+orientation and that the camera itself operates. However, disabling a profile
+reproduced a restart. A live capture confirms HP_SYS_HP_WDT_RESET, with previous
+committed generation 4 restored. This supersedes any acceptance implication from
+the earlier idle boot/window. Do not run additional manual tests on 0.11.5.
+
+USB JTAG/OpenOCD and the exact installed ELF captured the original exception.
+With both harts halted and the existing polling command queue empty/unlocked,
+a synthetic disable command plus the normal epoch change was injected into that
+queue. It exercises the real worker/Flash/CSI transaction, not the touchscreen.
+At panic entry, the saved frame has mepc=0x402dd6be, ra=0x4ff01c7a, mcause=0x19,
+hart=0. Address resolution identifies `dw_gdma_channel_config_transfer` called by
+`csi_dma_trans_done_callback` at the native CSI transfer restart. SDK 5.5.1 leaves
+this function in Flash despite its other IRAM control options. The secondary
+watchdog occurs while the cache error is being handled. No model threshold,
+partition or stored templates are implicated by this frame.
+
+0.11.6-dev adds a project-local linker fragment for only that missing noflash
+mapping, without editing the installed SDK. The ELF guard now checks seventeen
+entrypoints/callees, including DW-GDMA control/list helpers, cache synchronization
+and the timer. The 0.11.5 binary is rejected at the exact Flash-resident culprit.
+Hardware transaction tests under the debugger are diagnostic evidence; OpenOCD
+changes watchdog behavior while halted, so final normal-mode/touchscreen/flicker
+acceptance still requires a debugger-free session. Source/CI/package/install and
+post-fix results are recorded below once actually obtained.
 
 ## Latest 0.11.5-dev installation and boot
 

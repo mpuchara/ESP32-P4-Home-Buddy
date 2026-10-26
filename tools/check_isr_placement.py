@@ -5,7 +5,11 @@ import sys
 
 REQUIRED = ('camera_next_buffer', 'camera_frame_finished', 'hb_frame_reserve',
             'hb_frame_abort', 'hb_frame_publish', 'hb_frame_complete',
-            'csi_dma_trans_done_callback', 'refresh_done')
+            'csi_dma_trans_done_callback', 'refresh_done',
+            'dw_gdma_channel_config_transfer', 'dw_gdma_channel_enable_ctrl',
+            'dw_gdma_channel_use_link_list', 'dw_gdma_lli_set_block_markers',
+            'dw_gdma_link_list_get_item', 'dw_gdma_channel_default_isr',
+            'dma_trans_done_cb', 'esp_cache_msync', 'esp_timer_get_time')
 
 
 def validate(sections):

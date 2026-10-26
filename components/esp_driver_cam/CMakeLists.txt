@@ -19,5 +19,6 @@ idf_component_register(
     INCLUDE_DIRS "${native}/include" "${native}/interface" "${native}/csi/include"
                  "${native}/isp_dvp/include"
     PRIV_INCLUDE_DIRS "${native}" "${native}/csi/src"
-    REQUIRES esp_driver_isp esp_mm PRIV_REQUIRES esp_driver_gpio)
+    REQUIRES esp_driver_isp esp_mm PRIV_REQUIRES esp_driver_gpio
+    LDFRAGMENTS "dw_gdma_cache.lf")
 target_compile_definitions(${COMPONENT_LIB} PUBLIC HB_CAMERA_DMA_OUTPUT_BITS=1)
