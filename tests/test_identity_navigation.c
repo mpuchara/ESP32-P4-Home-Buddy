@@ -6,6 +6,11 @@
 
 int main(void)
 {
+    assert(!hb_identity_create_timed_out(5000, false));
+    assert(hb_identity_create_timed_out(5001, false));
+    assert(!hb_identity_create_timed_out(5031, true));
+    assert(!hb_identity_create_timed_out(6042, true));
+    assert(!hb_identity_create_timed_out(30000, true));
     // Reproduce the worker/UI interleaving: the worker still reports TEST when
     // saver navigation follows an accepted BACKGROUND command immediately.
     hb_id_mode published = HB_ID_TEST;

@@ -1,8 +1,39 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Current correction candidate: **0.11.6-dev**; installed 0.11.5-dev is withdrawn after a captured Flash-time CSI fault, branch `codex/local-face-recognition`.
+Date: 2026-10-26. Final UI candidate: **0.11.7-dev**; 0.11.6 backend transactions and restart verified; 0.11.5 withdrawn, branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
+
+## Verified 0.11.6 hardware transactions and final 0.11.7 UI guard
+
+0.11.6/b7f5da1 was installed app-only with verify and full Flash readback; all other
+sectors matched the fresh private backup. All five CI jobs passed (40386086581).
+A captured disable/enable pair committed generations 5/6, parked/resumed the same
+model set and survived a normal restart restoring generation 6 with ready AUTO.
+
+Three further automated hardware worker cycles produced six verified commits:
+generations 7,8,9,10,11,12. Both harts were briefly halted only to inject each
+command into the checked empty/unlocked existing queue and to inspect results;
+execution used the real identity worker, production transaction engine and active
+CSI/DSI. Boot ID stayed constant; names/IDs/sample counts stayed identical and
+model loads/releases remained 1/0. This proves the backend risky path without a
+new manual reproduction, not touchscreen/visible flicker or normal-watchdog proof
+while the debugger was attached.
+
+After debugger shutdown, a private read of the entire profiles partition verifies
+valid generations 12 and 11. The latest 312,416-byte canonical payload is byte-for-
+byte identical to generation 4 before the tests, proving names, IDs and both
+modalities' templates preserved, beyond just matching counts. A debugger-free
+normal restart then restores generation 12 and ready AUTO with continuing CSI
+frames. No recovery erase or re-enrollment.
+
+Measured transaction times include 5,030,632 and 6,041,538 us. The final UI guard
+in 0.11.7-dev does not report a create timeout while storage_saving is true, even
+past 5 seconds; actual creation receipts are still handled first. Waiting without
+an active save retains the old timeout. Tests cover 5,001/5,031/6,042/30,000 ms
+and prevent false failure during a legitimate durable commit. The worker/storage/
+IRQ implementation remains that of the verified 0.11.6 fix. Final-source install
+and target receipts are recorded when obtained, without inferring acceptance.
 
 ## 0.11.5 failure and measured 0.11.6-dev correction
 

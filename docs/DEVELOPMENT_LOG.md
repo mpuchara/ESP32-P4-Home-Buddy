@@ -1,5 +1,17 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-26: six target commits and exact payload retention; final save-wait UI
+
+0.11.6 completed three automated disable/enable worker cycles, generations 7-12,
+without a boot-ID change or model reload/release (1/0 throughout). Names/IDs/counts
+were stable. After debugger shutdown, full profile-partition readback validates
+12/11 and proves generation 12 canonical payload byte-identical to pre-test 4.
+Normal restart restores 12 and ready AUTO. CSI continues ~30 FPS. All five firmware
+CI jobs pass (40386086581). UI/visual/watchdog acceptance during JTAG is not claimed.
+Measured saves of 5.03/6.04 s motivate 0.11.7's create timeout guard: keep waiting
+while an actual durable save is active; retain the old command timeout otherwise.
+
+
 ## 2026-10-26: JTAG captures the Flash-time CSI fault, 0.11.6-dev
 
 Owner reproduced disable restart. Live serial: HP watchdog reset, previous valid

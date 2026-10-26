@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-set(PROJECT_VER "0.11.6-dev")
+set(PROJECT_VER "0.11.7-dev")
 project(home_buddy)
 if(NOT CONFIG_PARTITION_TABLE_OFFSET EQUAL 0x10000 OR
    NOT CONFIG_PARTITION_TABLE_CUSTOM_FILENAME STREQUAL "partitions.csv" OR

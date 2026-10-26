@@ -759,7 +759,8 @@ static void identity_update(void)
             identity_page(&event);
             return;
         }
-        if ((uint32_t)(lv_tick_get() - create_started) > 5000)
+        if (hb_identity_create_timed_out((uint32_t)(lv_tick_get() - create_started),
+                                         s->storage_saving))
         {
             creating_profile = false;
             form_error("Nie dodano profilu. Sprawdź imię i liczbę domowników.");
