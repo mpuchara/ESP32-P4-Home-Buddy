@@ -65,6 +65,7 @@ extern "C"
         bool persistence_ready, auto_enabled;
         bool storage_saved, storage_saving;
         unsigned storage_mode;
+        unsigned storage_result; // hb_store_result; metadata only, no templates.
         uint64_t storage_generation, storage_last_save_ms;
         int storage_bank;
         unsigned usable_profiles;

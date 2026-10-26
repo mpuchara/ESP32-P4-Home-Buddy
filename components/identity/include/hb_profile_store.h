@@ -35,6 +35,7 @@ extern "C"
         HB_STORE_INCOMPATIBLE,
         HB_STORE_CAPACITY
     } hb_store_result;
+    const char *hb_profile_result_text(hb_store_result);
     typedef struct
     {
         uint64_t generation;

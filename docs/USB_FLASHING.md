@@ -139,3 +139,13 @@ installation was executed during this development iteration.
 After approved installation: enroll one member, wait for the saved status, enable AUTO,
 restart once, confirm the member and AUTO restore, then confirm one greeting and one
 eligible HA metadata event. Offline fault injection covers interrupted transactions.
+
+## Explicit interrupted-first-write recovery
+
+Application-only updates intentionally preserve partial profile data too. When
+there is no committed generation, firmware fails closed rather than erasing it.
+The offline-default recover_profile_storage.py helper requires a private 1 MiB
+backup and exact SHA256. Only separately approved discard of headerless upper
+bank data is supported, with unchanged-layout/security checks and a byte-for-byte
+current-data comparison before erase. It never performs chip erase. Do not run
+it merely to clear a warning. See ITERATION12_STORAGE_RECOVERY.md for scope.

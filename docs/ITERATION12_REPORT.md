@@ -1,5 +1,16 @@
 # Iteration 12 implementation and validation
 
+## Current storage recovery candidate, 2026-10-26
+
+**0.11.2-dev** supersedes the candidate status below. The owner completed the
+0.11.1-dev face flow, but storage was blocked. An explicitly authorized read-only
+USB snapshot found a blank lower bank and an upper bank with only a partial payload
+and no committed header. No erase or repair was authorized or performed. The new
+candidate fixes the empty advanced menu, delays the create receipt until its save
+attempt ends, and distinguishes storage result codes. Explicit guarded recovery,
+installation and physical persistence acceptance remain pending. See
+ITERATION12_STORAGE_RECOVERY.md for measured evidence, scope and validation.
+
 ## Current candidate status, 2026-10-26
 
 The current corrected candidate is **0.11.1-dev**. The 0.11.0-dev installation

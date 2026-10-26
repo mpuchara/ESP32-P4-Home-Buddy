@@ -200,6 +200,7 @@ static void persistence_metrics(unsigned stage, uint64_t started)
 }
 static void persistence_start(hb_id_status &s)
 {
+    s.storage_result = HB_STORE_LOCKED;
     snprintf(s.persistence_message, sizeof(s.persistence_message),
              "RAM-only: profile znikają po restarcie");
     if (!hb_profile_flash_open(&profile_io))
@@ -217,6 +218,9 @@ static void persistence_start(hb_id_status &s)
     hb_store_result r = hb_profile_v2_boot(&profile_io, household, storage_scratch,
                                            &profile_revision, esp_random());
     persistence_metrics(0, storage_started);
+    s.storage_result = r;
+    ESP_LOGI("identity", "PROFILE_BOOT result=%u bank=%d generation=%llu", (unsigned)r,
+             profile_revision.bank, (unsigned long long)profile_revision.generation);
     s.persistence_ready = r == HB_STORE_OK || r == HB_STORE_EMPTY;
     if (!s.persistence_ready)
     {
@@ -229,10 +233,12 @@ static void persistence_start(hb_id_status &s)
     s.storage_generation = profile_revision.generation;
     s.storage_bank = profile_revision.bank;
     digest_valid = s.storage_saved && persistence_fingerprint(durable_digest);
-    snprintf(s.persistence_message, sizeof(s.persistence_message),
-             s.storage_saved       ? "Profile zapisane na urządzeniu"
-             : s.persistence_ready ? "Pusta baza lokalna, bez szyfrowania"
-                                   : "Baza uszkodzona lub niezgodna. Zapis zablokowany");
+    if (s.storage_saved)
+        snprintf(s.persistence_message, sizeof(s.persistence_message),
+                 "Profile zapisane na urządzeniu");
+    else
+        snprintf(s.persistence_message, sizeof(s.persistence_message), "%s%s",
+                 hb_profile_result_text(r), s.persistence_ready ? "" : ". Zapis zablokowany");
 }
 
 static bool persistence_commit(hb_id_status &s, bool deletion)
@@ -271,6 +277,7 @@ static bool persistence_commit(hb_id_status &s, bool deletion)
                              : hb_profile_v2_commit(&profile_io, household, storage_scratch,
                                                     &profile_revision, true);
     persistence_metrics(1, storage_started);
+    s.storage_result = r;
     s.storage_saving = false;
     if (r != HB_STORE_OK)
     {
@@ -758,12 +765,16 @@ static void worker(void *)
                     message(state, hb_household_voice_error(HB_VEN_GATED));
                 break;
             case HB_ID_CMD_CREATE:
-                state.created_id = hb_id_create(database, c.name);
-                message(state,
-                        state.created_id ? "Profil utworzony w RAM" : "Nie można dodać profilu");
-                if (state.created_id)
+            {
+                uint64_t created = hb_id_create(database, c.name);
+                message(state, created ? "Profil utworzony w RAM" : "Nie można dodać profilu");
+                if (created)
                     persistence_commit(state, false);
+                // Saving publishes status. Do not expose the navigation receipt until
+                // the storage attempt ends, even when the user continues in RAM.
+                state.created_id = created;
                 break;
+            }
             case HB_ID_CMD_RENAME:
                 if (hb_id_rename(database, c.person_id, c.name))
                     persistence_commit(state, false);
@@ -1082,6 +1093,11 @@ static void worker(void *)
                      (unsigned)state.command_rejections, (unsigned)overflow[0],
                      (unsigned)overflow[1], (unsigned)overflow[2], (unsigned)stale[0],
                      (unsigned)stale[1], (unsigned)stale[2]);
+            ESP_LOGI("identity",
+                     "PROFILE_STATUS result=%u ready=%d saved=%d dirty=%d bank=%d generation=%llu",
+                     state.storage_result, state.persistence_ready, state.storage_saved,
+                     storage_dirty, state.storage_bank,
+                     (unsigned long long)state.storage_generation);
         }
         // No overlapping inference, no unbounded queue. Commands are checked at least every 100ms
         // idle.

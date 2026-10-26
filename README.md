@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.11.1-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.11.2-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -16,6 +16,16 @@ persistence, automatic restoration and retained AUTO preference. No password, PI
 or unlock. Physical extraction is not prevented. Installation/reboot acceptance
 remain pending. See [current report](docs/ITERATION12_REPORT.md) and
 [owner storage decision](docs/PERSISTENCE_DECISION.md).
+
+## 0.11.2-dev interrupted first write and diagnostics
+
+Physical enrollment now reaches completion after the stack fix. A private read-only
+Flash audit found a blank lower bank and headerless partial data in the upper bank,
+consistent with the earlier crash during the first create/save. Persistence remains
+blocked until explicitly approved recovery; the firmware never formats this state.
+The candidate fixes the 11-entry advanced menu, exposes storage result codes and
+delays the create navigation receipt until its save attempt completes. See
+[recovery scope and evidence](docs/ITERATION12_STORAGE_RECOVERY.md).
 
 ## 0.11.1-dev enrollment stack fix
 

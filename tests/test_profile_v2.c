@@ -8,6 +8,7 @@ static hb_household_snapshot db, scratch, restored;
 static int fail = -1, calls;
 static size_t tear;
 static bool migration_tear;
+static size_t first_write_tear;
 static bool read_io(void *ctx, size_t off, void *out, size_t n)
 {
     (void)ctx;
@@ -21,6 +22,11 @@ static bool write_io(void *ctx, size_t off, const void *in, size_t n)
     (void)ctx;
     if (off + n > sizeof(flash))
         return false;
+    if (first_write_tear && off == HB_PROFILE_V2_BANK + HB_PROFILE_V2_HEADER)
+    {
+        memcpy(flash + off, in, first_write_tear);
+        return false;
+    }
     if (migration_tear && off == HB_PROFILE_V2_BANK + HB_PROFILE_V2_HEADER)
     {
         memcpy(flash + off, in, 32);
@@ -77,6 +83,22 @@ static void boot_lifecycle(void)
     assert(hb_profile_v2_boot(&io, &db, &scratch, &rev, 123) == HB_STORE_CORRUPT);
     assert(!memcmp(backup, flash, sizeof(flash)));
     memset(flash, 255, sizeof(flash));
+    // Match the physical first-write failure: a create receipt used to be
+    // published while Flash was still programming. A reset left 14368 bytes
+    // of payload and no header, with the lower bank still completely erased.
+    assert(hb_profile_v2_boot(&io, &db, &scratch, &rev, 123) == HB_STORE_EMPTY);
+    assert(hb_id_create(&db.face, "Interrupted synthetic"));
+    first_write_tear = 14368;
+    assert(hb_profile_v2_commit(&io, &db, &scratch, &rev, true) == HB_STORE_IO);
+    first_write_tear = 0;
+    assert(rev.bank == -1 && rev.generation == 0);
+    for (size_t i = 0; i < HB_PROFILE_V2_BANK + HB_PROFILE_V2_HEADER; ++i)
+        assert(flash[i] == 255);
+    memcpy(backup, flash, sizeof(flash));
+    assert(hb_profile_v2_boot(&io, &restored, &scratch, &rev, 123) == HB_STORE_CORRUPT);
+    assert(!memcmp(backup, flash, sizeof(flash)));
+    memset(flash, 255, sizeof(flash));
+    assert(hb_profile_v2_boot(&io, &db, &scratch, &rev, 123) == HB_STORE_EMPTY);
     uint64_t id = hb_id_create(&db.face, "Boot synthetic");
     assert(id);
     db.face.people[0].count = 1;

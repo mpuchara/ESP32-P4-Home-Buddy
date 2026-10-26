@@ -36,11 +36,12 @@ lv_obj_t *hb_product_home(lv_obj_t *parent, const hb_menu_item items[4], lv_even
 }
 void hb_product_rows(lv_obj_t *parent, const hb_menu_item *items, unsigned count)
 {
-    if (count > 10)
+    if (count > 12)
         return;
+    int step = count > 10 ? 60 : 68;
     for (unsigned i = 0; i < count; ++i)
         item(parent, &items[i], count > 5 ? 24 + (i % 2) * 388 : 24,
-             70 + (count > 5 ? i / 2 : i) * 68, count > 5 ? 364 : 752, 52);
+             70 + (count > 5 ? i / 2 : i) * step, count > 5 ? 364 : 752, 52);
 }
 bool hb_product_timeout(uint32_t now, uint32_t touched, bool busy, bool editing, bool enrollment,
                         bool confirmation)

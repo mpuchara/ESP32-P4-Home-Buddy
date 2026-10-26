@@ -41,6 +41,8 @@ class ProductWiring(unittest.TestCase):
         self.assertLess(worker.index('persistence_start(state)'), worker.index('hb_config_identity_auto()'))
         save = worker.split('case HB_ID_CMD_SAVE:', 1)[1].split('case HB_ID_CMD_TEST:', 1)[0]
         self.assertLess(save.index('if (persistence_commit'), save.index('state.saved_id ='))
+        create = worker.split('case HB_ID_CMD_CREATE:', 1)[1].split('case HB_ID_CMD_RENAME:', 1)[0]
+        self.assertLess(create.index('persistence_commit'), create.index('state.created_id ='))
         deletion = worker.split('case HB_ID_CMD_DELETE:', 1)[1].split('case HB_ID_CMD_BEGIN:', 1)[0]
         self.assertLess(deletion.index('hb_household_voice_reconcile'), deletion.index('persistence_commit'))
         failure = service.split('if (r != HB_STORE_OK)', 1)[1].split('storage_dirty = false', 1)[0]

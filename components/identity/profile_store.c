@@ -2,6 +2,29 @@
 #include "hb_profile_store.h"
 #include <string.h>
 
+const char *hb_profile_result_text(hb_store_result result)
+{
+    switch (result)
+    {
+    case HB_STORE_OK:
+        return "Zapis prawidłowy";
+    case HB_STORE_EMPTY:
+        return "Pusta baza lokalna, bez szyfrowania";
+    case HB_STORE_LOCKED:
+        return "Polityka pamięci blokuje dostęp";
+    case HB_STORE_IO:
+        return "Błąd odczytu lub zapisu Flash";
+    case HB_STORE_CORRUPT:
+        return "Nieprawidłowy lub przerwany zapis bazy";
+    case HB_STORE_INCOMPATIBLE:
+        return "Niezgodny format lub model bazy";
+    case HB_STORE_CAPACITY:
+        return "Niezgodny rozmiar partycji profili";
+    default:
+        return "Nieznany błąd pamięci";
+    }
+}
+
 // Schema 1 is an ESP32-P4 little-endian ABI snapshot. ABI and model are pinned;
 // a future ABI/model must migrate explicitly, never reinterpret older embeddings.
 _Static_assert(sizeof(hb_id_database) + HB_PROFILE_HEADER <= HB_PROFILE_BANK,

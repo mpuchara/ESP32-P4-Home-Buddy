@@ -799,7 +799,7 @@ static void identity_update(void)
         hb_camera_get_status(&camera);
         hb_ha_status ha;
         hb_ha_get_status(&ha);
-        lv_label_set_text(product_info, "Home Buddy | firmware 0.11.1-dev");
+        lv_label_set_text(product_info, "Home Buddy | firmware 0.11.2-dev");
         const char *names[] = {"Wi-Fi", "UBox", "Kamera", "Rozpoznawanie", "Home Assistant"};
         const char *values[] = {network_state, image.data ? "Obraz dostępny" : "Oczekiwanie",
                                 camera.running ? "Dostępna" : "Oczekiwanie",
@@ -1992,12 +1992,14 @@ static void storage_page(lv_event_t *e)
     char info[512];
     snprintf(info, sizeof(info),
              "Tryb: %s\nSchemat: 2 | bank: %d | generacja: %llu\nDomownicy: %u | ostatni zapis: "
-             "%llu ms od startu\n%s",
+             "%llu ms od startu\nKod pamięci: %u | dostępna: %s | zapis trwały: %s\n%s",
              s->storage_mode == 2   ? "LOCAL_UNENCRYPTED"
              : s->storage_mode == 1 ? "HARDWARE_PROTECTED"
                                     : "RAM_ONLY",
              s->storage_bank, (unsigned long long)s->storage_generation, s->profile_count,
-             (unsigned long long)s->storage_last_save_ms, s->persistence_message);
+             (unsigned long long)s->storage_last_save_ms, s->storage_result,
+             s->persistence_ready ? "tak" : "nie", s->storage_saved ? "tak" : "nie",
+             s->persistence_message);
     lv_obj_t *text = label(page, info, LV_ALIGN_TOP_LEFT, 24, 80);
     lv_obj_set_width(text, 745);
     button(page, "Ponów zapis", 24, 350, 350, identity_send,

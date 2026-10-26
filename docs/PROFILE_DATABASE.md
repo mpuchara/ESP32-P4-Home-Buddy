@@ -101,3 +101,12 @@ formatting. These sizes are not measured board peaks. Physical peak PSRAM/intern
 heap/stack, save latency, responsiveness and reboot persistence remain pending the
 approved combined session. Host tests use synthetic vectors and a protocol checksum;
 firmware uses pinned mbedTLS SHA256.
+
+## Captured interrupted first commit
+
+The 0.11.1-dev physical follow-up found a blank lower bank and 14,368 partial
+upper payload bytes without a commit header. Boot correctly refused this state.
+0.11.2-dev delays the create receipt until its save attempt completes, exposes
+the actual storage result, and fixes the advanced diagnostics menu. A private
+read-only backup is secured; explicit reviewed recovery remains separate from
+normal initialization. See ITERATION12_STORAGE_RECOVERY.md.

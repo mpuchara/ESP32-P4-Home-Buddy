@@ -186,3 +186,10 @@ at 6 KiB. The 8 KiB LVGL stack is unchanged. Real target compiler frames now hav
 an update/identity_update/identity_page subtotal of 2,736 B versus 7,360 B before;
 this excludes LVGL/libc/logging and is not a measured full-task peak. Each firmware
 build enforces the critical frame and nested subtotal limits. See ITERATION12_STACK_FIX.md.
+
+## 0.11.2-dev storage diagnostics
+
+One storage result scalar increases the target UI workspace from 4,872 to 4,896 B
+(ELF symbol size 0x1320), below the unchanged 6 KiB cap. Target UI nested frame
+subtotal remains 2,736 B; physical complete-task peaks remain unmeasured. No new
+snapshot, model, persistent partition or task stack is allocated.

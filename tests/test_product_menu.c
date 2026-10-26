@@ -71,7 +71,8 @@ int main(void)
         {"Test dotyku", action, (void *)3},    {"Kamera lokalna", action, (void *)4},
         {"Obecność w tle", action, (void *)5}, {"Jakość twarzy", action, (void *)6},
         {"System", action, (void *)7},         {"Ocena rozpoznawania", action, (void *)8},
-        {"Mikrofon", action, (void *)9},       {"Połączenie HA", action, (void *)10}};
+        {"Mikrofon", action, (void *)9},       {"Połączenie HA", action, (void *)10},
+        {"Pamięć profili", action, (void *)11}};
     lv_mem_monitor_t before, after;
     for (unsigned i = 0; i < 400; ++i)
     {
@@ -83,11 +84,11 @@ int main(void)
         if (i % 3 == 1)
             hb_product_rows(p, rows, 5);
         else if (i % 3 == 2)
-            hb_product_rows(p, diagnostics, 10);
+            hb_product_rows(p, diagnostics, 11);
         else
             hb_product_home(p, cards, action);
         lv_scr_load(p);
-        bounds(p, i % 3 == 1 ? 5 : i % 3 == 2 ? 10 : 4);
+        bounds(p, i % 3 == 1 ? 5 : i % 3 == 2 ? 11 : 4);
         if (!(i % 3))
         {
             lv_obj_t *back = lv_obj_get_child(p, 4);

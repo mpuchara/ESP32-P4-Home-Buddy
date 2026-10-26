@@ -1084,3 +1084,12 @@ target GCC stack-usage build guard plus regression for captured old frames.
 Python 16/16 and CTest 32/32 passed; target UI frame subtotal reduced from 7,360 B
 to 2,736 B. Corrected physical acceptance is tracked separately; no acceptance is
 inferred from host tests. See ITERATION12_STACK_FIX.md.
+
+## 2026-10-26: 0.11.2-dev, interrupted first-write recovery
+
+Owner completed enrollment after the stack fix, but persistent storage was blocked.
+An owner-authorized read-only USB snapshot found a blank lower bank and a partial
+upper payload with no commit header. No erase/repair was performed. Fixed the
+eleven-item advanced menu and premature create receipt; added storage result
+metadata and an offline-default, explicitly authorized, backup-bound recovery
+helper. Evidence and test boundaries: ITERATION12_STORAGE_RECOVERY.md.
