@@ -29,10 +29,10 @@ class ProductWiring(unittest.TestCase):
         self.assertIn('HB_ID_CMD_AUTO', recognition)
         household = ui.split('static void household_page(lv_event_t *e)\n{', 1)[1].split('static void profile_page', 1)[0]
         self.assertNotIn('Odśwież', household)
-        self.assertIn('profile_ids[i] = s.profiles[i].id', household)
+        self.assertIn('profile_ids[i] = s->profiles[i].id', household)
         self.assertIn('hb_product_timeout', ui)
         self.assertIn('keyboard && !lv_obj_has_flag', ui)
-        self.assertIn('enrollment_observed && s.saved_id', ui)
+        self.assertIn('enrollment_observed && s->saved_id', ui)
 
     def test_persistent_enrollment_receipts_and_worker_order(self):
         service = (ROOT / 'components/identity/identity_service.cpp').read_text(encoding='utf-8')
@@ -48,8 +48,8 @@ class ProductWiring(unittest.TestCase):
         self.assertIn('hb_compute_enter(1000)', service)
         self.assertIn('~ComputeLease()', service)
         self.assertIn('HB_ID_CMD_RETRY_SAVE', ui)
-        self.assertIn('s.persistence_message', ui)
-        self.assertIn('s.saved_id == identity_selected &&', ui)
+        self.assertIn('s->persistence_message', ui)
+        self.assertIn('s->saved_id == identity_selected &&', ui)
         self.assertNotIn('Profile tymczasowe - znikną po restarcie.', ui)
         self.assertIn('hb_config_biometric_notice()', ui)
         self.assertIn('HB_ID_CMD_NOTICE_ACK', ui)

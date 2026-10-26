@@ -1,5 +1,23 @@
 # Iteration 12 implementation and validation
 
+## Current candidate status, 2026-10-26
+
+The current corrected candidate is **0.11.1-dev**. The 0.11.0-dev installation
+was completed on 2026-10-25 using application-only USB flashing with readback
+verification and a matching partition table. Enrollment then reproduced a physical
+LVGL stack protection fault before face registration could complete. Persistence
+across a physical restart is therefore still unaccepted. The implementation and
+host transaction results below remain applicable, but the historical installation
+status below is superseded by this paragraph and ITERATION12_STACK_FIX.md.
+
+The corrected candidate moves nested UI status snapshots to a bounded static
+workspace and enforces target-compiled stack-frame limits. Local revalidation:
+32/32 CTest, 16/16 Python and 3/3 project checks pass. No corrected candidate has
+been installed during this continuation. Next hardware acceptance is the same
+single combined enrollment/saved/AUTO/restart/greeting/eligible HA-event session,
+after installation is authorized; do not restart the currently installed board
+for an acceptance test before the enrollment fault is corrected there.
+
 Date: 2026-10-25. Firmware: **0.11.0-dev**. Branch: `codex/local-face-recognition`.
 Initial implementation commit: `b941f201811559f9d7b25befca74b13cdf2c620d`;
 final resource-admission follow-up is in the branch history and package source hash.

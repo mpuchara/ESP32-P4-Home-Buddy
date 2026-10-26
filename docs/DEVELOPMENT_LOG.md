@@ -1074,3 +1074,13 @@ Implemented explicit local unencrypted schema-2 runtime, automatic save/restore,
 retained AUTO preference, privacy acknowledgment and retry UI. Preserved partitions,
 USB boundaries and experimental voice gates. See ITERATION12_REPORT.md for validation.
 No board flash, reboot, migration, eFuse or C6 operation was performed.
+
+## 2026-10-26: captured enrollment reboot and 0.11.1-dev stack fix
+
+Physical reproduction captured an LVGL Stack protection fault, matching ELF
+576394fb6, at the automatic receipt-to-enrollment transition. Replaced nested
+status snapshots with independent fixed page/refresh/preview buffers and added a
+target GCC stack-usage build guard plus regression for captured old frames.
+Python 16/16 and CTest 32/32 passed; target UI frame subtotal reduced from 7,360 B
+to 2,736 B. Corrected physical acceptance is tracked separately; no acceptance is
+inferred from host tests. See ITERATION12_STACK_FIX.md.

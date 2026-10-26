@@ -176,3 +176,13 @@ Derived additional arrays: 96,480 B mono PCM window and 96,000 B filterbanks; 1,
 ## Iteration 11, 2026-10-25
 
 Voice DB inside the live unified snapshot:65,768 B; staging holds one four-template person plus policy/session metadata, allocated lazily in PSRAM only after acceptance and an explicit Begin. Capture result is a single approximately2 KiB RAM mailbox with one worker-side consume slot. Schema2 uses312,416 B per snapshot; a transaction needs a separate same-size PSRAM scratch snapshot. The iteration-12 runtime allocates 312,416 B live plus 312,416 B scratch = 624,832 B in bounded PSRAM. These are structure/array sizes, not measured board free memory or peak usage. Actual internal/PSRAM/stack/load/inference/coexistence measurements remain pending.
+
+## 0.11.1-dev: bounded UI status workspace
+
+Captured LVGL stack protection fault during the create receipt -> enrollment page
+transition. Moved full hb_id_status values out of nested UI frames into three
+UI-task-owned page/refresh/preview slots: 4,872 B static internal RAM on P4, capped
+at 6 KiB. The 8 KiB LVGL stack is unchanged. Real target compiler frames now have
+an update/identity_update/identity_page subtotal of 2,736 B versus 7,360 B before;
+this excludes LVGL/libc/logging and is not a measured full-task peak. Each firmware
+build enforces the critical frame and nested subtotal limits. See ITERATION12_STACK_FIX.md.

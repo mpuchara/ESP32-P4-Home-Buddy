@@ -44,6 +44,7 @@ if args.speaker_model:
     shutil.copyfile(args.speaker_model, target)
     hashes.append(f"{hashlib.sha256(target.read_bytes()).hexdigest()}  espdl_models/sv_model_3s.espdl")
 for source_name, name in [
+    ("docs/ITERATION12_STACK_FIX.md", "docs/ITERATION12_STACK_FIX.md"),
     ("docs/ITERATION12_REPORT.md", "docs/ITERATION12_REPORT.md"),
     ("docs/ITERATION11_REPORT.md", "docs/ITERATION11_REPORT.md"),
     ("docs/ITERATION11_ACCEPTANCE.md", "docs/ITERATION11_ACCEPTANCE.md"),

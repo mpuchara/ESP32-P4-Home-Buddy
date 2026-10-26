@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.11.0-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.11.1-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -16,6 +16,15 @@ persistence, automatic restoration and retained AUTO preference. No password, PI
 or unlock. Physical extraction is not prevented. Installation/reboot acceptance
 remain pending. See [current report](docs/ITERATION12_REPORT.md) and
 [owner storage decision](docs/PERSISTENCE_DECISION.md).
+
+## 0.11.1-dev enrollment stack fix
+
+The first installed 0.11.0-dev candidate exposed an LVGL stack protection fault
+when moving from Add household member into guided enrollment. 0.11.1-dev uses
+three bounded UI-owned status buffers instead of nested automatic snapshots and
+checks actual P4 compiler stack frames on every firmware build. Physical
+re-enrollment/reboot acceptance remains pending the corrected installation.
+See [captured fault and fix](docs/ITERATION12_STACK_FIX.md).
 
 ## Hardware and status
 
