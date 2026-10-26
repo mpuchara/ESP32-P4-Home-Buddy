@@ -1,5 +1,12 @@
 # Iteration 12 implementation and validation
 
+## Superseding development candidate
+
+Iteration 13 continues from the owner-confirmed 0.11.2-dev retention/AUTO evidence
+recorded below. See ITERATION13_REPORT.md for 0.11.3-dev changes and validation.
+No new physical operation occurs in iteration 13.
+
+
 ## Physical persistence acceptance update, 2026-10-26
 
 Installed firmware: **0.11.2-dev**, source

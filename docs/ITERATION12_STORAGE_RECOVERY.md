@@ -1,5 +1,15 @@
 # Iteration 12: interrupted first commit and advanced diagnostics
 
+## Iteration 13 recovery-tool update
+
+The old recovery has already completed as recorded below. Do not repeat it against
+the current valid database. The audited helper now keeps the application stopped
+in the loader for every USB command (`--after no_reset`), through final readback.
+Security fields must each appear exactly once and equal Disabled. An authorized
+recovery leaves the loader active; a later start/update is separate. See
+ITERATION13_REPORT.md for added failure tests. No recovery was run in iteration 13.
+
+
 Date: 2026-10-26. Candidate: **0.11.2-dev**.
 
 ## Completed recovery and owner-confirmed restart

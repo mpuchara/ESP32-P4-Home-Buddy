@@ -52,7 +52,7 @@ def execute_recovery(data, table, port, runner):
     offset, size = recovery_plan(data)
     validate_layout(table)
     base = [sys.executable, '-m', 'esptool', '--chip', 'esp32p4', '--port', port,
-            '--before', 'usb_reset', '--after', 'hard_reset']
+            '--before', 'usb_reset', '--after', 'no_reset']
 
     def run(args):
         result = runner(base + args, text=True, capture_output=True)
@@ -61,8 +61,11 @@ def execute_recovery(data, table, port, runner):
         return result.stdout
 
     security = run(['get_security_info'])
-    if 'Secure Boot: Disabled' not in security or 'Flash Encryption: Disabled' not in security:
-        raise ValueError("Unknown or protected security state; recovery refused")
+    for label in ('Secure Boot', 'Flash Encryption'):
+        values = [line.strip().split(':', 1)[1].strip() for line in security.splitlines()
+                  if line.strip().startswith(label + ':')]
+        if values != ['Disabled']:
+            raise ValueError("Unknown or protected security state; recovery refused")
     with tempfile.TemporaryDirectory(prefix='home-buddy-profile-recovery-') as temporary:
         temporary = Path(temporary)
         current_table = temporary / 'table.bin'

@@ -6,7 +6,14 @@
 #include <string.h>
 static esp_partition_t part = {HB_PROFILE_PARTITION, false};
 static bool encryption, secure, missing;
-static unsigned reads, writes, erases;
+static unsigned reads, writes, erases, yields;
+static unsigned fail_erase;
+static bool fail_write;
+void vTaskDelay(unsigned ticks)
+{
+    assert(ticks == 1);
+    ++yields;
+}
 bool esp_flash_encryption_enabled(void)
 {
     return encryption;
@@ -35,15 +42,16 @@ int esp_partition_write(const esp_partition_t *p, size_t o, const void *b, size_
     (void)b;
     (void)n;
     ++writes;
-    return ESP_OK;
+    return fail_write ? 1 : ESP_OK;
 }
 int esp_partition_erase_range(const esp_partition_t *p, size_t o, size_t n)
 {
     (void)p;
     (void)o;
     (void)n;
+    assert(n == 4096 && o % 4096 == 0);
     ++erases;
-    return ESP_OK;
+    return erases == fail_erase ? 1 : ESP_OK;
 }
 int mbedtls_sha256(const unsigned char *b, size_t n, unsigned char *out, int mode)
 {
@@ -78,6 +86,27 @@ int main(void)
         }
     }
     assert(!reads && !writes && !erases); // Opening is read/write/erase-free.
+#if CONFIG_HB_IDENTITY_LOCAL_UNENCRYPTED
+    encryption = secure = part.encrypted = false;
+#else
+    encryption = secure = part.encrypted = true;
+#endif
+    assert(hb_profile_flash_open(&io));
+    // Real adapter yields once per sector and after a bounded payload write.
+    assert(io.erase(io.context, 0, HB_PROFILE_PARTITION));
+    assert(erases == HB_PROFILE_PARTITION / 4096 && yields == erases);
+    uint8_t payload[16] = {0};
+    assert(io.write(io.context, 0, payload, sizeof(payload)));
+    assert(writes == 1 && yields == erases + 1);
+    unsigned before = erases;
+    assert(!io.erase(io.context, 1, 4096));
+    assert(!io.erase(io.context, 0, 4095));
+    assert(erases == before);
+    fail_erase = erases + 2;
+    assert(!io.erase(io.context, 0, 16384));
+    assert(erases == before + 2); // Stop at the failed sector.
+    fail_write = true;
+    assert(!io.write(io.context, 0, payload, sizeof(payload)));
     missing = true;
     assert(!hb_profile_flash_open(&io));
     missing = false;

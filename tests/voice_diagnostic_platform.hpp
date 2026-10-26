@@ -24,7 +24,7 @@ inline void (*task)(void *);
 inline hb_audio_consumer consumer;
 inline void *context;
 inline bool active = false, alloc_fail = false, start_fail = false, task_fail = false;
-inline bool silence = false, cancel_inference = false;
+inline bool silence = false, cancel_inference = false, invalid_embedding = false;
 inline int model_error = 0, allocations = 0, detachments = 0, model_calls = 0;
 inline int64_t time_us = 1;
 inline void reset()
@@ -33,6 +33,7 @@ inline void reset()
     task = nullptr;
     alloc_fail = start_fail = task_fail = silence = cancel_inference = false;
     model_error = detachments = model_calls = 0;
+    invalid_embedding = false;
     time_us = 1;
 }
 inline void run()
@@ -99,6 +100,13 @@ inline esp_err_t hb_audio_start_capture(unsigned, hb_audio_consumer consumer, vo
     diag_fake::active = true;
     return ESP_OK;
 }
+inline void hb_audio_get(hb_audio_status *out)
+{
+    *out = {};
+    out->sample_rate = 16000;
+    out->rms = diag_fake::silence ? 0 : 1700;
+    out->peak = diag_fake::silence ? 0 : 3000;
+}
 inline bool hb_audio_busy()
 {
     return diag_fake::active;
@@ -119,7 +127,7 @@ inline esp_err_t hb_voice_embedding_run(const int16_t *, size_t n, uint32_t rate
 {
     assert(!diag_fake::consumer && !diag_fake::active && n == HB_VOICE_SAMPLES && rate == 16000);
     ++diag_fake::model_calls;
-    out->v[0] = 1;
+    out->v[0] = diag_fake::invalid_embedding ? 0 : 1;
     m->load_us = 1;
     if (diag_fake::cancel_inference)
         hb_voice_diagnostic_stop();

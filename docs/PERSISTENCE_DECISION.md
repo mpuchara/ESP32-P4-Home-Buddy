@@ -1,5 +1,12 @@
 # Selected persistence policy, iteration 12
 
+## Iteration 13 update
+
+LOCAL_UNENCRYPTED and automatic restore remain selected. Only two fully erased
+banks permit a committed empty schema-2 fallback at startup. Unknown/torn/legacy
+bytes never trigger formatting. See ITERATION13_REPORT.md for the bootstrap tradeoff.
+
+
 The owner selected **persistent, unencrypted, local household storage with automatic
 restoration**. This supersedes iteration 11's owner-unlocked AEAD proposal and the
 previous recommendation to remain RAM-only. Firmware candidate: 0.11.0-dev.

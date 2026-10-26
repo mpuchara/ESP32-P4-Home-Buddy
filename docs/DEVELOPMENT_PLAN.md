@@ -1,5 +1,14 @@
 # Incremental development plan
 
+## Iteration 13 status
+
+0.11.3-dev advances blank-storage initialization, bounded Flash transactions,
+recovery isolation and combined voice readiness. See ITERATION13_REPORT.md.
+The latest baseline already records owner-confirmed retention/AUTO after restart
+on 0.11.2-dev. Candidate installation and changed target-path validation are pending;
+no additional recovery is needed for that valid database.
+
+
 ## Current iteration 12 policy (0.11.0-dev)
 
 The selected product mode is **persistent, unencrypted, local household storage with

@@ -1,5 +1,15 @@
 # Development firmware 0.3.0-dev user guide
 
+## Profile storage in 0.11.3-dev
+
+Profiles and the previously enabled AUTO preference restore locally after restart,
+without HA, password or PIN. Wait for confirmed saved status before restarting.
+A save error leaves temporary RAM changes for retry; it is not a durable receipt.
+If profile memory requires repair, preserve it for diagnosis, never format it.
+On genuinely blank storage the device establishes an empty fallback automatically.
+Existing profiles do not need re-enrollment for an application-only update.
+
+
 ## Current iteration 12 policy (0.11.0-dev)
 
 The selected product mode is **persistent, unencrypted, local household storage with

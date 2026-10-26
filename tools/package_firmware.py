@@ -44,6 +44,7 @@ if args.speaker_model:
     shutil.copyfile(args.speaker_model, target)
     hashes.append(f"{hashlib.sha256(target.read_bytes()).hexdigest()}  espdl_models/sv_model_3s.espdl")
 for source_name, name in [
+    ("docs/ITERATION13_REPORT.md", "docs/ITERATION13_REPORT.md"),
     ("docs/ITERATION12_STORAGE_RECOVERY.md", "docs/ITERATION12_STORAGE_RECOVERY.md"),
     ("tools/recover_profile_storage.py", "tools/recover_profile_storage.py"),
     ("docs/ITERATION12_STACK_FIX.md", "docs/ITERATION12_STACK_FIX.md"),

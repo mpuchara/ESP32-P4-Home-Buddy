@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.11.2-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.11.3-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -16,8 +16,18 @@ persistence, automatic restoration and retained AUTO preference. No password, PI
 or unlock. Physical extraction is not prevented. On 2026-10-26 the owner confirmed
 the household member and enabled recognition setting survived a restart on
 installed 0.11.2-dev after approved storage recovery. Greeting/HA delivery and
-physical resource peaks remain separately unconfirmed. See [current report](docs/ITERATION12_REPORT.md) and
+physical resource peaks remain separately unconfirmed. See [current report](docs/ITERATION13_REPORT.md) and
 [owner storage decision](docs/PERSISTENCE_DECISION.md).
+
+## 0.11.3-dev persistent identity stabilization
+
+Blank storage receives a verified empty generation before enrollment. First user
+save retains that fallback; interrupted/unknown data still blocks writes without
+formatting. Flash operations are bounded to 4 KiB and yield between calls. Recovery
+keeps the app stopped in the loader throughout comparison, scoped erase and readback.
+Combined voice readiness reports PCM, 512D output, timing and cleanup numerically.
+This candidate is host-tested and built; installation and changed physical paths
+remain pending separate authorization. See [iteration 13](docs/ITERATION13_REPORT.md).
 
 ## 0.11.2-dev interrupted first write and diagnostics
 

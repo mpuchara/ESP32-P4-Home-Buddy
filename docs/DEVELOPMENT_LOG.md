@@ -1,5 +1,15 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-26: iteration 13, 0.11.3-dev
+
+Continue from 6c095eb, preserving its later physical retention/AUTO evidence.
+Commit empty fallback only on fully blank storage; preserve unknown/torn bytes.
+Bound Flash operations, yield between them, retain commit readback and compute
+admission. Add production-engine cut tests, remove household raw save codes,
+isolate recovery in loader, and publish a numeric voice readiness report.
+See ITERATION13_REPORT.md for validation and pending target acceptance.
+
+
 Saver navigation previously consulted the worker's delayed mode snapshot. It
 could cancel an accepted but unprocessed background request, or preserve an old
 background snapshot after a newer Test request. Track accepted mode-changing UI

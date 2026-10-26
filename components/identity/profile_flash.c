@@ -2,6 +2,8 @@
 #include "esp_flash_encrypt.h"
 #include "esp_partition.h"
 #include "esp_secure_boot.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "hb_profile_flash.h"
 #include "mbedtls/sha256.h"
 #include "sdkconfig.h"
@@ -15,11 +17,22 @@ static bool read_flash(void *p, size_t o, void *b, size_t n)
 }
 static bool write_flash(void *p, size_t o, const void *b, size_t n)
 {
-    return esp_partition_write(p, o, b, n) == ESP_OK;
+    bool ok = esp_partition_write(p, o, b, n) == ESP_OK;
+    vTaskDelay(1);
+    return ok;
 }
 static bool erase_flash(void *p, size_t o, size_t n)
 {
-    return esp_partition_erase_range(p, o, n) == ESP_OK;
+    if (!n || o % 4096 || n % 4096)
+        return false;
+    // Also used by legacy migration/deletion scrub. Bound those erases too.
+    for (size_t done = 0; done < n; done += 4096)
+    {
+        if (esp_partition_erase_range(p, o + done, 4096) != ESP_OK)
+            return false;
+        vTaskDelay(1);
+    }
+    return true;
 }
 static bool digest(const void *data, size_t n, uint8_t out[32])
 {

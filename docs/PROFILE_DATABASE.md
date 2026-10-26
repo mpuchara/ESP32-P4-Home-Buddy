@@ -1,5 +1,14 @@
 # Onboard household database, active schema 2
 
+## Iteration 13 initialization
+
+On wholly blank storage, boot now commits an empty generation before enrollment.
+First user save preserves this fallback. Empty bootstrap can itself tear; without
+a valid generation, unknown bytes remain protected and writes are blocked.
+Erase/program operations are bounded to 4 KiB and yield in the device adapter.
+See ITERATION13_REPORT.md for fault-injection scope and physical evidence limits.
+
+
 Selected mode: **LOCAL_UNENCRYPTED**, persistent local profiles with automatic restore.
 Confidentiality is disabled by explicit owner decision. Integrity validation remains
 mandatory. SHA256 is not authentication against malicious modification. The separate

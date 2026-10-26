@@ -48,6 +48,50 @@ class Recovery(unittest.TestCase):
                 recover_profile_storage.main()
                 execute.assert_called_once()
 
+    def test_bad_checksum_never_opens_usb_or_changes_backup(self):
+        data = interrupted()
+        with tempfile.TemporaryDirectory() as temporary:
+            backup = Path(temporary) / 'synthetic.bin'
+            backup.write_bytes(data)
+            argv = ['recovery', str(backup), '--expected-sha256', '0' * 64,
+                    '--package', 'unused', '--port', 'COM_TEST', '--execute',
+                    '--discard-uncommitted-bank']
+            with patch.object(sys, 'argv', argv), \
+                 patch.object(recover_profile_storage, 'package_plan') as package, \
+                 patch.object(recover_profile_storage.subprocess, 'run') as usb:
+                with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                    recover_profile_storage.main()
+                package.assert_not_called()
+                usb.assert_not_called()
+            self.assertEqual(backup.read_bytes(), data)
+
+    def test_layout_and_security_refuse_ambiguous_states(self):
+        data = interrupted()
+        for key, value in [('type', 2), ('subtype', 0x40), ('offset', PROFILE_OFFSET + 4096),
+                           ('size', PARTITION_BYTES - 4096), ('flags', 0)]:
+            fields = dict(type=1, subtype=0x41, offset=PROFILE_OFFSET, size=PARTITION_BYTES, flags=1)
+            fields[key] = value
+            record = struct.pack('<HBBII16sI', 0x50aa, fields['type'], fields['subtype'],
+                                 fields['offset'], fields['size'], b'profiles', fields['flags'])
+            table = record + b'\xeb\xeb' + b'\xff' * 14 + hashlib.md5(record).digest()
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                execute_recovery(data, table, 'COM_TEST', lambda *a, **kw: self.fail('USB opened'))
+        record = struct.pack('<HBBII16sI', 0x50aa, 1, 0x41, PROFILE_OFFSET,
+                             PARTITION_BYTES, b'profiles', 1)
+        table = record + b'\xeb\xeb' + b'\xff' * 14 + hashlib.md5(record).digest()
+        for security in ('Secure Boot: Enabled\nFlash Encryption: Disabled',
+                         'Secure Boot: Disabled\nFlash Encryption: Enabled',
+                         'Secure Boot: Disabled', 'Flash Encryption: Disabled',
+                         'Secure Boot: DisabledX\nFlash Encryption: Disabled',
+                         'Secure Boot: Disabled\nSecure Boot: Enabled\nFlash Encryption: Disabled', ''):
+            calls = []
+            def run(command, **kwargs):
+                calls.append(command)
+                return subprocess.CompletedProcess(command, 0, stdout=security)
+            with self.subTest(security=security), self.assertRaises(ValueError):
+                execute_recovery(data, table, 'COM_TEST', run)
+            self.assertEqual(len(calls), 1)
+
     def test_scope_rejects_committed_unknown_and_unnecessary_erases(self):
         data = interrupted()
         self.assertEqual(recovery_plan(data), (0xba0000, BANK_BYTES))
@@ -72,6 +116,7 @@ class Recovery(unittest.TestCase):
             calls = []
 
             def run(command, **kwargs):
+                self.assertEqual(command[command.index('--after') + 1], 'no_reset')
                 operation = command[command.index('--after') + 2:]
                 calls.append(operation)
                 if operation[0] == 'get_security_info':

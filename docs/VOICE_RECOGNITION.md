@@ -1,5 +1,16 @@
 # Local voice pipeline, iteration 11
 
+## Iteration 13 combined readiness
+
+The existing explicit diagnostic publishes `VOICE_READINESS` and the numeric
+`hb_voice_diagnostic_report` result after callback retirement and PCM scrubbing.
+It joins selected slot, observed sample rate, accepted samples, signal metrics,
+512D output validity, model timings and sampled resource metrics in one attempt.
+Cleanup flags cover the callback and PCM; model cleanup remains RAII-tested.
+No physical audio/model/accuracy acceptance is claimed. Keep calibration and
+VOICE/BOTH HA gates closed. See ITERATION13_REPORT.md.
+
+
 Status: implemented and host-tested foundations; device capture, numerical model
 inference, memory peaks, speaker accuracy and 72-hour stability are NOT accepted.
 The installed device has not been flashed or reset by this iteration.

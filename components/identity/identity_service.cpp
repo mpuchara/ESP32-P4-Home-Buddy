@@ -214,6 +214,13 @@ static void persistence_start(hb_id_status &s)
                  "Brak pamięci bazy; zapis zablokowany");
         return;
     }
+    if (!hb_compute_enter(1000))
+    {
+        s.storage_result = HB_STORE_IO;
+        snprintf(s.persistence_message, sizeof(s.persistence_message),
+                 "Zasoby bazy zajęte; profile na Flash zachowane");
+        return;
+    }
     uint64_t storage_started = esp_timer_get_time();
     hb_store_result r = hb_profile_v2_boot(&profile_io, household, storage_scratch,
                                            &profile_revision, esp_random());
@@ -237,8 +244,10 @@ static void persistence_start(hb_id_status &s)
         snprintf(s.persistence_message, sizeof(s.persistence_message),
                  "Profile zapisane na urządzeniu");
     else
-        snprintf(s.persistence_message, sizeof(s.persistence_message), "%s%s",
-                 hb_profile_result_text(r), s.persistence_ready ? "" : ". Zapis zablokowany");
+        snprintf(s.persistence_message, sizeof(s.persistence_message), "%s",
+                 s.persistence_ready ? hb_profile_result_text(r)
+                                     : "Pamięć profili wymaga naprawy. Zapis zablokowany.");
+    hb_compute_leave();
 }
 
 static bool persistence_commit(hb_id_status &s, bool deletion)
@@ -282,7 +291,7 @@ static bool persistence_commit(hb_id_status &s, bool deletion)
     if (r != HB_STORE_OK)
     {
         snprintf(s.persistence_message, sizeof(s.persistence_message),
-                 "Błąd zapisu (%u). Zmiany w RAM; ponów zapis", (unsigned)r);
+                 "Nie udało się zapisać profilu. Zmiany tymczasowe; ponów zapis.");
         message(s, s.persistence_message);
         return false;
     }

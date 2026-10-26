@@ -164,9 +164,18 @@ hb_store_result hb_profile_v2_commit(const hb_profile_io *io, const hb_household
                     return HB_STORE_INCOMPATIBLE;
         }
     }
-    bool ok = io->sha256(scratch, sizeof(*scratch), h + 24) && io->sha256(h, 224, h + 224) &&
-              io->erase(io->context, offset, HB_PROFILE_V2_BANK) &&
-              io->write(io->context, offset + sizeof(h), scratch, sizeof(*scratch));
+    bool ok = io->sha256(scratch, sizeof(*scratch), h + 24) && io->sha256(h, 224, h + 224);
+    // Bound each Flash operation. The device adapter yields between sectors/chunks;
+    // identity worker ownership and the compute lease span the entire transaction.
+    for (size_t o = 0; ok && o < HB_PROFILE_V2_BANK; o += 4096)
+        ok = io->erase(io->context, offset + o, 4096);
+    for (size_t o = 0; ok && o < sizeof(*scratch); o += 4096)
+    {
+        size_t n = sizeof(*scratch) - o;
+        if (n > 4096)
+            n = 4096;
+        ok = io->write(io->context, offset + sizeof(h) + o, (const uint8_t *)scratch + o, n);
+    }
     // Read back payload before writing the final commit header.
     uint8_t digest[32];
     if (ok)
@@ -249,7 +258,10 @@ hb_store_result hb_profile_v2_boot(const hb_profile_io *io, hb_household_snapsho
         memset(db, 0, sizeof(*db));
         hb_id_database_init(&db->face, seed);
         hb_voice_database_init(&db->voice);
-        return HB_STORE_EMPTY;
+        // Both entire banks were verified erased by restore. Establish an empty
+        // fallback BEFORE enrollment can capture user templates. An interrupted
+        // bootstrap still fails closed; never erase its unknown partial bytes.
+        return hb_profile_v2_commit(io, db, scratch, rev, true);
     }
     if (r == HB_STORE_LOCKED || r == HB_STORE_CAPACITY || r == HB_STORE_IO)
         return r;

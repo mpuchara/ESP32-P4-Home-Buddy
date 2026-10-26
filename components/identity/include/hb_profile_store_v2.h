@@ -16,6 +16,7 @@ extern "C"
     } hb_household_snapshot;
     bool hb_profile_v2_valid(const hb_household_snapshot *);
     // Runtime boot: restore schema 2, migrate validated legacy only into blank upper bank.
+    // On fully blank storage, commit an empty fallback before allowing enrollment.
     hb_store_result hb_profile_v2_boot(const hb_profile_io *, hb_household_snapshot *,
                                        hb_household_snapshot *, hb_profile_revision *,
                                        uint32_t seed);

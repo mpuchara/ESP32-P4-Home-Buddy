@@ -1,5 +1,17 @@
 # P4 USB installation, update and recovery
 
+## Current iteration 13 candidate
+
+0.11.3-dev uses the unchanged layout and application-only USB update at 0x20000.
+Existing valid profiles must be preserved; the old upper-bank recovery is not an
+update prerequisite. No installation is authorized by the development task.
+Recovery helper operations now use `--after no_reset` throughout so the application
+cannot modify profiles between comparison and erase/readback. A successful recovery
+leaves the board in the loader; start/update it only in the separately approved
+session. Recovery discards only specifically approved uncommitted upper-bank bytes;
+never run it against a valid household database. Full recovery remains separate.
+
+
 ## Current iteration 12 policy (0.11.0-dev)
 
 The selected product mode is **persistent, unencrypted, local household storage with
