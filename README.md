@@ -21,6 +21,11 @@ physical resource peaks remain separately unconfirmed. See [current report](docs
 
 ## 0.11.5-dev shared DMA correction
 
+Installed source 311dbe1 passes app/full-readback verification, restores generation
+4 and resumes ready AUTO. CSI now completes frames at 29.6-29.7 FPS. Scene content,
+exact profile toggle/flicker, greeting/HA and voice execution still need operator
+acceptance; frame rate/model readiness alone are insufficient.
+
 The 0.11.4-dev boot check caught CSI rejecting an external-RAM callback context
 under the shared DMA IRAM setting. The follow-up enables CSI cache-safe allocation
 and places camera callbacks/frame-pool ISR callees in IRAM. Post-link ELF and

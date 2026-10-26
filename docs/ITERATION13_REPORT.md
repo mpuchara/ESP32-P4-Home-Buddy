@@ -1,10 +1,39 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Follow-up candidate: **0.11.5-dev** (0.11.4-dev CSI regression found during boot validation), branch `codex/local-face-recognition`.
+Date: 2026-10-26. Current installed firmware: **0.11.5-dev**, source `311dbe1c9453c3b1b56ea137365e4a4a1132ad6d`, branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
 
-## Current physical state and authorization
+## Latest 0.11.5-dev installation and boot
+
+Following the existing owner authorization, installed only the app at 0x20000:
+4,505,248 B, SHA256 ccd13d196db6410d4617f0c1d16e951fd36358149cb1aab9c79e0051d984f8e8.
+A fresh private 16 MiB backup preceded the update. App verification and full Flash
+readback pass; every other sector is unchanged, including all profiles, NVS,
+partition table and both models. No recovery or new enrollment was performed.
+Public package: dist/0.11.5-dev-iteration13-csi-cache, 54 verified hashes and ZIP.
+All five CI jobs pass for firmware source 311dbe1:
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40374472427.
+Local: 32/32 CTest, 24/24 Python, 3/3 checks, sanitizers, target configuration,
+eight-function linked ISR placement, Flash and unchanged 2,736 B UI frame subtotal.
+
+Actual 0.11.5 boot confirms version, LVGL, profile bank A generation 4, durable clean
+status and automatic ready AUTO (models 1/0). Restore took 164,230 us. CSI controller
+and application callbacks register successfully and real frame completion counters
+advance at 29.6-29.7 FPS. The first 55-second window has no panic, watchdog, callback
+registration error or display underrun. Heap samples at uptime 3 s: internal free
+203,423 B, internal lifetime minimum 171,895 B, PSRAM free 18,167,508 B. These are
+sampled free space/lifetime minima, not isolated operation peaks.
+
+Frames currently measure below-range luminance 0.0/rejected fraction 1.00; this is
+not proof of usable scene pixels. Operator lighting/lens context or a preview is
+needed before camera-image/recognition acceptance. Actual disable/enable after
+this fix, absence of visible flicker/MBF error, post-change restart, greeting/HA
+and microphone/model inference remain pending operator interaction. Do not infer
+these from frame rate or ready status. 0.11.4-dev was withdrawn after its CSI boot
+failure; its earlier all-green CI is not hardware acceptance.
+
+## Earlier authorized 0.11.3-dev installation
 
 The owner subsequently authorized installation and hardware testing. The exact
 0.11.3-dev candidate (8499ffc) and pinned speaker model were installed on COM5.

@@ -2,7 +2,7 @@
 
 ## Current iteration 13 candidate
 
-0.11.3-dev uses the unchanged layout and application-only USB update at 0x20000.
+0.11.5-dev uses the unchanged layout and application-only USB update at 0x20000.
 Existing valid profiles must be preserved; the old upper-bank recovery is not an
 update prerequisite. The owner subsequently authorized installation: app and pinned speaker model
 are now installed and verified on COM5, with a private full backup and unchanged

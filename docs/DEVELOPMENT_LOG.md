@@ -1,5 +1,17 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-26: 0.11.5-dev installed, CSI and automatic restore observed
+
+311dbe1 app-only update verified, plus full Flash readback against a fresh private
+backup: all other sectors unchanged, profiles A generation 4/B generation 3 retained.
+CSI now registers and completes frames at 29.6-29.7 FPS. Actual boot restores A/4
+in 164230 us, durable clean state, LVGL and ready AUTO with models 1/0. No callback
+registration/panic/watchdog/underrun marker in first 55 s. Image luminance currently
+below range; operator lighting/lens context requested. Exact disable/enable/flicker,
+post-change restart, greeting/HA and voice acceptance remain pending. All five
+firmware-source CI jobs pass (40374472427); see ITERATION13_REPORT.md.
+
+
 ## 2026-10-26: shared DMA correction, 0.11.5-dev
 
 The 0.11.4-dev post-install boot check caught DW-GDMA rejecting the CSI controller's
