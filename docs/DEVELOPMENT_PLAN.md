@@ -5,8 +5,10 @@
 0.11.3-dev advances blank-storage initialization, bounded Flash transactions,
 recovery isolation and combined voice readiness. See ITERATION13_REPORT.md.
 The latest baseline already records owner-confirmed retention/AUTO after restart
-on 0.11.2-dev. Candidate installation and changed target-path validation are pending;
-no additional recovery is needed for that valid database.
+on 0.11.2-dev. Candidate app and speaker model are now installed and verified under owner
+approval. Initial physical boot restored the same generation and resumed ready
+AUTO. Post-change restart, greeting/HA and audio/model execution still need the
+combined operator session. No recovery was needed for the valid database.
 
 
 ## Current iteration 12 policy (0.11.0-dev)

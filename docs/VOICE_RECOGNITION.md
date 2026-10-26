@@ -1,5 +1,12 @@
 # Local voice pipeline, iteration 11
 
+## Authorized model provisioning, 2026-10-26
+
+The pinned 2,844,624-byte speaker image is installed at 0xc20000 with esptool
+verification and full readback. This changes provisioning status only: real PCM,
+selected-slot/model inference, resource cleanup and accuracy remain unaccepted.
+Voice identification and VOICE/BOTH gates stay closed. See ITERATION13_REPORT.md.
+
 ## Iteration 13 combined readiness
 
 The existing explicit diagnostic publishes `VOICE_READINESS` and the numeric

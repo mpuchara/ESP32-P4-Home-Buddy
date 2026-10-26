@@ -6,14 +6,28 @@ Final source commit and binary SHA256 are recorded in the USB package metadata.
 
 ## Current physical state and authorization
 
-The latest repository evidence supersedes the earlier prompt baseline: 0.11.2-dev
-was installed, the specifically authorized upper-bank recovery was verified, and
-the owner confirmed profile retention and enabled recognition after restart.
-This is prior owner-reported acceptance, not a new test performed in iteration 13.
-Greeting and eligible HA delivery after that persistence restart remain unconfirmed.
-No serial access, device reset, installation, erase or provisioning occurs here.
-The 0.11.3-dev candidate needs separately authorized application-only installation
-and physical validation of its changed paths. Do not erase the now valid database.
+The owner subsequently authorized installation and hardware testing. The exact
+0.11.3-dev candidate (8499ffc) and pinned speaker model were installed on COM5.
+A private 16 MiB backup was captured outside the repository before any write.
+Disabled Secure Boot/Flash Encryption and the unchanged installed table were
+verified. The backup contained valid schema-2 banks A generation 2 and B generation 1;
+no recovery erase was necessary or performed.
+
+Writes were limited to application 0x20000 (4,503,568 B) and speaker model 0xc20000
+(2,844,624 B). esptool verification and full 16 MiB readback passed. Every sector
+outside the two selected write/erase ranges was byte-identical to the private
+backup, including the entire profiles partition, NVS, face model and partition table.
+Application SHA256: 86eabffc2384fbc571b9eaf9eb28c1713bc280ef54c91eac3b858e6e442d05c7.
+Speaker SHA256: b503ff049a0cd5c62b4c1ac337cf20b7de1549857a4d5329a1821cfb55e9b3a8.
+
+Actual boot log confirms Home Buddy 0.11.3-dev / IDF v5.5.1, LVGL ready,
+PROFILE_BOOT result=0 bank=0 generation=2, PROFILE_STATUS ready=1 saved=1 dirty=0,
+and ready AUTO (HEALTH mode=4 ready=1) without manual activation. Restoration took
+170,369 us. The first 55-second boot capture has no panic/watchdog/brownout marker.
+This proves this boot's restoration/AUTO readiness, not recognition/greeting/HA or
+new-transaction acceptance. Touch changes, a post-change restart and microphone/
+real model inference remain pending operator interaction. Prior owner-confirmed
+retention/AUTO on 0.11.2-dev remains the baseline, superseded only where tested here.
 
 ## Storage initialization and first save
 
@@ -96,9 +110,13 @@ Voice enrollment/identity calibration gates and FACE-only HA policy stay intact.
 
 Exact unchanged snapshot allocations: 2 x 312,416 = 624,832 bytes PSRAM. No extra
 persistence buffer or snapshot-sized LVGL object. Voice adds a small fixed numeric
-report; its 96,000-byte PCM window remains temporary and scrubbed before release.
-Physical internal RAM/PSRAM peaks, persistence latency and watchdog behavior have
-not been measured in this iteration. Numeric instrumentation is prepared.
+report; its 96,480-byte PCM window remains temporary and scrubbed before release.
+Physical boot telemetry: storage-stage lifetime internal low watermark 287,143 B
+and PSRAM low watermark 30,460,096 B; at uptime 3 s, internal free 204,667 B,
+internal minimum 173,719 B, PSRAM free 18,166,888 B. Identity stack watermark 5,936 B.
+These are sampled free space/global lifetime lows, not isolated operation peaks.
+Initial restore took 170,369 us. Save/inference latency and longer watchdog behavior
+remain pending; no measured microphone/model resource result is claimed yet.
 
 Local validation: 32/32 CTest (including LVGL navigation and visual baselines),
 21/21 Python regressions, 3/3 project checks, complete ASan/UBSan script, formatting,
@@ -114,11 +132,9 @@ network/model outages or every device-specific LVGL page and touch transition.
 
 ## Next milestone and one acceptance session
 
-After authorized application-only installation, verify the existing member and
-AUTO, then one durable intentional edit/restart/restore plus greeting and eligible
-HA event. Do not delete/re-enroll the current member or run obsolete recovery.
-If the speaker model is already provisioned, collect silence/speech/slot response
-and one readiness report in the same session. Model provisioning, if needed, needs
-its own explicit authorization. 0.12.0-dev remains conditional on target persistence
+Application and speaker installation are authorized, completed and verified.
+Next: one durable intentional change/restart/restore plus greeting and eligible HA event. Do not delete/re-enroll the current member or run obsolete recovery.
+The pinned speaker model is now provisioned under the same approval. Collect
+silence/speech/slot response and one readiness report in the same session. 0.12.0-dev remains conditional on target persistence
 validation and measured microphone/model readiness, with calibration still required
 before public speaker identification. No production release or PR merge.

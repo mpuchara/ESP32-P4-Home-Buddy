@@ -4,7 +4,9 @@
 
 0.11.3-dev uses the unchanged layout and application-only USB update at 0x20000.
 Existing valid profiles must be preserved; the old upper-bank recovery is not an
-update prerequisite. No installation is authorized by the development task.
+update prerequisite. The owner subsequently authorized installation: app and pinned speaker model
+are now installed and verified on COM5, with a private full backup and unchanged
+profiles/other sectors confirmed by readback. See ITERATION13_REPORT.md.
 Recovery helper operations now use `--after no_reset` throughout so the application
 cannot modify profiles between comparison and erase/readback. A successful recovery
 leaves the board in the loader; start/update it only in the separately approved

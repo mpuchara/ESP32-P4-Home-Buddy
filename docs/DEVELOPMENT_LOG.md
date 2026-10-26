@@ -1,5 +1,18 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-26: iteration 13 authorized installation and boot
+
+Owner authorized installation and necessary physical testing. Installed the
+8499ffc / 0.11.3-dev app and pinned speaker model on COM5 after a private full
+16 MiB backup and security/table checks. Application/model verify and full readback
+pass; profiles and all other sectors outside the selected ranges are byte-identical.
+No profile recovery was needed. Boot restores A generation 2 in 170369 us, retains
+durable clean status, starts LVGL and resumes ready AUTO without manual activation.
+Operator touch changes/restart/greeting/HA and PCM/model inference are still pending;
+provisioned model weights do not constitute audio/model-execution acceptance.
+See ITERATION13_REPORT.md for measurements and their limits.
+
+
 ## 2026-10-26: iteration 13, 0.11.3-dev
 
 Continue from 6c095eb, preserving its later physical retention/AUTO evidence.

@@ -26,8 +26,10 @@ save retains that fallback; interrupted/unknown data still blocks writes without
 formatting. Flash operations are bounded to 4 KiB and yield between calls. Recovery
 keeps the app stopped in the loader throughout comparison, scoped erase and readback.
 Combined voice readiness reports PCM, 512D output, timing and cleanup numerically.
-This candidate is host-tested and built; installation and changed physical paths
-remain pending separate authorization. See [iteration 13](docs/ITERATION13_REPORT.md).
+This candidate is host-tested, built and installed under owner approval, with
+application/model readback and preservation of profiles/other sectors verified.
+Actual boot restores the existing generation and resumes ready AUTO; changed-save,
+greeting/HA and audio/model execution acceptance still need operator interaction. See [iteration 13](docs/ITERATION13_REPORT.md).
 
 ## 0.11.2-dev interrupted first write and diagnostics
 
