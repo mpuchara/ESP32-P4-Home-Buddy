@@ -1,6 +1,6 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Candidate: **0.11.3-dev**, branch `codex/local-face-recognition`.
+Date: 2026-10-26. Follow-up candidate: **0.11.4-dev** (installed baseline **0.11.3-dev**), branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
 
@@ -28,6 +28,36 @@ This proves this boot's restoration/AUTO readiness, not recognition/greeting/HA 
 new-transaction acceptance. Touch changes, a post-change restart and microphone/
 real model inference remain pending operator interaction. Prior owner-confirmed
 retention/AUTO on 0.11.2-dev remains the baseline, superseded only where tested here.
+
+## Profile toggle hardware defect and 0.11.4-dev correction
+
+The operator's first disable/enable test on 0.11.3-dev produced display flicker
+and a failed MBF restart. Passive capture confirms both profile commits succeeded:
+PROFILE_STATUS result=0 ready=1 saved=1 dirty=0 bank=0 generation=4. AUTO remained
+selected but not ready (models=1/1), so persistence acceptance must be separated
+from failed recognition availability. No post-change restart or voice test was
+claimed; the failing runtime was captured before any further device reset.
+
+The observed internal free heap was 249,939 B but its largest block only 59,392 B,
+below the unchanged 65,536-byte cold-start admission. Disabling the last enabled
+member had unnecessarily destroyed the already loaded model set. The new policy
+parks that same bounded set only for a member-disable pause with AUTO still chosen.
+Disabled people cannot produce inference, confirmation, greeting or HA identity.
+Re-enabling reuses the existing set; no additional model allocations or relaxed
+admission thresholds. Explicit Stop/cancel, deletion and foreground mode changes
+clear the administrative pause and retain normal resource release. A genuine cold
+start can still fail safely under fragmented memory; this is not a general heap
+compactor or a promise that Stop/reload succeeds under arbitrary memory pressure.
+
+The pinned IDF 5.5.1 DSI callback must restart frame DMA on each completion. With
+LCD_DSI_ISR_IRAM_SAFE disabled, Flash operations defer that handler. Enable the
+supported setting (which selects DW_GDMA_ISR_IRAM_SAFE) and verify effective
+configuration in every build profile. The board refresh callback was already IRAM
+and uses an internal semaphore. This targets the Flash-associated flicker; physical
+confirmation on the same toggle remains required, not inferred from configuration.
+Menu/system firmware labels now use the real application descriptor instead of
+stale hardcoded versions. A 100-cycle policy regression covers park/resume without
+reallocation, explicit release, disabled cold state and foreground enrollment.
 
 ## Storage initialization and first save
 

@@ -379,10 +379,14 @@ class Models
         uint32_t p = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
         uint32_t i = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         // Provisional admission budgets, to be replaced by measured board peaks.
-        if (p < 20 * 1024 * 1024 ||
-            heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) < 12 * 1024 * 1024 ||
-            i < 180 * 1024 ||
-            heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 64 * 1024)
+        uint32_t largest_p = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+        uint32_t largest_i =
+            heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        ESP_LOGI("identity",
+                 "MODEL_ADMISSION internal=%u largest_internal=%u psram=%u largest_psram=%u",
+                 (unsigned)i, (unsigned)largest_i, (unsigned)p, (unsigned)largest_p);
+        if (p < 20 * 1024 * 1024 || largest_p < 12 * 1024 * 1024 || i < 180 * 1024 ||
+            largest_i < 64 * 1024)
         {
             message(s, "Za mało pamięci na bezpieczny start MBF");
             return false;
@@ -576,6 +580,7 @@ static void worker(void *)
     else if (state.auto_enabled)
         message(state, "AUTO oczekuje na prawidłowe profile domowników");
     bool capture = false, verify = false, evaluate = false, guided = false;
+    bool profile_pause = false;
     unsigned evaluation_frames = 0;
     uint64_t evaluation_expected = 0;
     uint32_t evaluation_sequence = 0;
@@ -612,6 +617,7 @@ static void worker(void *)
         }
         if (stop_requested.exchange(false))
         {
+            profile_pause = false;
             hb_voice_diagnostic_stop();
             hb_household_voice_cancel(voice_enrollment);
             ++voice_epoch;
@@ -635,6 +641,9 @@ static void worker(void *)
         hb_id_command c{};
         while (xQueueReceive(jobs, &c, 0) == pdTRUE)
         {
+            if (c.type != HB_ID_CMD_ENABLE && c.type != HB_ID_CMD_RETRY_SAVE &&
+                c.type != HB_ID_CMD_NOTICE_ACK)
+                profile_pause = false;
             if (c.type < HB_ID_CMD_VOICE_BEGIN)
             {
                 hb_voice_diagnostic_stop();
@@ -710,6 +719,12 @@ static void worker(void *)
                     person->enabled = c.guided;
                     persistence_commit(state, false);
                     state.mode = resting_mode(state.auto_enabled);
+                    profile_pause = state.auto_enabled && state.mode == HB_ID_STOP;
+                    if (person->enabled)
+                    {
+                        load_attempts = 0;
+                        next_load_ms = 0;
+                    }
                 }
                 break;
             }
@@ -908,7 +923,24 @@ static void worker(void *)
         bool usable = false;
         for (const auto &p : database->people)
             usable |= p.id && p.enabled && p.count;
-        if (state.mode == HB_ID_STOP || (state.mode != HB_ID_ENROLL && !usable))
+        hb_id_model_action model_action = hb_id_model_next(state.mode, usable, state.auto_enabled,
+                                                           profile_pause, models.mbf != nullptr);
+        static int previous_action = -1;
+        if ((int)model_action != previous_action)
+        {
+            previous_action = (int)model_action;
+            ESP_LOGI("identity", "PROFILE_MODEL_POLICY action=%u loaded=%d auto=%d",
+                     (unsigned)model_action, models.mbf != nullptr, state.auto_enabled);
+        }
+        if (model_action == HB_ID_MODELS_PARK)
+        {
+            // No inference, confirmation, greeting or HA identity from disabled members.
+            state.ready = false;
+            state.confirmed = false;
+            state.confirmed_id = 0;
+            state.match = {HB_ID_UNAVAILABLE, 0, -1, -1};
+        }
+        else if (model_action == HB_ID_MODELS_RELEASE)
         {
             if (hb_compute_enter(0))
             {

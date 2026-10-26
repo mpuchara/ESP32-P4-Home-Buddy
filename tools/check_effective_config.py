@@ -14,6 +14,8 @@ expected = {
     "FLASH_ESPDET_PICO_416_416_FACE": True,
     "HUMAN_FACE_DETECT_MODEL_IN_FLASH_RODATA": True,
     "FREERTOS_SUPPORT_STATIC_ALLOCATION": True,
+    "LCD_DSI_ISR_IRAM_SAFE": True,
+    "DW_GDMA_ISR_IRAM_SAFE": True,
     "LV_FONT_MONTSERRAT_48": True,
     "ESP_HOSTED_ENABLED": profile in ("wifi", "recognition"),
     "HB_BOARD_PROFILE_CONFIRMED": profile != "diagnostics",

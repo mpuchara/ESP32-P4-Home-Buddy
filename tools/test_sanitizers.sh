@@ -5,6 +5,10 @@ mkdir -p "$build_dir"
 cc -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
  -Icomponents/identity/include tests/test_identity.c components/identity/identity_core.c \
  components/identity/enrollment_flow.c -lm -o "$build_dir/identity"
+cc -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+ -Icomponents/identity/include -Icomponents/face/include -Icomponents/ui -Itests/ha_platform \
+ tests/test_identity_navigation.c -o "$build_dir/identity_navigation"
+"$build_dir/identity_navigation"
 "$build_dir/identity"
 cc -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
  -Icomponents/audio/include -Itests/ha_platform tests/test_audio.c components/audio/audio_pcm.c \

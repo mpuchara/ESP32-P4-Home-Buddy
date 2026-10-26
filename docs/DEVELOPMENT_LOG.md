@@ -1,5 +1,17 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-26: 0.11.3 profile toggle defect, 0.11.4-dev follow-up
+
+Owner observed Flash-associated display flicker and MBF admission failure after
+last-member disable/enable. Actual storage remained durable, clean at generation 4.
+Passive capture: free internal 249939 B, largest 59392 B; AUTO selected but not ready,
+models loaded/released 1/1. Retain the same model set only during an AUTO member
+pause, with no inference from disabled members and no guard reduction. Explicit
+Stop/cancel/delete still release. Enable and enforce DSI/DW-GDMA IRAM-safe interrupt
+handling during Flash; correct firmware labels. See ITERATION13_REPORT.md for
+causality, software checks and pending exact-path physical retest.
+
+
 ## 2026-10-26: iteration 13 authorized installation and boot
 
 Owner authorized installation and necessary physical testing. Installed the

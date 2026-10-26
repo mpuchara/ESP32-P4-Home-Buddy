@@ -53,6 +53,31 @@ int main(void)
     assert(hb_id_detection_failure(true, 0) == HB_ID_UNAVAILABLE);
     assert(hb_id_detection_failure(false, 2) == HB_ID_UNAVAILABLE);
     assert(hb_id_detection_failure(true, 1) == HB_ID_UNAVAILABLE);
+    // Actual worker policy: a profile pause reuses one bounded model set even
+    // when the allocator can no longer satisfy a second cold-start admission.
+    unsigned loads = 1, releases = 0, inferences = 0;
+    bool loaded = true;
+    for (unsigned i = 0; i < 100; ++i)
+    {
+        hb_id_model_action action = hb_id_model_next(HB_ID_STOP, false, true, true, loaded);
+        assert(action == HB_ID_MODELS_PARK);
+        // PARK performs neither inference nor destruction/allocation.
+        assert(loaded && loads == 1 && releases == 0);
+        action = hb_id_model_next(HB_ID_AUTO, true, true, false, loaded);
+        assert(action == HB_ID_MODELS_RUN);
+        ++inferences;
+    }
+    assert(inferences == 100 && loads == 1 && releases == 0);
+    // Explicit stop/cancel still releases; an absent cache never starts a model
+    // for a disabled member. Foreground enrollment remains admitted separately.
+    assert(hb_id_model_next(HB_ID_STOP, false, false, true, loaded) == HB_ID_MODELS_RELEASE);
+    assert(hb_id_model_next(HB_ID_STOP, false, true, false, loaded) == HB_ID_MODELS_RELEASE);
+    loaded = false;
+    ++releases;
+    assert(hb_id_model_next(HB_ID_STOP, false, true, true, loaded) == HB_ID_MODELS_RELEASE);
+    assert(hb_id_model_next(HB_ID_ENROLL, false, false, false, loaded) == HB_ID_MODELS_RUN);
+    assert(hb_id_model_next(HB_ID_TEST, false, false, false, loaded) == HB_ID_MODELS_RELEASE);
+    assert(releases == 1);
     puts("identity navigation: pending background, rejected commands and stale worker modes");
     return 0;
 }

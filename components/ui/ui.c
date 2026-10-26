@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "board_p4.h"
+#include "esp_app_desc.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -799,7 +800,8 @@ static void identity_update(void)
         hb_camera_get_status(&camera);
         hb_ha_status ha;
         hb_ha_get_status(&ha);
-        lv_label_set_text(product_info, "Home Buddy | firmware 0.11.2-dev");
+        lv_label_set_text_fmt(product_info, "Home Buddy | firmware %s",
+                              esp_app_get_description()->version);
         const char *names[] = {"Wi-Fi", "UBox", "Kamera", "Rozpoznawanie", "Home Assistant"};
         const char *values[] = {network_state, image.data ? "Obraz dostępny" : "Oczekiwanie",
                                 camera.running ? "Dostępna" : "Oczekiwanie",
@@ -1897,11 +1899,11 @@ static void update(lv_timer_t *timer)
     {
         char info[768];
         snprintf(info, sizeof(info),
-                 "Firmware 0.4.5-dev\n%s\n%s\n%s\nSNTP: %s\n"
+                 "Firmware %s\n%s\n%s\n%s\nSNTP: %s\n"
                  "RAM wolna / blok: %u / %u\nPSRAM wolna / blok: %u / %u\n"
                  "Bufor LVGL: 768000 B; JPEG: limit 2 MiB\nObraz zaakceptowany: %u s temu%s",
-                 service_state[0], service_state[1], service_state[2],
-                 hb_time_valid() ? "OK" : "brak synchronizacji",
+                 esp_app_get_description()->version, service_state[0], service_state[1],
+                 service_state[2], hb_time_valid() ? "OK" : "brak synchronizacji",
                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
                  (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
                  (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),

@@ -1,5 +1,5 @@
 idf_component_register(SRCS "ui.c" "product_menu.c" "hb_font_20.c" "screen_lifecycle.c" INCLUDE_DIRS "include"
-    REQUIRES lvgl core PRIV_REQUIRES audio voice home_assistant identity face board camera brightness connectivity configuration services screensaver esp_timer esp_psram)
+    REQUIRES lvgl core PRIV_REQUIRES audio voice home_assistant identity face board camera brightness connectivity configuration services screensaver esp_timer esp_psram esp_app_format)
 
 # Verify the real target compiler's frames, including the receipt -> enrollment path.
 set_source_files_properties(ui.c PROPERTIES COMPILE_OPTIONS "-fstack-usage")
