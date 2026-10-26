@@ -2,12 +2,18 @@
 #include "hb_frame_pool.h"
 #include <limits.h>
 #include <string.h>
+#ifdef ESP_PLATFORM
+#include "esp_attr.h"
+#define HB_FRAME_ISR IRAM_ATTR __attribute__((noinline))
+#else
+#define HB_FRAME_ISR
+#endif
 void hb_frame_pool_init(hb_frame_pool *p)
 {
     memset(p, 0, sizeof(*p));
     p->latest = -1;
 }
-int hb_frame_reserve(hb_frame_pool *p)
+int HB_FRAME_ISR hb_frame_reserve(hb_frame_pool *p)
 {
     for (int i = 0; i < HB_CAMERA_SLOTS; i++)
         if (!p->slot[i].references && !p->slot[i].writing)
@@ -20,14 +26,14 @@ int hb_frame_reserve(hb_frame_pool *p)
     p->dropped++;
     return -1;
 }
-bool hb_frame_abort(hb_frame_pool *p, int i)
+bool HB_FRAME_ISR hb_frame_abort(hb_frame_pool *p, int i)
 {
     if (i < 0 || i >= HB_CAMERA_SLOTS || !p->slot[i].writing)
         return false;
     p->slot[i].writing = false;
     return true;
 }
-bool hb_frame_publish(hb_frame_pool *p, int i)
+bool HB_FRAME_ISR hb_frame_publish(hb_frame_pool *p, int i)
 {
     if (i < 0 || i >= HB_CAMERA_SLOTS || !p->slot[i].writing || p->slot[i].references)
         return false;
@@ -66,7 +72,7 @@ bool hb_frame_release(hb_frame_pool *p, hb_frame_lease l)
     return true;
 }
 
-bool hb_frame_complete(hb_frame_pool *p, int slot, size_t received, size_t expected)
+bool HB_FRAME_ISR hb_frame_complete(hb_frame_pool *p, int slot, size_t received, size_t expected)
 {
     if (!expected || received != expected)
     {

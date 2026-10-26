@@ -1,6 +1,6 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Follow-up candidate: **0.11.4-dev** (installed baseline **0.11.3-dev**), branch `codex/local-face-recognition`.
+Date: 2026-10-26. Follow-up candidate: **0.11.5-dev** (0.11.4-dev CSI regression found during boot validation), branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
 
@@ -58,6 +58,27 @@ confirmation on the same toggle remains required, not inferred from configuratio
 Menu/system firmware labels now use the real application descriptor instead of
 stale hardcoded versions. A 100-cycle policy regression covers park/resume without
 reallocation, explicit release, disabled cold state and foreground enrollment.
+
+## Shared DW-GDMA follow-up, 0.11.5-dev
+
+0.11.4-dev (e9a2f6c) passed all five CI jobs and was installed application-only with
+verified readback; all other sectors, including profiles generation 4, were unchanged.
+The automatic boot check then caught a CSI regression before an operator retest:
+DW-GDMA rejected the camera controller's external-RAM user context. DSI's global
+IRAM-safe DMA selection applies to CSI as well. Model-ready AUTO without camera
+frames is NOT recognition acceptance. No successful toggle/flicker result is claimed
+for 0.11.4-dev; its runtime is superseded by the following correction.
+
+Enable CAM_CTLR_MIPI_CSI_ISR_CACHE_SAFE with DSI IRAM safety, selecting the pinned
+DW-GDMA ISR/control/getter/setter IRAM modes and the CSI controller's internal-RAM
+allocation. Move the two application callbacks and their bounded frame-pool
+reserve/complete/abort/publish callees into IRAM. ISR state stays in static internal
+RAM; callbacks never read biometric/PSRAM payloads, allocate, log or call LVGL.
+Time division uses the existing ROM libgcc helpers. A new post-link ELF guard
+checks the actual eight camera/display entrypoints and frame-pool callees; missing
+or Flash-resident functions fail the build. Effective configuration checks cover
+the shared DMA contract. Host frame-pool lifetime/lease behavior is unchanged.
+The target boot must confirm actual CSI frames as well as profile/AUTO restoration.
 
 ## Storage initialization and first save
 

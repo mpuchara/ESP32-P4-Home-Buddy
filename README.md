@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.11.4-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.11.5-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -18,6 +18,14 @@ the household member and enabled recognition setting survived a restart on
 installed 0.11.2-dev after approved storage recovery. Greeting/HA delivery and
 physical resource peaks remain separately unconfirmed. See [current report](docs/ITERATION13_REPORT.md) and
 [owner storage decision](docs/PERSISTENCE_DECISION.md).
+
+## 0.11.5-dev shared DMA correction
+
+The 0.11.4-dev boot check caught CSI rejecting an external-RAM callback context
+under the shared DMA IRAM setting. The follow-up enables CSI cache-safe allocation
+and places camera callbacks/frame-pool ISR callees in IRAM. Post-link ELF and
+effective-config guards enforce the contract. Physical camera/frame and toggle
+acceptance remain required; model-ready status alone is insufficient.
 
 ## 0.11.4-dev profile-toggle follow-up
 

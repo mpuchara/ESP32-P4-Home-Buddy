@@ -1,5 +1,15 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-26: shared DMA correction, 0.11.5-dev
+
+The 0.11.4-dev post-install boot check caught DW-GDMA rejecting the CSI controller's
+external user context. No operator acceptance was claimed. DSI's IRAM-safe selection
+also affects CSI. Enable CSI cache-safe allocation and DW-GDMA IRAM control helpers;
+place application callbacks and frame-pool ISR callees in IRAM. Add a target-linked
+ELF placement guard and configuration invariant tests. Require real camera frames
+in the next boot check, alongside the preserved generation 4 and ready AUTO.
+
+
 ## 2026-10-26: 0.11.3 profile toggle defect, 0.11.4-dev follow-up
 
 Owner observed Flash-associated display flicker and MBF admission failure after
