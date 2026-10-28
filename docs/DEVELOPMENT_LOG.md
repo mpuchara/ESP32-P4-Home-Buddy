@@ -1,5 +1,13 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-28: fresh face samples saved to existing identity
+
+Owner completed guided eight-sample re-enrollment and verification. Generation 17
+commit/readback passes; exactly one face record changed, ID/name/enabled preserved,
+voice data unchanged. Debugger-free restart restores 17, saved/clean, ready AUTO.
+Actual post-update recognized greeting/HA event remains pending. See current report.
+
+
 ## 2026-10-28: touchscreen toggle, no flicker and background AUTO observed
 
 Owner confirms successful disable/enable on installed 0.11.7 and no screen flicker.

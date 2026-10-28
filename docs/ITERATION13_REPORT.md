@@ -4,6 +4,17 @@ Date: 2026-10-26. Installed final candidate: **0.11.7-dev**; final-source transa
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
 
+## 2026-10-28 existing profile re-enrollment and restart verified
+
+Owner completed guided fresh re-enrollment, eight samples, verification and save
+using the existing profile. Actual commit took 6,687,649 us, generation 17. Private
+full profile-partition readback validates header/payload SHA256 in both 17/16 banks.
+Comparison finds exactly one changed face record, eight new face samples, preserved
+ID/name/enabled state and byte-identical voice database. No profile deletion or
+new identity. A controlled debugger-free restart restores bank B/17, saved/clean
+and automatically ready AUTO, models 1/0. No firmware change. This confirms new
+sample persistence, not yet an actual post-update identity/greeting/HA encounter.
+
 ## 2026-10-28 operator touch acceptance and passive background observation
 
 Owner confirmed installed 0.11.7, successful touchscreen disable/enable and no
