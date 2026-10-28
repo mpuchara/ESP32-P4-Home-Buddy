@@ -1,5 +1,14 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-28: 0.11.8 feedback candidate installed, B/17 ready AUTO restored
+
+8528881 app-only update follows STOP of the preceding RAM session and a fresh full
+backup. Verify plus 16 MiB readback pass, all other sectors unchanged. Normal boot
+restores saved/clean generation 17 and ready AUTO with camera frames. Five CI jobs
+pass (40718883733), 32 CTest/24 Python/3 checks and existing IRAM/UI guards pass.
+Actual new-light enrollment/feedback acceptance remains the next operator test.
+
+
 ## 2026-10-28: enrollment verification feedback candidate 0.11.8
 
 Eight samples/visible landmarks are not a verification receipt. The running session

@@ -1,8 +1,27 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Installed final candidate: **0.11.7-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
+Date: 2026-10-26. Installed candidate: **0.11.8-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
+
+## 2026-10-28 feedback firmware 0.11.8 installed and boot verified
+
+Firmware source 8528881b7d9e64247013e3419991d5e773da30e1; all five CI jobs pass:
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40718883733.
+The preceding unsaved session was already STOP; durable generation 17 remained.
+After a fresh private full 16 MiB backup, installed only the app at 0x20000:
+4,505,632 B, headroom 2,834,400 B, SHA256
+`d85dd9e99f4341382093a8798a234c2d283a38bb87d04b98c35c23e385c917a3`.
+verify_flash and full 16 MiB readback pass. Every other sector, including both
+profile banks, NVS, table and models, is unchanged. Normal boot restores B/17,
+saved/clean, ready AUTO, models 1/0 and continuing camera frames. No recovery,
+profile edit, C6/eFuse action or new enrollment was performed during installation.
+
+Local 32/32 CTest, 24/24 Python, 3/3 checks, formatting/whitespace, target build,
+2736 B UI frame subtotal and seventeen linked IRAM functions pass. Package:
+`dist/0.11.8-dev-enrollment-feedback`, with source metadata and validation receipt.
+The guided reason display and a successful new-light verification/save still
+require the next operator attempt; boot/CI do not constitute that acceptance.
 
 ## 2026-10-28 eight-sample save remains gated; feedback correction candidate
 

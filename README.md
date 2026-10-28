@@ -26,8 +26,9 @@ including after eight samples. Its guided screen hid the worker's actual reason
 behind a generic waiting hint. This candidate shows that reason, distinguishes a
 verification mismatch from another-profile conflict, and logs numeric enrollment
 progress. Sampling, matching thresholds, verification and explicit save gates are
-unchanged. Installation is pending completion or cancellation of the current RAM
-session; durable generation 17 remains the last verified installed profile state.
+unchanged. Installed app-only after the preceding session stopped: full Flash readback
+preserves all other sectors. Normal boot restores generation 17 and ready AUTO.
+All five source CI jobs pass; new enrollment-feedback acceptance remains pending.
 
 ## 0.11.7-dev save-wait completion
 
