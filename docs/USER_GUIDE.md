@@ -185,3 +185,17 @@ will survive power loss. Recognition resumes only if AUTO was previously enabled
 and valid enabled face profiles exist. Voice stays unavailable until separately accepted.
 Advanced bank/generation/status information is under Informacje -> Diagnostyka
 zaawansowana -> Pamięć profili; it contains no embeddings.
+
+
+## Fresh face re-enrollment and verification
+
+Domownicy -> existing person -> Uzupełnij rejestrację collects a fresh set of eight
+samples in RAM while preserving the saved person and ID until explicit commit.
+Eight samples alone do not enable Potwierdź zapis profilu. A later valid frame must
+pass verification against the new set and the other-profile conflict guard. Face
+landmark dots show preprocessing, not a successful identity verification.
+Face the camera as during sampling, with similar light, and wait for Weryfikacja
+zakończona. Then confirm and wait for durable saved status. Do not bypass a disabled
+Save. Cancelling leaves the previously saved templates intact. The 0.11.8 candidate
+shows the current worker reason while waiting; the installed 0.11.7 shows a generic
+hint. A profile with saved generation 17 remains available if this session is cancelled.

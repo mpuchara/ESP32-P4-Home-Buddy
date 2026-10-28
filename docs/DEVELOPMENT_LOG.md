@@ -1,5 +1,14 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-28: enrollment verification feedback candidate 0.11.8
+
+Eight samples/visible landmarks are not a verification receipt. The running session
+has verified=false; saved generation 17 remains. Guided UI hid the actual worker
+reason. Show it, separate verification mismatch from other-profile conflict and
+add bounded numeric progress logs. No threshold, sampling or commit-guard change.
+Installation deferred while the operator's unsaved enrollment session is active.
+
+
 ## 2026-10-28: fresh face samples saved to existing identity
 
 Owner completed guided eight-sample re-enrollment and verification. Generation 17

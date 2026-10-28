@@ -4,6 +4,28 @@ Date: 2026-10-26. Installed final candidate: **0.11.7-dev**; final-source transa
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
 
+## 2026-10-28 eight-sample save remains gated; feedback correction candidate
+
+Owner reports eight samples and visible landmarks but cannot confirm a subsequent
+re-enrollment under changed lighting. A running-target metadata read found ENROLL,
+samples=8, verified=false, with the saved generation still 17. Concurrent metadata
+reads can overlap publication and are not atomic snapshots; transient zeroed reads
+are not treated as device state. No halt/queue injection/profile write was requested.
+The current passive log reports ENROLL/ready and does not record verification
+success/failure, so it cannot establish the exact earlier rejection cause.
+
+Source review confirms a UI feedback defect: the guided page overwrites the actual
+worker reason with generic waiting text. Candidate 0.11.8 shows the reason and
+separates fresh-frame verification mismatch from another-profile conflict, with
+bounded numeric ENROLL_VERIFY/ENROLL_STATUS logging and no names or embeddings.
+All quality thresholds, three matching samples, freshness/conflict checks and
+explicit verified-only Save remain unchanged. Local validation passes: 32/32 CTest,
+24/24 Python, 3/3 project checks, formatting/whitespace and target build, including
+seventeen linked IRAM functions. No target installation or physical acceptance
+is claimed for this candidate. Visible landmarks/eight samples
+alone do not prove verification. Candidate validation and installation must remain
+separate; do not replace the active unsaved RAM session during this diagnosis.
+
 ## 2026-10-28 existing profile re-enrollment and restart verified
 
 Owner completed guided fresh re-enrollment, eight samples, verification and save

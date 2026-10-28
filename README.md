@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.11.7-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.11.8-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -18,6 +18,16 @@ the household member and enabled recognition setting survived a restart on
 installed 0.11.2-dev after approved storage recovery. Greeting/HA delivery and
 physical resource peaks remain separately unconfirmed. See [current report](docs/ITERATION13_REPORT.md) and
 [owner storage decision](docs/PERSISTENCE_DECISION.md).
+
+## 0.11.8-dev enrollment feedback candidate
+
+The installed 0.11.7 keeps Save disabled until fresh-frame verification succeeds,
+including after eight samples. Its guided screen hid the worker's actual reason
+behind a generic waiting hint. This candidate shows that reason, distinguishes a
+verification mismatch from another-profile conflict, and logs numeric enrollment
+progress. Sampling, matching thresholds, verification and explicit save gates are
+unchanged. Installation is pending completion or cancellation of the current RAM
+session; durable generation 17 remains the last verified installed profile state.
 
 ## 0.11.7-dev save-wait completion
 

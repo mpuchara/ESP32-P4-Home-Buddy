@@ -910,12 +910,11 @@ static void identity_update(void)
     {
         lv_label_set_text_fmt(identity_info, "Rejestracja twarzy: %u/%u próbek\n%s\n%s", s->samples,
                               HB_ID_MIN_SAMPLES,
-                              s->faces > 1  ? "W kadrze może być tylko jedna osoba."
-                              : s->verified ? "Weryfikacja zakończona. Potwierdź zapis."
-                                            : "Spójrz w kamerę. Zmieniaj lekko ułożenie głowy.",
-                              s->samples >= HB_ID_MIN_SAMPLES && !s->verified
-                                  ? "Poczekaj na weryfikację nową klatką."
-                                  : "");
+                              s->verified ? "Weryfikacja zakończona. Potwierdź zapis."
+                              : s->samples >= HB_ID_MIN_SAMPLES
+                                  ? "Próbki zebrane. Potrzebna weryfikacja."
+                                  : "Spójrz w kamerę. Zmieniaj lekko ułożenie głowy.",
+                              s->verified ? "Nowe próbki czekają na zatwierdzenie." : s->message);
         lv_bar_set_value(enroll_progress, s->samples, LV_ANIM_OFF);
         if (s->verified || (s->mode != HB_ID_ENROLL && !s->storage_saved))
             lv_obj_clear_state(commit_button, LV_STATE_DISABLED);

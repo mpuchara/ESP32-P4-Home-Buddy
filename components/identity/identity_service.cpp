@@ -1039,12 +1039,21 @@ static void worker(void *)
                                                             state.frame_ms, &policy);
                         // Reject a new enrollment also matching a different registered person.
                         auto other = hb_id_match_embedding(database, &embedding, &policy);
-                        if (other.state == HB_ID_AMBIGUOUS ||
-                            (other.state == HB_ID_KNOWN &&
-                             other.person_id != enrollment->target_id))
+                        bool conflict = other.state == HB_ID_AMBIGUOUS ||
+                                        (other.state == HB_ID_KNOWN &&
+                                         other.person_id != enrollment->target_id);
+                        if (conflict)
                             accepted = enrollment->verified = false;
-                        message(state, accepted ? "Weryfikacja OK. Potwierdź zapis próbek"
-                                                : "Weryfikacja nieudana lub konflikt profili");
+                        message(state, accepted   ? "Weryfikacja OK. Potwierdź zapis próbek"
+                                       : conflict ? "Weryfikacja: konflikt z innym profilem"
+                                                  : "Wróć do pozy z próbek i spójrz w kamerę");
+                        static uint64_t last_verify_log;
+                        if (accepted || !last_verify_log || now_ms() - last_verify_log >= 10000)
+                        {
+                            last_verify_log = now_ms();
+                            ESP_LOGI("identity", "ENROLL_VERIFY accepted=%d conflict=%d samples=%u",
+                                     accepted, conflict, enrollment->count);
+                        }
                     }
                     capture = verify = false;
                 }
@@ -1139,6 +1148,9 @@ static void worker(void *)
                      state.storage_result, state.persistence_ready, state.storage_saved,
                      storage_dirty, state.storage_bank,
                      (unsigned long long)state.storage_generation);
+            if (state.mode == HB_ID_ENROLL)
+                ESP_LOGI("identity", "ENROLL_STATUS samples=%u verified=%d faces=%u official=%d",
+                         state.samples, state.verified, state.faces, state.official_landmarks);
         }
         // No overlapping inference, no unbounded queue. Commands are checked at least every 100ms
         // idle.
