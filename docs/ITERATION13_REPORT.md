@@ -4,6 +4,26 @@ Date: 2026-10-26. Installed final candidate: **0.11.7-dev**; final-source transa
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
 
+## 2026-10-28 operator touch acceptance and passive background observation
+
+Owner confirmed installed 0.11.7, successful touchscreen disable/enable and no
+visible flicker. Passive log confirms two clean commits (15/16), 5,955,644 and
+6,026,045 us, model loads/releases 1/0. A controlled debugger-free USB restart
+restored generation 16, saved/clean and ready AUTO without manual activation.
+UBox initially retried its network connection and later accepted an HTTP 304;
+subsequent full JPEG retry also recovered. No new firmware/profile edits or JTAG.
+
+Passive background window: eleven HEALTH samples all report AUTO mode 4, ready 1,
+models 1/0, with continuing camera frames at 30 FPS and UBox activity. Nineteen
+logged rejected inference attempts include nine face detections: four outside ROI
+and five without five valid landmarks. The landmark stage ran in some attempts.
+Logged failed attempts have zero MBF time; successful inference is not logged by
+this diagnostic, so these observations do not prove full embedding/matching or
+successful recognition. Owner reports poor enrollment photos. Current observed
+ROI/landmark failures occur before template comparison and must be distinguished
+from enrollment quality. Greeting/HA identity acceptance remains open. Voice gates
+and all image-quality/model thresholds remain unchanged.
+
 ## Final installed 0.11.7 receipt
 
 Firmware source: `098ede32577a914bff544fe968cdd9bd418e2cb2`. Application 4,505,248 B,

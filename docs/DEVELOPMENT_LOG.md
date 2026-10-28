@@ -1,5 +1,15 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-28: touchscreen toggle, no flicker and background AUTO observed
+
+Owner confirms successful disable/enable on installed 0.11.7 and no screen flicker.
+Passive serial confirms generations 15/16, clean saves and models 1/0. Controlled
+restart restores 16 and ready AUTO. Background detection continues alongside UBox:
+faces are sometimes detected but logged attempts fail ROI/five-landmark quality
+before matching. No full identity/greeting/HA acceptance inferred. Owner reports
+poor enrollment images. See ITERATION13_REPORT.md for measured scope and limits.
+
+
 ## 2026-10-26: final 0.11.7 installed, final-source persistence verified
 
 098ede3 app-only installation passes verify_flash and full 16 MiB comparison; every
