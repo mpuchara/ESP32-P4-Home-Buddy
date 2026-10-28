@@ -4,6 +4,28 @@ Date: 2026-10-26. Installed candidate: **0.11.8-dev**; final-source transactions
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
 
+## 2026-10-28 delete/recreate exposes guarded cold-start fragmentation
+
+Later 0.11.8 log records successful fresh-frame verification after several mismatch
+attempts (accepted=0/conflict=0 followed by accepted=1/conflict=0), eight samples,
+then a 6,620,810 us durable commit, clean generation 18 and ready AUTO. This is real
+worker/save evidence; it does not by itself prove visible greeting or HA delivery.
+
+Owner then deleted the profile and created a new one under artificial lighting.
+The log shows model release (1/1), new generations 19/20, then MBF admission failure:
+236,079 B internal free but largest block only 43,008 B, below the unchanged 65,536 B
+guard. No detection/landmark/embedding ran and ENROLL_STATUS remained samples=0,
+ready=0. Therefore that attempt does not measure artificial-light recognition.
+This route is distinct from administrative disable/enable parking; explicit deletion
+continues to release resources. Do not mask this failure by lowering admission.
+
+Private full profiles readback validates banks 20/19, one enabled current profile
+with zero samples. A controlled ordinary restart restores 20 and raises the largest
+internal block to 180,224 B. No old profile restore, Flash erase or firmware update.
+Restart is recovery, not a permanent fix for repeated delete/recreate fragmentation.
+Next: real new enrollment after this cold restart, then assess lighting only if the
+model actually starts. Fresh-frame matching and physical greeting/HA remain open.
+
 ## 2026-10-28 feedback firmware 0.11.8 installed and boot verified
 
 Firmware source 8528881b7d9e64247013e3419991d5e773da30e1; all five CI jobs pass:

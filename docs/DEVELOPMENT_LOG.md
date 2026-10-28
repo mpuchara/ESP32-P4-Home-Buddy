@@ -1,5 +1,15 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-28: new-light attempt blocked before inference by cold-start RAM
+
+0.11.8 earlier verifies eight samples and commits 18. Owner subsequently deletes
+and recreates the profile; models release and cold admission fails at 43008 B largest
+internal block (65536 B guard), despite 236079 B free. Current profile is enabled
+but has zero samples at generation 20. Profile readback and controlled restart
+preserve 20 and recover a 180224 B block. Restart is an explicit recovery, not a
+permanent fragmentation fix or artificial-light acceptance. See current report.
+
+
 ## 2026-10-28: 0.11.8 feedback candidate installed, B/17 ready AUTO restored
 
 8528881 app-only update follows STOP of the preceding RAM session and a fresh full
