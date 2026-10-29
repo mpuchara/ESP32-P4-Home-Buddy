@@ -27,7 +27,9 @@ preview. A regression fails the old implementation. ROI mapping now contains the
 native square, including its inclusive edges, with context capped at 640x640 and
 sensor-edge handling. No downsampling, larger buffer, fabricated landmarks or
 matching/confirmation threshold change. Existing profiles are retained. Physical
-landmark/matching stability remains a target acceptance check after installation.
+landmark/matching stability remains a target acceptance check. App-only installation
+and full Flash comparison preserve profile 23 and all other sectors. Normal boot
+restores it; the preceding foreground test may leave AUTO requiring explicit start.
 
 ## 0.11.9-dev match and notification diagnostics candidate
 

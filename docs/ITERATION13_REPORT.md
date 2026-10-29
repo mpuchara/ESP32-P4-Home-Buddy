@@ -1,8 +1,27 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Installed candidate: **0.11.9-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
+Date: 2026-10-26. Installed candidate: **0.11.10-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
+
+## 2026-10-29 corrected native MNP crop installed
+
+Firmware source `585669dcde99d67a22fb313521a71531a734a0e8`. App 4,506,992 B,
+headroom 2,833,040 B, SHA256
+`a0aecf5944e703a4853d8e893207f24274f4b5cce637dbc70ef22dfbdb9200d3`.
+A fresh private full 16 MiB backup preceded app-only installation at 0x20000.
+verify_flash and full readback pass; every other sector, profiles 23/22, NVS,
+models and table are unchanged. Normal boot restores B/23 saved/clean.
+AUTO remains inactive after the preceding foreground diagnostic; the update does not change that opt-in. Enable AUTO explicitly before the next background encounter.
+
+Exact-source CI: all five jobs passed:
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40889248031.
+Local 32/32 CTest, 24/24 Python, 3/3 checks, complete ASan/UBSan, formatting,
+recognition build, 17 linked IRAM symbols and 2736 B UI frames pass. Public package
+`dist/0.11.10-dev-mnp-square` includes validation receipt, hashes and verified ZIP.
+The old helper demonstrably fails the new MNP containment regression. Hardware
+point stability, matching against retained templates, greeting and HA/phone delivery
+remain the next acceptance checks; source/boot evidence does not establish them.
 
 ## 2026-10-29 sharp preview but intermittent landmarks; crop bug reproduced
 

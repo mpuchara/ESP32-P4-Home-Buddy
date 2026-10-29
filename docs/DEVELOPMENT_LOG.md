@@ -1,5 +1,14 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: 0.11.10 crop correction installed, profile 23 retained
+
+585669d app-only update passes verify and complete 16 MiB comparison; all other
+sectors including profiles unchanged. Normal boot restores B/23 saved/clean.
+Source CI five jobs pass (40889248031), plus 32 CTest/24 Python/3 checks and full
+sanitizers. The preceding foreground test may leave AUTO OFF; opt-in is preserved.
+No recognition/landmark/greeting/HA/phone acceptance inferred from installation.
+
+
 ## 2026-10-29: MNP square clipped by rectangular ROI, 0.11.10 candidate
 
 Sharp/stable operator preview still loses landmarks. Pinned MNP squares each
