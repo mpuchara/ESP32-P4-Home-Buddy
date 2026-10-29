@@ -39,6 +39,41 @@ A source audit finds camera GBRG conversion consistent with its configured forma
 and native landmark order consistent with the pinned MBF alignment reference;
 this limited audit does not establish physical pixel/color or population accuracy.
 
+## 2026-10-29 0.11.11 first greeting about 5 s, second remains candidate
+
+Owner reports a display greeting after about five seconds, then no second UBox
+notification and about five seconds to recognition in diagnostics. Clarification:
+the diagnostic label was KNOWN/candidate, not confirmed. The recorded current
+boot/profile generation is 32, with fresh re-enrollment/restart activity earlier,
+so this is not a controlled same-profile-26 before/after latency comparison.
+
+Log: first KNOWN/1 at 88610 ms, actual KNOWN/3 confirmed at 91513 (2903 ms series),
+recognized admission 91518, UI command admitted 91931 (418 ms after confirmation).
+Only one confirmed result is recorded in this boot window. Later weak matches
+reset hits before 3/3; there is no GREETING_SKIP/cooldown entry. The diagnostics
+TEST mode does not publish background recognized events or greetings. Therefore
+KNOWN/candidate is not evidence of a lost second notification. Five-minute greeting
+and separately configured HA cooldowns remain unchanged; repeatability stays open.
+The owner's ~5 s is one approximate display observation, not p95 or LCD timing.
+
+## Saved generation-32 profile cohesion diagnostic
+
+Private USB readback validates both 32/31 banks. Eight enabled face templates have
+valid unit normalization. Local pairwise cosine min/median/max: 0.2940/0.5748/0.7715.
+Leave-one-out means of each template's top three other templates range 0.5642 to
+0.6934; none reaches the existing 0.700 matching threshold. Each template has at
+most two other templates above 0.700. This is a diagnostic of internal cohesion
+relative to the current policy, not a calibrated enrollment gate or proof of person
+identity, impostor rejection, the exact cause of live variability or model failure.
+Fresh-frame verification against three samples does not establish whole-set cohesion.
+
+No templates/names/IDs were printed or committed; all embeddings and the complete
+profile readback remain private. No data, thresholds, matching or enrollment rules
+were changed. A controlled ordinary restart restores 32 saved/clean and ready AUTO.
+Next: one controlled frontal enrollment update on the same identity, with steady
+front lighting/minimal pose changes, then compare stored-set cohesion before more
+notification trials. This distinguishes acquisition variance from profile coverage.
+
 ## 2026-10-29 real greeting/HA accepted on 0.11.10; latency baseline
 
 Owner reports more stable landmarks. Current profile is now generation 26 following

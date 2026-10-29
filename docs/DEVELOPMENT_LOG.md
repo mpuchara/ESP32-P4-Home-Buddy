@@ -1,5 +1,16 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: ~5 s first greeting, later candidate; profile cohesion measured
+
+Owner confirms one 0.11.11 greeting at ~5 s, current generation 32. Logged final
+series is 2903 ms, then UI admission 418 ms later. Second diagnostic indication is
+KNOWN/candidate, not confirmed; no second 3/3 or cooldown skip in the recorded window.
+Private readback validates 32/31. Eight normalized templates have pairwise median
+0.5748; leave-one-out top-three means all <0.700. This diagnostic supports a controlled
+frontal acquisition test, not threshold relaxation or population accuracy claims.
+Normal readback/restart preserves 32 and ready AUTO. Raw biometric data stays private.
+
+
 ## 2026-10-29: 0.11.11 installed, AUTO/26 restored, configured fast wait observed
 
 08288bc app-only install passes verify and full 16 MiB comparison; other sectors
