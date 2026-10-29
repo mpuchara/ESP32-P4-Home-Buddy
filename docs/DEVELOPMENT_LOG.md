@@ -1,5 +1,16 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: real greeting/HA accepted; pending-confirmation wait reduction
+
+0.11.10 owner confirms display greeting and HA event, but slow acquisition. Current
+profile 26 reaches actual 3/3; UI queue receives greeting 348 ms after confirmation.
+Weak-score resets cause 34068 ms from first known candidate; final accepted series
+spans 4911 ms. These are log intervals, not entry/LCD/phone/p95 measurements.
+0.11.11 uses 100 ms wait only for one/two pending background known hits, returning
+to 1000 ms otherwise. No thresholds, three fresh-frame gates or enrollment change.
+Production-policy test removes 1800 ms configured waiting; physical gain unmeasured.
+
+
 ## 2026-10-29: 0.11.10 crop correction installed, profile 23 retained
 
 585669d app-only update passes verify and complete 16 MiB comparison; all other

@@ -1081,11 +1081,15 @@ static void worker(void *)
                         previous_confirmation = state.confirmed;
                         ESP_LOGI("identity",
                                  "MATCH_RESULT state=%u best=%.3f second=%.3f threshold=%.3f "
-                                 "margin=%.3f hits=%u required=%u confirmed=%d",
+                                 "margin=%.3f hits=%u required=%u confirmed=%d wait_ms=%u",
                                  (unsigned)state.match.state, (double)state.match.best,
                                  (double)state.match.second, (double)policy.threshold,
                                  (double)policy.margin, tracker.hits, policy.confirmations,
-                                 state.confirmed);
+                                 state.confirmed,
+                                 hb_id_wait_slices(state.mode, state.match.state, state.ready,
+                                                   state.confirmed, tracker.hits,
+                                                   policy.confirmations) *
+                                     100);
                     }
                     if (state.confirmed)
                     {
@@ -1178,7 +1182,10 @@ static void worker(void *)
         }
         // No overlapping inference, no unbounded queue. Commands are checked at least every 100ms
         // idle.
-        for (unsigned j = 0; j < (state.mode == HB_ID_STOP ? 1U : 10U); ++j)
+        unsigned wait_slices =
+            hb_id_wait_slices(state.mode, state.match.state, state.ready, state.confirmed,
+                              tracker.hits, policy.confirmations);
+        for (unsigned j = 0; j < wait_slices; ++j)
         {
             if (stop_requested.load() || uxQueueMessagesWaiting(jobs))
                 break;

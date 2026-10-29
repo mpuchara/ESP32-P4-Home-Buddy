@@ -4,6 +4,43 @@ Date: 2026-10-26. Installed candidate: **0.11.10-dev**; final-source transaction
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
 
+## 2026-10-29 real greeting/HA accepted on 0.11.10; latency baseline
+
+Owner reports more stable landmarks. Current profile is now generation 26 following
+fresh enrollment during the session, so this is not an isolated accuracy comparison
+against retained profile 23. Foreground TEST reaches known score 0.836 and actual
+3/3 fresh confirmations. That mode intentionally suppresses background notifications.
+
+After return to UBox, AUTO reaches 3/3 with score 0.758 at boot uptime 339531 ms.
+RECOGNIZED_EVENT queued=1 at 339535; GREETING_ACCEPTED and GREETING_UI queued=1 at
+339879. Owner confirms visible greeting and the event in HA, while reporting a
+long wait. This is one real display/HA encounter, not population accuracy,
+calibration, phone delivery or target p95 acceptance. Confirmation-to-UI-command
+admission is 348 ms (not a physical LCD timing measurement). First matching
+candidate to confirmation is 34068 ms, with intervening weak scores resetting the
+tracker. The final first-to-third accepted series spans 4911 ms. Actual entry time
+and HA/phone end-to-end latency are not measured. Models stay 1/0, saved/clean 26.
+
+## 0.11.11 pending-background-confirmation cadence candidate
+
+The worker previously inserted ten cancellable 100 ms idle slices after every
+active analysis. Use one slice only for ready AUTO/BACKGROUND with known match,
+not yet confirmed, and hits strictly between zero and the required count. After
+confirmation, unknown/ambiguous/unavailable or no hits, the normal ten-slice wait
+returns. STOP remains one slice; TEST and ENROLL remain ten. There is always a
+scheduler yield and command check. Compute mutex/ownership, model instances,
+priorities, buffers, thresholds, three distinct fresh-frame confirmation, resets,
+HA/greeting cooldowns and opt-in are unchanged.
+
+The production helper's host regression verifies 200 ms total configured waiting
+between the first/second and second/third matches instead of 2000 ms. This is an
+1800 ms scheduling reduction under three successful analyses, not a promised
+physical latency reduction. Weak-match retries observed above remain a separate
+limitation. MATCH_RESULT reports configured wait_ms for target verification.
+Local 32/32 CTest, 24/24 Python, 3/3 checks, full ASan/UBSan, formatting/whitespace,
+recognition build, 17 linked IRAM functions and 2736 B UI frame subtotal pass.
+Target installation and real speedup require separate evidence.
+
 ## 2026-10-29 corrected native MNP crop installed
 
 Firmware source `585669dcde99d67a22fb313521a71531a734a0e8`. App 4,506,992 B,

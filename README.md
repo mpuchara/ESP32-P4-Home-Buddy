@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.11.10-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.11.11-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -18,6 +18,16 @@ the household member and enabled recognition setting survived a restart on
 installed 0.11.2-dev after approved storage recovery. Greeting/HA delivery and
 physical resource peaks remain separately unconfirmed. See [current report](docs/ITERATION13_REPORT.md) and
 [owner storage decision](docs/PERSISTENCE_DECISION.md).
+
+## 0.11.11-dev pending-confirmation cadence candidate
+
+Owner confirmed a real display greeting and HA event on 0.11.10, with slow identity
+acquisition. The new cadence yields 100 ms instead of 1000 ms only while AUTO or
+BACKGROUND has one/two known hits awaiting confirmation. Confirmed, unknown,
+ambiguous, unavailable, TEST and enrollment keep their prior cadence. Three fresh
+frames and all matching, timestamp, cooldown and opt-in guards remain unchanged.
+This removes 1800 ms of configured waiting across two successful pending gaps;
+it is not a measured physical speedup and cannot remove weak-match retries.
 
 ## 0.11.10-dev native MNP crop geometry candidate
 

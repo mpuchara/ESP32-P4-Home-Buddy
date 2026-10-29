@@ -58,6 +58,22 @@ int main(void)
     assert(hb_id_detection_failure(true, 0) == HB_ID_UNAVAILABLE);
     assert(hb_id_detection_failure(false, 2) == HB_ID_UNAVAILABLE);
     assert(hb_id_detection_failure(true, 1) == HB_ID_UNAVAILABLE);
+    // The actual worker wait policy saves 1800 ms between three successful
+    // background matches without changing the core's three-frame confirmation.
+    unsigned pending_wait = 100 * (hb_id_wait_slices(HB_ID_AUTO, HB_ID_KNOWN, true, false, 1, 3) +
+                                   hb_id_wait_slices(HB_ID_AUTO, HB_ID_KNOWN, true, false, 2, 3));
+    assert(pending_wait == 200);
+    assert(hb_id_wait_slices(HB_ID_BACKGROUND, HB_ID_KNOWN, true, false, 2, 3) == 1);
+    assert(hb_id_wait_slices(HB_ID_AUTO, HB_ID_KNOWN, true, true, 3, 3) == 10);
+    assert(hb_id_wait_slices(HB_ID_AUTO, HB_ID_UNKNOWN, true, false, 0, 3) == 10);
+    assert(hb_id_wait_slices(HB_ID_AUTO, HB_ID_AMBIGUOUS, true, false, 2, 3) == 10);
+    assert(hb_id_wait_slices(HB_ID_AUTO, HB_ID_UNAVAILABLE, true, false, 2, 3) == 10);
+    assert(hb_id_wait_slices(HB_ID_AUTO, HB_ID_KNOWN, false, false, 1, 3) == 10);
+    assert(hb_id_wait_slices(HB_ID_AUTO, HB_ID_KNOWN, true, false, 0, 3) == 10);
+    assert(hb_id_wait_slices(HB_ID_AUTO, HB_ID_KNOWN, true, false, 3, 3) == 10);
+    assert(hb_id_wait_slices(HB_ID_ENROLL, HB_ID_KNOWN, true, false, 2, 3) == 10);
+    assert(hb_id_wait_slices(HB_ID_TEST, HB_ID_KNOWN, true, false, 2, 3) == 10);
+    assert(hb_id_wait_slices(HB_ID_STOP, HB_ID_KNOWN, true, false, 2, 3) == 1);
     // Actual worker policy: a profile pause reuses one bounded model set even
     // when the allocator can no longer satisfy a second cold-start admission.
     unsigned loads = 1, releases = 0, inferences = 0;

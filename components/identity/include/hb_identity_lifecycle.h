@@ -14,6 +14,19 @@ static inline bool hb_id_auto_ready(bool enabled, unsigned usable_profiles)
     return enabled && usable_profiles > 0;
 }
 
+// Each slice yields for 100 ms and checks cancellation/commands. Only a pending
+// background confirmation uses the short cadence; enrollment spacing is unchanged.
+static inline unsigned hb_id_wait_slices(hb_id_mode mode, hb_id_state match, bool ready,
+                                         bool confirmed, unsigned hits, unsigned required)
+{
+    if (mode == HB_ID_STOP)
+        return 1;
+    if (hb_id_background(mode) && ready && match == HB_ID_KNOWN && !confirmed && hits &&
+        hits < required)
+        return 1;
+    return 10;
+}
+
 typedef enum
 {
     HB_ID_MODELS_RUN,
