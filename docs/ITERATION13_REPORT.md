@@ -24,6 +24,16 @@ by UNKNOWN/0 with wait_ms=1000. This validates configured cadence selection; no
 new physical latency improvement is inferred. The next three-confirmation,
 visible greeting and HA encounter remains an operator acceptance test.
 
+## Subsequent 0.11.11 test context changed before latency acceptance
+
+The live capture later records a new power-on (reset_reason=1), boot generation 28,
+then a new eight-sample enrollment/verification and saved clean generation 29.
+No panic/watchdog marker accompanies that boot. Operator origin/actions have been
+queried; do not assume a firmware reset or an unchanged profile-26 comparison.
+Configured fast cadence is observed, but physical speedup remains unaccepted and
+the previous profile-26 latency baseline cannot be treated as a controlled A/B of
+this later enrollment. Preserve the new saved data and clarify before retesting.
+
 ## 2026-10-29 real greeting/HA accepted on 0.11.10; latency baseline
 
 Owner reports more stable landmarks. Current profile is now generation 26 following
