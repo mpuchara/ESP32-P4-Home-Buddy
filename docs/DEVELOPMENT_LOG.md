@@ -1,5 +1,15 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: MNP square clipped by rectangular ROI, 0.11.10 candidate
+
+Sharp/stable operator preview still loses landmarks. Pinned MNP squares each
+candidate; old independent ROI margins truncate portrait candidates. A host
+regression reproduces that exact clipping. Map the native square and inclusive
+edges into bounded context, preserve sensor boundaries and the 640x640 buffer.
+500+ accepted-box contract checks plus edge/close cases cover it. No threshold,
+model, profile schema or buffer-size change. Physical stability remains unaccepted.
+
+
 ## 2026-10-29: UBox encounter still unconfirmed, matching trace identifies gate
 
 0.11.9 records UNKNOWN 0.544/0.457, one KNOWN 0.726 (1/3 confirmations), then UNKNOWN

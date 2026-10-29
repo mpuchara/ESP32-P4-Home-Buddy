@@ -4,6 +4,30 @@ Date: 2026-10-26. Installed candidate: **0.11.9-dev**; final-source transactions
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
 
+## 2026-10-29 sharp preview but intermittent landmarks; crop bug reproduced
+
+Owner reports a sharp image and stable rectangle, while five points sometimes
+vanish under a nearly unchanged pose. Foreground TEST log still alternates valid
+MBF/matches with ROI refusal, no face and missing landmarks. Code review against
+the pinned human_face_detect MNP::run identifies a concrete adapter mismatch:
+MNP converts the candidate to a square before limit_box(), whereas the application
+expands width/height independently. A portrait box can have its MNP square clipped
+by the cropped input even though that square fits in the original sensor frame.
+
+A regression using box (70,100)-(160,240) in the 234x416 detector input fails the
+old helper at containment of the native MNP square. Candidate 0.11.10 computes the
+same square/inclusive edges, adds bounded context, shifts to sensor bounds and
+caps context at 640. True squares larger than the existing buffer remain rejected.
+Tests assert no additional MNP clipping beyond native sensor boundaries, including
+portrait/near/edge examples and more than 500 varied accepted detector boxes.
+Native RGB, MNP/MBF models, real landmarks, alignment checks, model identifier,
+profile ABI/data, matching thresholds and three-frame confirmation stay unchanged.
+Local checks pass: 32/32 CTest, 24/24 Python, 3/3 project checks, full ASan/UBSan,
+formatting/whitespace and target build with seventeen IRAM symbols and 2736 B UI
+frame subtotal. The old helper failed the new geometry regression before the fix.
+This proves the geometry defect/fix, not that every physical landmark/matching
+variation is caused by it. Existing profile 23 is retained; target retest is needed.
+
 ## 2026-10-29 notification trace firmware 0.11.9 installed
 
 Firmware source `714bfd15905129231c7b7788fed2003eb7cc6b6e`. App 4,506,912 B,

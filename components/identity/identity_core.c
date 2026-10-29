@@ -251,12 +251,31 @@ bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, uns
     int top = y1 * (rw - 2) / ih;
     int right = (x2 + 1) * (rh - 2) / iw;
     int bottom = (y2 + 1) * (rw - 2) / ih;
-    int mx = (right - left) / 5, my = (bottom - top) / 5;
-    left = left > mx ? left - mx : 0;
-    top = top > my ? top - my : 0;
-    right = right + mx < (int)rh ? right + mx : (int)rh;
-    bottom = bottom + my < (int)rw ? bottom + my : (int)rw;
-    *out = (hb_id_roi){left, top, right - left, bottom - top};
+    // MNP::run squares the candidate before cropping. Independent horizontal/
+    // vertical padding can clip that square even when the face box fits the ROI.
+    int side = right - left > bottom - top ? right - left : bottom - top;
+    int cx = (left + right) >> 1, cy = (top + bottom) >> 1;
+    left = cx - (side >> 1);
+    top = cy - (side >> 1);
+    int span = side + 1; // MNP's inclusive right/bottom edges must fit as well.
+    if (span > 640)
+        return false;
+    int context = span + 2 * (side / 5);
+    if (context > 640)
+        context = 640;
+    int width = context < (int)rh ? context : (int)rh;
+    int height = context < (int)rw ? context : (int)rw;
+    left -= (width - span) / 2;
+    top -= (height - span) / 2;
+    if (left < 0)
+        left = 0;
+    if (top < 0)
+        top = 0;
+    if (left > (int)rh - width)
+        left = rh - width;
+    if (top > (int)rw - height)
+        top = rw - height;
+    *out = (hb_id_roi){left, top, width, height};
     // Bounded native-resolution ROI, never downsample it to the detection thumbnail.
     return out->w >= 32 && out->h >= 32 && out->w <= 640 && out->h <= 640;
 }

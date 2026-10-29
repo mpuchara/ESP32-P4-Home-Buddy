@@ -22,6 +22,33 @@ static void fill(hb_id_database *db, uint64_t id, hb_id_embedding e, unsigned co
     for (unsigned i = 0; i < count; ++i)
         p->templates[i] = e;
 }
+// The pinned MNP adapter squares the supplied candidate, then clamps it to its
+// input image. A local crop must not add clipping beyond the full sensor image.
+static void mnp_crop_contract(int x1, int y1, int x2, int y2)
+{
+    const int iw = 234, ih = 416, rw = 1288, rh = 728;
+    hb_id_roi roi;
+    assert(hb_id_roi_map(x1, y1, x2, y2, iw, ih, rw, rh, &roi));
+    int left = x1 * (rh - 2) / iw, top = y1 * (rw - 2) / ih;
+    int right = (x2 + 1) * (rh - 2) / iw, bottom = (y2 + 1) * (rw - 2) / ih;
+    int side = right - left > bottom - top ? right - left : bottom - top;
+    int cx = (left + right) >> 1, cy = (top + bottom) >> 1;
+    left = cx - (side >> 1);
+    top = cy - (side >> 1);
+    right = left + side;
+    bottom = top + side;
+    if (left < 0)
+        left = 0;
+    if (top < 0)
+        top = 0;
+    if (right >= rh)
+        right = rh - 1;
+    if (bottom >= rw)
+        bottom = rw - 1;
+    assert(roi.x <= left && roi.y <= top);
+    assert(roi.x + roi.w > right && roi.y + roi.h > bottom);
+    assert(roi.w <= 640 && roi.h <= 640);
+}
 static void geometry(void)
 {
     hb_id_landmarks l = {{{38.2946f, 51.6963f},
@@ -59,6 +86,21 @@ static void geometry(void)
     assert(hb_id_roi_map(70, 100, 160, 240, 234, 416, 1288, 728, &roi));
     assert(roi.x >= 0 && roi.y >= 0 && roi.x + roi.w <= 728 && roi.y + roi.h <= 1288);
     assert(roi.w > 90 && roi.h > 150);
+    mnp_crop_contract(70, 100, 160, 240); // Portrait detector box, square MNP input.
+    mnp_crop_contract(60, 80, 180, 260);  // Full square fits with bounded padding.
+    mnp_crop_contract(0, 0, 100, 140);    // Native image-edge clipping only.
+    unsigned covered = 0;
+    for (int x = 0; x < 150; x += 23)
+        for (int y = 0; y < 280; y += 53)
+            for (int w = 18; w < 150; w += 27)
+                for (int h = 22; h < 210; h += 31)
+                    if (x + w < 234 && y + h < 416 &&
+                        hb_id_roi_map(x, y, x + w, y + h, 234, 416, 1288, 728, &roi))
+                    {
+                        mnp_crop_contract(x, y, x + w, y + h);
+                        ++covered;
+                    }
+    assert(covered > 500);
     assert(!hb_id_roi_map(-1, 100, 160, 250, 234, 416, 1288, 728, &roi));
     assert(!hb_id_roi_map(100, 100, 100, 250, 234, 416, 1288, 728, &roi));
     assert(!hb_id_roi_map(0, 0, 233, 415, 234, 416, 1288, 728, &roi)); // bounded ROI refusal
