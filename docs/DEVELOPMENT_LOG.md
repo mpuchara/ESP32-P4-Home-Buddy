@@ -1,5 +1,18 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: coherent set 34 saved and restored, recognition retest pending
+
+Owner completes guided 0.11.12 flow. Forty admitted candidates yield eight coherent
+samples in 132058 ms; first fresh verification fails, later one passes, explicit
+Save commits 34. Private readback validates 34/33, one changed face record with
+same ID/name/enabled/count, unchanged voice and normal restart restoration.
+Pairwise min/median/max 0.6085/0.8023/0.9370; all leave-one-out top-three means
+0.7849-0.9098, compared with three outliers in 33. Pool cap 15 holds; selector
+513-253288 us, stack watermark 5424 B, no observed crash/overflow. Enrollment is
+still slow; cohesion is not calibrated identity accuracy. New UBox greeting/HA
+and recognition latency remain pending. Existing AUTO preference is preserved;
+owner is asked to explicitly enable recognition following the foreground test.
+
 ## 2026-10-29: 0.11.12 bounded coherent guided acquisition
 
 Installed source cd3b2a1: fresh backup, app-only verification and full 16 MiB

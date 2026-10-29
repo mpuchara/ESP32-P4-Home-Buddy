@@ -6,6 +6,21 @@ Final source commit and binary SHA256 are recorded in the USB package metadata.
 
 ## 2026-10-29 0.11.12 coherent enrollment installed, profile 33 retained
 
+Subsequent physical acceptance: owner completed guided acquisition, fresh-frame
+verification and explicit Save. Generation 34 readback validates both banks 34/33,
+one face record changed, same identity/name/enabled/count and unchanged voice.
+Normal restart restores 34. All eight stored samples meet the intended criteria:
+pairwise min/median/max 0.6085/0.8023/0.9370; leave-one-out top-three means
+0.7849-0.9098. Previous generation 33 had three unsupported outliers.
+
+Collection needed 40 admitted candidates and 132058 ms from the first candidate
+to eight supported samples; this is still a slow enrollment, not a latency success.
+The first held-out verification failed, a later fresh frame passed. Pool never
+exceeded 15; measured selector range 513-253288 us, enrollment stack watermark
+5424 B, no observed restart/overflow. These bounded-session measurements do not
+prove every input's worst case or a long soak. Reliable recognition/greeting/HA
+and phone latency remain pending on the new unchanged generation 34.
+
 Source `cd3b2a104cd7e38e1bf9bcab24714cfbbada3e19`; application 4,508,672 B,
 headroom 2,831,360 B, SHA256
 `3cd7f1e9ccbd83e3e1a2beda30ed770257180c8701faa76b57628d6fcf65e541`.
@@ -30,8 +45,8 @@ verify_flash and full 16 MiB readback pass: all other sectors, including profile
 NVS, table and models, are byte-identical. Normal boot restores B/33 saved/clean,
 camera 29.5-30.1 FPS and accepted UBox snapshot. Recognition is STOP after the
 foreground diagnostic, with the AUTO preference preserved. No crash observed in
-the bounded 45 s boot capture. New enrollment/recognition acceptance is pending;
-the existing profile remains intact until the owner's new explicit commit.
+the bounded 45 s boot capture. This initial install retained the existing profile;
+the later owner-approved generation-34 commit is recorded above.
 
 ## 2026-10-29 0.11.11 cadence candidate installed with profile 26 intact
 

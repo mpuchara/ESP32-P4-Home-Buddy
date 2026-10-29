@@ -34,6 +34,9 @@ rejected-frame preservation and delayed commit. Physical acquisition speed and
 recognition accuracy remain unaccepted; this is not population calibration.
 Installed app-only with full readback preserving generation 33 and all other
 sectors. Normal boot restores saved/clean profile 33; all five source CI jobs pass.
+The owner's subsequent guided update saves/restores generation 34 with all eight
+samples supported (leave-one-out means 0.7849-0.9098). Collection still takes
+132 s and 40 admitted candidates. Recognition/greeting retest remains pending.
 
 ## 0.11.11-dev pending-confirmation cadence candidate
 
