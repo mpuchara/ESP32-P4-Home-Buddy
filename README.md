@@ -25,7 +25,9 @@ Adds bounded numeric matching/confirmation, recognized-event admission, greeting
 and HA status receipts. This diagnoses a real no-greeting/no-phone report after a
 saved new profile; successful MBF execution alone does not prove identity or event
 delivery. Thresholds, confirmation, cooldowns, HA opt-in and voice gates stay intact.
-Installation and the next operator encounter are separate from source validation.
+Installed app-only with full readback preserving all other sectors and profiles.
+Normal boot restores generation 23 and ready AUTO; HA host GET returns 200.
+Actual identity/greeting/HA/phone delivery remains a separate operator test.
 
 ## 0.11.8-dev enrollment feedback candidate
 

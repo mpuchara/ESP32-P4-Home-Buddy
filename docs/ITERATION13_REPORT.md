@@ -1,8 +1,43 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Installed candidate: **0.11.8-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
+Date: 2026-10-26. Installed candidate: **0.11.9-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
+
+## 2026-10-29 notification trace firmware 0.11.9 installed
+
+Firmware source `714bfd15905129231c7b7788fed2003eb7cc6b6e`. App 4,506,912 B,
+headroom 2,833,120 B; SHA256
+`f6d97ff60b898c463149af3db9fe89c48a19fce6bbfa437010fc766f7bbe6388`.
+Fresh private 16 MiB backup; application-only write at 0x20000, verify_flash and
+full readback pass. All other sectors, profiles B/23 and A/22, NVS, models and table
+are unchanged. Normal boot restores saved/clean B/23 and ready AUTO, models 1/0.
+UBox JPEG resumes after network initialization; HA_STATUS confirms enabled=1,
+reachable=1/result=HOST_OK, HTTP 200 at about 36 s. That is a host GET, not proof of
+webhook/recognized-event/automation/phone delivery. Initial startup connection
+failures recovered, so they are not treated as a persistent HA connectivity fault.
+
+Source CI run: https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40886130930.
+Exact-source CI status at this check: all five jobs passed. Local source checks passed as recorded below. The current encounter
+must be judged from MATCH_RESULT/event/greeting/HA receipts and owner observations.
+No diagnostic POST, config/opt-in change, synthetic recognized event or profile
+edit was performed. Live unhalted debugger metadata is not used as acceptance.
+
+## 2026-10-29 runtime encounter: unstable match prevents confirmation
+
+Owner repeated the UBox encounter on 0.11.9 and saw no greeting. Runtime receipts
+show UNKNOWN with best=0.544/0.457 at threshold 0.700; a KNOWN candidate reaches
+0.726 and hits=1/3, then a 0.515 UNKNOWN resets hits=0/3. No confirmed recognized
+admission or GREETING_ACCEPTED receipt is observed in this window. This identifies
+a failure before notification production; it is not evidence of a broken display
+queue. Three fresh confirmations remain required and no threshold was changed.
+
+HA_STATUS is enabled/reachable, result=DELIVERED HTTP 200 with sent counter rising
+1->2. Without confirmed recognition, those posts are not proof of a recognized
+payload or a phone action. HTTP response alone does not prove HA automation or
+phone delivery. The next controlled test needs a frontal, sharp complete face in
+the existing diagnostic preview, to assess matching stability before re-enrollment
+or changing any calibration. Greeting/HA/phone acceptance remains failed/open.
 
 ## 2026-10-29 generation 23 saved; no greeting/phone encounter observed
 

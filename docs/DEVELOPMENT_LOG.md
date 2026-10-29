@@ -1,5 +1,23 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: UBox encounter still unconfirmed, matching trace identifies gate
+
+0.11.9 records UNKNOWN 0.544/0.457, one KNOWN 0.726 (1/3 confirmations), then UNKNOWN
+0.515 (0/3). No admitted recognized/greeting receipt in this encounter; owner sees
+no greeting. HA is enabled/reachable and HTTP POST 200 counters rise, which does
+not prove recognized payload, automation or phone delivery. Retain all gates;
+next isolate face/landmark/image stability in the existing foreground preview.
+
+
+## 2026-10-29: 0.11.9 installed, profile 23 retained, HA host reachable
+
+714bfd1 app-only install passes verify and full 16 MiB comparison; all other sectors
+including profiles unchanged. Normal boot restores B/23 clean and ready AUTO.
+HA enabled, host GET returns 200 after initial network retries. This does not prove
+recognized-event/webhook/phone delivery. Runtime trace and owner encounter remain
+pending. CI host passes; four target builds in progress at this check.
+
+
 ## 2026-10-29: generation 23/MBF ready, notification path needs runtime trace
 
 Owner reports no display or phone notification despite saved new profile. Serial
