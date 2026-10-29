@@ -28,11 +28,16 @@ visible greeting and HA encounter remains an operator acceptance test.
 
 The live capture later records a new power-on (reset_reason=1), boot generation 28,
 then a new eight-sample enrollment/verification and saved clean generation 29.
-No panic/watchdog marker accompanies that boot. Operator origin/actions have been
-queried; do not assume a firmware reset or an unchanged profile-26 comparison.
+No panic/watchdog marker accompanies that boot. Owner confirms changing the profile and restarting the device. The response to
+the timing prompt is over 10 seconds/no greeting; it is not an unchanged
+profile-26 comparison or evidence of a spontaneous firmware reset.
 Configured fast cadence is observed, but physical speedup remains unaccepted and
 the previous profile-26 latency baseline cannot be treated as a controlled A/B of
-this later enrollment. Preserve the new saved data and clarify before retesting.
+this later enrollment. Preserve current saved generation 29 for the next controlled encounter. The
+cadence change has runtime confirmation, but matching stability remains open.
+A source audit finds camera GBRG conversion consistent with its configured format
+and native landmark order consistent with the pinned MBF alignment reference;
+this limited audit does not establish physical pixel/color or population accuracy.
 
 ## 2026-10-29 real greeting/HA accepted on 0.11.10; latency baseline
 
