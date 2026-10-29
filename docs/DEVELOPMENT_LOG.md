@@ -1,5 +1,14 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: recognition acceptance deferred until daylight
+
+Owner reports no greeting on 0.11.12 and only intermittent identity indications
+in diagnostics, in poor lighting. The latest captured matches alternate isolated
+known hits (1/3) with below-threshold results. Recognition remains unaccepted;
+lighting is an observed condition, not a proven root cause. Owner defers further
+physical testing until daylight. Passive serial capture is stopped; firmware and
+saved generation 34 remain unchanged. Resume with this same profile for comparison.
+
 ## 2026-10-29: coherent set 34 saved and restored, recognition retest pending
 
 Owner completes guided 0.11.12 flow. Forty admitted candidates yield eight coherent
