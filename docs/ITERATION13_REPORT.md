@@ -1,8 +1,37 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Installed candidate: **0.11.11-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
+Date: 2026-10-26, updated 2026-10-29. Installed candidate: **0.11.12-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
+
+## 2026-10-29 0.11.12 coherent enrollment installed, profile 33 retained
+
+Source `cd3b2a104cd7e38e1bf9bcab24714cfbbada3e19`; application 4,508,672 B,
+headroom 2,831,360 B, SHA256
+`3cd7f1e9ccbd83e3e1a2beda30ed770257180c8701faa76b57628d6fcf65e541`.
+The owner found the MSR/ESPDet comparison steadier but without confirmation.
+Actual saved generation 33 contains three leave-one-out outliers, motivating
+coherent acquisition rather than classifier threshold relaxation. Guided collection
+selects eight from a rolling pool capped at the existing 15 slots, using all-pair
+agreement >=0.600 and each sample's top-three mean >=0.700. A separate fresh frame,
+other-profile conflict check and explicit Save are still required. Counter reports
+the selected cohort. This does not establish calibrated accuracy or live latency.
+
+32/32 CTest, 24/24 Python, 3/3 checks, complete ASan/UBSan, formatting/whitespace,
+target build and 17 IRAM symbols pass. Target compiler frames: selector 960 B,
+support helper 16 B and worker 4112 B; fixed selector scratch 900 B, no allocation
+or schema/status growth. UI frame subtotal remains 2736 B. Real enrollment stack
+and selection latency remain pending and are logged numerically on each admission.
+All five exact-source CI jobs pass:
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40907790754.
+
+Fresh private full backup validates banks 32/33. App-only write at 0x20000,
+verify_flash and full 16 MiB readback pass: all other sectors, including profiles,
+NVS, table and models, are byte-identical. Normal boot restores B/33 saved/clean,
+camera 29.5-30.1 FPS and accepted UBox snapshot. Recognition is STOP after the
+foreground diagnostic, with the AUTO preference preserved. No crash observed in
+the bounded 45 s boot capture. New enrollment/recognition acceptance is pending;
+the existing profile remains intact until the owner's new explicit commit.
 
 ## 2026-10-29 0.11.11 cadence candidate installed with profile 26 intact
 

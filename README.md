@@ -32,6 +32,8 @@ images. No matching/temporal threshold, model, persistent schema or buffer grows
 Synthetic coverage includes mixed sets, disjoint clusters, full-pool replacement,
 rejected-frame preservation and delayed commit. Physical acquisition speed and
 recognition accuracy remain unaccepted; this is not population calibration.
+Installed app-only with full readback preserving generation 33 and all other
+sectors. Normal boot restores saved/clean profile 33; all five source CI jobs pass.
 
 ## 0.11.11-dev pending-confirmation cadence candidate
 

@@ -2,6 +2,12 @@
 
 ## 2026-10-29: 0.11.12 bounded coherent guided acquisition
 
+Installed source cd3b2a1: fresh backup, app-only verification and full 16 MiB
+comparison retain generation 33 and all other sectors. Normal boot restores B/33
+saved/clean, STOP preference following the foreground test, 29.5-30.1 FPS and UBox.
+Selector/support/worker target compiler frames are 960/16/4112 B; UI subtotal 2736 B.
+New physical enrollment/timing/stack acceptance remains pending.
+
 Owner reports the MSR/ESPDet toggle looks steadier but never confirms identity.
 Generation 33 remains saved; foreground logs show isolated known hits separated by
 below-threshold results. No evidence supports weakening the 0.700/0.600/0.120 policy
