@@ -74,6 +74,29 @@ Next: one controlled frontal enrollment update on the same identity, with steady
 front lighting/minimal pose changes, then compare stored-set cohesion before more
 notification trials. This distinguishes acquisition variance from profile coverage.
 
+## Controlled frontal acquisition saved generation 33; mixed cohesion remains
+
+Owner completes the requested frontal update on the same saved profile. The live
+worker verifies a fresh frame, commits 33 in 5,431,958 us and resumes ready AUTO,
+models 1/0. Private readback validates 33/32; exactly one face record changes, with
+ID/name/enabled/count preserved and voice data unchanged. Normal restart restores
+33 saved/clean and ready AUTO. No firmware or matching thresholds were changed.
+
+The new eight unit-normalized samples have pairwise cosine min/median/max
+-0.0197/0.3498/0.8405. Five leave-one-out top-three means reach 0.700 (previously
+zero); the other three are approximately 0.363/0.403/0.393. This is a mixed set,
+not a uniformly improved profile or calibrated accuracy result. The frontal
+acquisition yields several strongly supported samples while substantial outliers
+remain. Do not attribute all failures to operator pose or relax the classifier.
+
+Next controlled comparison uses the existing foreground MSR/ESPDet switch with
+the same profile to compare reference native MSR+MNP landmarks with the current
+ESPDet-proposal/MNP adapter. The initial ESPDet crop remains common to both; this
+is not an independent full detector benchmark. Keep the same pose/light, inspect
+actual confirmed/candidate state, return the switch afterwards and compare private
+runtime receipts. No extra profile replacement or new decision policy is assumed.
+Biometric vectors and per-sample data remain private; these are aggregate receipts.
+
 ## 2026-10-29 real greeting/HA accepted on 0.11.10; latency baseline
 
 Owner reports more stable landmarks. Current profile is now generation 26 following

@@ -1,5 +1,14 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: controlled frontal set 33 saved, outliers remain
+
+Fresh verification/save/readback passes; same ID/name/enabled/count, unchanged
+voice, 33/32 valid banks and ready AUTO after restart. Five of eight leave-one-out
+scores now reach 0.700, but three remain around 0.36-0.40. Aggregate pairwise median
+is 0.3498. This mixed result needs landmark-path comparison, not threshold relaxation
+or a claim of population accuracy. Next use existing MSR/ESPDet foreground diagnostic.
+
+
 ## 2026-10-29: ~5 s first greeting, later candidate; profile cohesion measured
 
 Owner confirms one 0.11.11 greeting at ~5 s, current generation 32. Logged final
