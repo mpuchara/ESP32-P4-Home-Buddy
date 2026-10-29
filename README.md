@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.11.11-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.11.12-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -18,6 +18,20 @@ the household member and enabled recognition setting survived a restart on
 installed 0.11.2-dev after approved storage recovery. Greeting/HA delivery and
 physical resource peaks remain separately unconfirmed. See [current report](docs/ITERATION13_REPORT.md) and
 [owner storage decision](docs/PERSISTENCE_DECISION.md).
+
+## 0.11.12-dev coherent guided enrollment candidate
+
+The current generation-33 profile contains three unsupported sample outliers;
+the owner's MSR/ESPDet comparison improved apparent stability without confirming
+recognition. Guided enrollment now selects eight mutually agreeing samples from
+a rolling pool capped at the existing 15 slots. Each selected pair must meet the
+existing agreement threshold; each sample's top-three leave-one-out mean must
+meet the existing match threshold. A separate fresh-frame verification and explicit
+Save remain required. The counter reports the coherent subset, not all captured
+images. No matching/temporal threshold, model, persistent schema or buffer grows.
+Synthetic coverage includes mixed sets, disjoint clusters, full-pool replacement,
+rejected-frame preservation and delayed commit. Physical acquisition speed and
+recognition accuracy remain unaccepted; this is not population calibration.
 
 ## 0.11.11-dev pending-confirmation cadence candidate
 

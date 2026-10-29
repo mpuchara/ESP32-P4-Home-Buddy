@@ -327,7 +327,7 @@ bool hb_id_delete(hb_id_database *db, uint64_t id)
     memset(p, 0, sizeof(*p));
     return true;
 }
-static bool policy_valid(const hb_id_policy *p)
+bool hb_id_policy_valid(const hb_id_policy *p)
 {
     return p && isfinite(p->threshold) && isfinite(p->margin) && isfinite(p->agreement) &&
            p->threshold >= -1 && p->threshold <= 1 && p->margin > 0 && p->margin <= 2 &&
@@ -338,7 +338,7 @@ hb_id_match hb_id_match_embedding(const hb_id_database *db, const hb_id_embeddin
                                   const hb_id_policy *policy)
 {
     hb_id_match r = {HB_ID_UNAVAILABLE, 0, -1, -1};
-    if (!db || memcmp(db->model, HB_ID_MODEL, sizeof(db->model)) || !policy_valid(policy) ||
+    if (!db || memcmp(db->model, HB_ID_MODEL, sizeof(db->model)) || !hb_id_policy_valid(policy) ||
         !hb_id_embedding_valid(e))
         return r;
     r.state = HB_ID_UNKNOWN;
@@ -400,7 +400,7 @@ void hb_id_tracker_reset(hb_id_tracker *t, uint32_t session)
 bool hb_id_confirm(hb_id_tracker *t, hb_id_match m, uint32_t session, uint32_t seq, uint64_t frame,
                    uint64_t completed, uint64_t now, const hb_id_policy *p)
 {
-    if (!t || !policy_valid(p))
+    if (!t || !hb_id_policy_valid(p))
         return false;
     if (session != t->session)
         return false;
@@ -449,20 +449,44 @@ bool hb_id_enroll_begin(hb_id_database *db, hb_id_enrollment *en, uint64_t id)
     memcpy(en->samples, person->templates, person->count * sizeof(hb_id_embedding));
     return true;
 }
-bool hb_id_enroll_sample(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
+static bool sample_valid(const hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
                          bool alignment, uint32_t seq, uint64_t ms)
 {
     if (!en || !en->target_id || faces != 1 || !alignment || !hb_id_embedding_valid(e) ||
-        en->count >= HB_ID_TEMPLATES || !seq || seq <= en->last_sequence || !ms ||
+        en->count > HB_ID_TEMPLATES || !seq || seq <= en->last_sequence || !ms ||
         ms <= en->last_ms || (en->last_ms && ms - en->last_ms < 1000))
         return false;
     for (unsigned i = 0; i < en->count; ++i)
         if (hb_id_similarity(e, &en->samples[i]) > 0.995f)
             return false;
+    return true;
+}
+static void sample_append(hb_id_enrollment *en, const hb_id_embedding *e, uint32_t seq, uint64_t ms)
+{
     en->samples[en->count++] = *e;
     en->last_sequence = seq;
     en->last_ms = ms;
     en->verified = false;
+}
+bool hb_id_enroll_sample(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
+                         bool alignment, uint32_t seq, uint64_t ms)
+{
+    if (!sample_valid(en, e, faces, alignment, seq, ms) || en->count >= HB_ID_TEMPLATES)
+        return false;
+    sample_append(en, e, seq, ms);
+    return true;
+}
+bool hb_id_enroll_sample_rolling(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
+                                 bool alignment, uint32_t seq, uint64_t ms)
+{
+    if (!sample_valid(en, e, faces, alignment, seq, ms))
+        return false;
+    if (en->count == HB_ID_TEMPLATES)
+    {
+        memmove(en->samples, en->samples + 1, (HB_ID_TEMPLATES - 1) * sizeof(*en->samples));
+        --en->count;
+    }
+    sample_append(en, e, seq, ms);
     return true;
 }
 bool hb_id_enroll_verify(hb_id_enrollment *en, const hb_id_embedding *e, uint32_t seq, uint64_t ms,
@@ -470,9 +494,9 @@ bool hb_id_enroll_verify(hb_id_enrollment *en, const hb_id_embedding *e, uint32_
 {
     if (en)
         en->verified = false;
-    if (!en || en->count < HB_ID_MIN_SAMPLES || en->count > HB_ID_TEMPLATES || !policy_valid(p) ||
-        !hb_id_embedding_valid(e) || seq <= en->last_sequence || ms <= en->last_ms ||
-        ms - en->last_ms < 1000)
+    if (!en || en->count < HB_ID_MIN_SAMPLES || en->count > HB_ID_TEMPLATES ||
+        !hb_id_policy_valid(p) || !hb_id_embedding_valid(e) || seq <= en->last_sequence ||
+        ms <= en->last_ms || ms - en->last_ms < 1000)
         return false;
     unsigned hits = 0;
     for (unsigned i = 0; i < en->count; ++i)

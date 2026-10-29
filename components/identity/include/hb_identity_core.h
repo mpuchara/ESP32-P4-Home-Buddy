@@ -109,6 +109,7 @@ extern "C"
     uint64_t hb_id_create(hb_id_database *db, const char *name);
     bool hb_id_rename(hb_id_database *db, uint64_t id, const char *name);
     bool hb_id_delete(hb_id_database *db, uint64_t id);
+    bool hb_id_policy_valid(const hb_id_policy *policy);
     hb_id_match hb_id_match_embedding(const hb_id_database *db, const hb_id_embedding *e,
                                       const hb_id_policy *policy);
     void hb_id_tracker_reset(hb_id_tracker *t, uint32_t session);
@@ -117,6 +118,9 @@ extern "C"
                        const hb_id_policy *policy);
     bool hb_id_enroll_sample(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
                              bool alignment, uint32_t seq, uint64_t ms);
+    // Same admission guards; evict the oldest candidate only after validating a new one.
+    bool hb_id_enroll_sample_rolling(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
+                                     bool alignment, uint32_t seq, uint64_t ms);
     bool hb_id_enroll_begin(hb_id_database *db, hb_id_enrollment *en, uint64_t person_id);
     bool hb_id_enroll_verify(hb_id_enrollment *en, const hb_id_embedding *e, uint32_t seq,
                              uint64_t ms, const hb_id_policy *policy);

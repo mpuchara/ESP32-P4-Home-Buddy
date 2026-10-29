@@ -251,6 +251,94 @@ static void enrollment(void)
     free(en);
     free(db);
 }
+static hb_id_embedding cohort(unsigned axis, unsigned unique, float primary)
+{
+    hb_id_embedding e = {{0}};
+    e.v[axis] = primary;
+    e.v[unique] = sqrtf(1 - primary * primary);
+    return e;
+}
+static void coherent_enrollment(void)
+{
+    hb_id_database *db = calloc(1, sizeof(*db));
+    hb_id_enrollment *en = calloc(1, sizeof(*en)), *before = calloc(1, sizeof(*before));
+    assert(db && en && before);
+    hb_id_database_init(db, 8);
+    uint64_t id = hb_id_create(db, "Existing");
+    fill(db, id, vector(40, 1), 8);
+    assert(hb_enroll_fresh(db, en, id));
+    unsigned progress = 0;
+    bool ready = false;
+    for (unsigned i = 0; i < 8; ++i)
+    {
+        hb_id_embedding e = cohort(0, i + 1, .95f);
+        assert(hb_enroll_sample_coherent(en, &e, 1, true, i + 1, (i + 1) * 1000, &policy, &progress,
+                                         &ready));
+        assert(progress == i + 1 && ready == (i == 7) && !en->verified);
+        assert(hb_id_find(db, id)->templates[0].v[40] == 1);
+    }
+    assert(!hb_id_enroll_commit(db, en));
+    hb_id_embedding heldout = vector(0, 1);
+    assert(!hb_id_enroll_verify(en, &heldout, 8, 8000, &policy));
+    assert(hb_id_enroll_verify(en, &heldout, 9, 9000, &policy));
+    assert(hb_id_enroll_commit(db, en));
+    assert(hb_id_find(db, id)->count == 8 && hb_id_find(db, id)->enabled);
+    assert(!strcmp(hb_id_find(db, id)->name, "Existing"));
+
+    // Each weak sample passes the old held-out verification (.71), but the
+    // samples disagree with one another (.5041). Keep collecting beyond eight.
+    assert(hb_enroll_fresh(db, en, id));
+    for (unsigned i = 0; i < 15; ++i)
+    {
+        hb_id_embedding e = cohort(0, i + 1, .71f);
+        assert(hb_enroll_sample_coherent(en, &e, 1, true, i + 1, (i + 1) * 1000, &policy, &progress,
+                                         &ready));
+        assert(!ready && progress == 1 && en->count == i + 1);
+    }
+    *before = *en;
+    hb_id_embedding e = cohort(20, 21, .95f);
+    hb_id_policy invalid = policy;
+    invalid.threshold = NAN;
+    assert(!hb_enroll_sample_coherent(en, &e, 1, true, 16, 16000, &invalid, &progress, &ready));
+    assert(!hb_enroll_sample_coherent(en, &e, 1, true, 16, 16000, &policy, NULL, &ready));
+    assert(!hb_id_enroll_sample_rolling(en, &en->samples[0], 1, true, 16, 16000));
+    assert(!hb_id_enroll_sample_rolling(en, &e, 2, true, 16, 16000));
+    assert(!hb_id_enroll_sample_rolling(en, &e, 1, false, 16, 16000));
+    assert(!hb_id_enroll_sample_rolling(en, &e, 1, true, 15, 16000));
+    assert(!hb_id_enroll_sample_rolling(en, &e, 1, true, 16, 15999));
+    hb_id_embedding bad = {{0}};
+    assert(!hb_id_enroll_sample_rolling(en, &bad, 1, true, 16, 16000));
+    assert(!hb_id_enroll_sample(en, &e, 1, true, 16, 16000)); // Manual capacity unchanged.
+    assert(!memcmp(en, before, sizeof(*en)));                 // No rejected frame evicts anything.
+    for (unsigned i = 0; i < 8; ++i)
+    {
+        e = cohort(20, i + 21, .95f);
+        assert(hb_enroll_sample_coherent(en, &e, 1, true, 16 + i, (16 + i) * 1000, &policy,
+                                         &progress, &ready));
+        assert(progress == i + 1 && ready == (i == 7));
+        assert(en->count == (ready ? 8U : 15U) && !en->verified);
+    }
+    assert(en->last_sequence == 23 && en->last_ms == 23000);
+    for (unsigned i = 8; i < HB_ID_TEMPLATES; ++i)
+        assert(!memcmp(&en->samples[i], &bad, sizeof(bad)));
+    heldout = vector(20, 1);
+    assert(!hb_id_enroll_verify(en, &heldout, 23, 23000, &policy));
+    assert(hb_id_enroll_verify(en, &heldout, 24, 24000, &policy));
+    // Selection and verification alone still do not replace the saved profile.
+    assert(hb_id_find(db, id)->templates[0].v[0] == .95f);
+
+    assert(hb_enroll_fresh(db, en, id));
+    for (unsigned i = 0; i < 8; ++i)
+    {
+        e = cohort(i < 4 ? 0 : 20, i + 30, .95f);
+        assert(hb_enroll_sample_coherent(en, &e, 1, true, i + 1, (i + 1) * 1000, &policy, &progress,
+                                         &ready));
+        assert(!ready && progress <= 4); // Two disjoint self-matching clusters are not a set.
+    }
+    free(before);
+    free(en);
+    free(db);
+}
 int main(void)
 {
     hb_id_evaluation stats = {0};
@@ -279,6 +367,7 @@ int main(void)
     matching();
     temporal();
     enrollment();
+    coherent_enrollment();
     puts("Identity: geometry, native ROI, embeddings, profiles, matching, temporal and enrollment "
          "passed");
     return 0;

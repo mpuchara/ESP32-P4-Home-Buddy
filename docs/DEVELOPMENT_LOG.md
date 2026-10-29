@@ -1,5 +1,25 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: 0.11.12 bounded coherent guided acquisition
+
+Owner reports the MSR/ESPDet toggle looks steadier but never confirms identity.
+Generation 33 remains saved; foreground logs show isolated known hits separated by
+below-threshold results. No evidence supports weakening the 0.700/0.600/0.120 policy
+or three-frame confirmation. Guided acquisition now uses a rolling 15-slot pool,
+selecting eight with all pair scores >= agreement and each leave-one-out top-three
+mean >= match threshold. Two disjoint self-matching clusters cannot complete it.
+Progress counts the supported subset; a full set still needs a later verification
+frame, other-profile conflict check and explicit Save. Saved samples stay untouched.
+
+No allocation/schema/status growth: fixed 900 B worker scratch; bounded 32767-mask
+search and in-place compaction, unused slots scrubbed. Manual sampling capacity and
+the original admission/time/duplicate guards remain. Synthetic tests cover weak
+sets, cluster separation, rolling recovery, rejected-frame no-eviction, fresh
+verification and explicit commit. Local 32/32 CTest, 24/24 Python, three project
+checks and complete ASan/UBSan pass. Target build/install and real acquisition
+timing/resource evidence will be recorded separately. Cohesion is a collection
+criterion, not population calibration or proof of recognition accuracy.
+
 ## 2026-10-29: controlled frontal set 33 saved, outliers remain
 
 Fresh verification/save/readback passes; same ID/name/enabled/count, unchanged

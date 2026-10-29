@@ -587,6 +587,8 @@ static void worker(void *)
     else if (state.auto_enabled)
         message(state, "AUTO oczekuje na prawidłowe profile domowników");
     bool capture = false, verify = false, evaluate = false, guided = false;
+    bool guided_ready = false;
+    unsigned guided_samples = 0;
     bool profile_pause = false;
     unsigned evaluation_frames = 0;
     uint64_t evaluation_expected = 0;
@@ -824,6 +826,8 @@ static void worker(void *)
             case HB_ID_CMD_BEGIN:
                 capture = verify = false;
                 guided = c.guided;
+                guided_ready = false;
+                guided_samples = 0;
                 state.saved_id = 0;
                 state.sequence = 0;
                 if (guided ? hb_enroll_fresh(database, enrollment, c.person_id)
@@ -843,7 +847,8 @@ static void worker(void *)
                 verify = state.mode == HB_ID_ENROLL;
                 break;
             case HB_ID_CMD_SAVE:
-                if (state.mode == HB_ID_ENROLL && hb_id_enroll_commit(database, enrollment))
+                if (state.mode == HB_ID_ENROLL && (!guided || guided_ready) &&
+                    hb_id_enroll_commit(database, enrollment))
                 {
                     state.mode = resting_mode(state.auto_enabled);
                     pending_saved_id = c.person_id;
@@ -854,7 +859,7 @@ static void worker(void *)
                     }
                 }
                 else
-                    message(state, "Najpierw 8 próbek i weryfikacja nową klatką");
+                    message(state, "Najpierw 8 spójnych próbek i weryfikacja nową klatką");
                 break;
             case HB_ID_CMD_TEST:
                 capture = verify = false;
@@ -1032,15 +1037,39 @@ static void worker(void *)
                     {
                         auto step = hb_enroll_next(enrollment, state.faces, ok, state.sequence,
                                                    state.frame_ms);
+                        if (!guided_ready && step == HB_ENROLL_VERIFY)
+                            step = HB_ENROLL_SAMPLE;
                         capture = step == HB_ENROLL_SAMPLE;
                         verify = step == HB_ENROLL_VERIFY;
                     }
                     if (capture)
-                        message(state, hb_id_enroll_sample(enrollment, &embedding, state.faces,
-                                                           true, state.sequence, state.frame_ms)
-                                           ? "Próbka przyjęta w RAM"
-                                           : "Powtórz zdjęcie: zmień pozę lub oświetlenie");
-                    if (verify)
+                    {
+                        bool accepted;
+                        if (guided)
+                        {
+                            int64_t started = esp_timer_get_time();
+                            unsigned pool = enrollment->count < HB_ID_TEMPLATES
+                                                ? enrollment->count + 1
+                                                : HB_ID_TEMPLATES;
+                            accepted = hb_enroll_sample_coherent(
+                                enrollment, &embedding, state.faces, true, state.sequence,
+                                state.frame_ms, &policy, &guided_samples, &guided_ready);
+                            if (accepted)
+                                ESP_LOGI(
+                                    "identity",
+                                    "ENROLL_COHESION pool=%u selected=%u ready=%d select_us=%u",
+                                    pool, guided_samples, guided_ready,
+                                    (unsigned)(esp_timer_get_time() - started));
+                        }
+                        else
+                            accepted = hb_id_enroll_sample(enrollment, &embedding, state.faces,
+                                                           true, state.sequence, state.frame_ms);
+                        message(state, !accepted ? "Próbka podobna lub nieaktualna. Patrz prosto."
+                                       : guided_ready
+                                           ? "Spójny zestaw gotowy. Poczekaj na weryfikację."
+                                           : "Zbieram zgodne próbki. Utrzymaj podobną pozycję.");
+                    }
+                    if (verify && (!guided || guided_ready))
                     {
                         bool accepted = hb_id_enroll_verify(enrollment, &embedding, state.sequence,
                                                             state.frame_ms, &policy);
@@ -1145,7 +1174,7 @@ static void worker(void *)
         }
         capture = verify = false;
 #endif
-        state.samples = enrollment->count;
+        state.samples = guided && state.mode == HB_ID_ENROLL ? guided_samples : enrollment->count;
         state.verified = enrollment->verified;
         if (hb_id_expired(state.mode, until, now_ms()))
         {
