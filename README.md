@@ -3,7 +3,7 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.11.8-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.11.9-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
@@ -18,6 +18,14 @@ the household member and enabled recognition setting survived a restart on
 installed 0.11.2-dev after approved storage recovery. Greeting/HA delivery and
 physical resource peaks remain separately unconfirmed. See [current report](docs/ITERATION13_REPORT.md) and
 [owner storage decision](docs/PERSISTENCE_DECISION.md).
+
+## 0.11.9-dev match and notification diagnostics candidate
+
+Adds bounded numeric matching/confirmation, recognized-event admission, greeting
+and HA status receipts. This diagnoses a real no-greeting/no-phone report after a
+saved new profile; successful MBF execution alone does not prove identity or event
+delivery. Thresholds, confirmation, cooldowns, HA opt-in and voice gates stay intact.
+Installation and the next operator encounter are separate from source validation.
 
 ## 0.11.8-dev enrollment feedback candidate
 

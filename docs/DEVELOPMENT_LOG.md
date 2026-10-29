@@ -1,5 +1,14 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: generation 23/MBF ready, notification path needs runtime trace
+
+Owner reports no display or phone notification despite saved new profile. Serial
+confirms 23 clean, AUTO ready and full MBF runs, mixed with preprocessing failures.
+Add numeric matching/confirmation/event/greeting/HA receipts in 0.11.9 without
+changing any decision gate or sending diagnostic/recognized events synthetically.
+Discard incoherent live JTAG reads; rely on production runtime receipts instead.
+
+
 ## 2026-10-28: new-light attempt blocked before inference by cold-start RAM
 
 0.11.8 earlier verifies eight samples and commits 18. Owner subsequently deletes

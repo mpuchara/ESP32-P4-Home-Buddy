@@ -193,6 +193,19 @@ static void worker(void *unused)
                 }
             }
         }
+        static uint64_t next_status_log;
+        if (now_ms() >= next_status_log)
+        {
+            next_status_log = now_ms() + 30000;
+            hb_ha_status current_status;
+            hb_ha_get_status(&current_status);
+            ESP_LOGI("ha",
+                     "HA_STATUS enabled=%d reachable=%d result=%u http=%d sent=%u "
+                     "failed=%u expired=%u",
+                     active.enabled, reachable, (unsigned)current_status.result,
+                     current_status.http_status, (unsigned)current_status.sent,
+                     (unsigned)current_status.failed, (unsigned)current_status.expired);
+        }
         vTaskDelay(pdMS_TO_TICKS(200));
     }
 }

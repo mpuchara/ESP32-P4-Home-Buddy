@@ -4,6 +4,27 @@ Date: 2026-10-26. Installed candidate: **0.11.8-dev**; final-source transactions
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
 
+## 2026-10-29 generation 23 saved; no greeting/phone encounter observed
+
+Owner reports the new profile saved. Fresh passive log confirms generation 23,
+saved/clean, ready AUTO, models 1/0 and actual 512D MBF executions (roughly 1.3-1.4 s
+pipeline time), mixed with no-face/ROI/landmark rejection. Owner reports no visible
+greeting and no phone notification. MBF success does not establish matching or
+three-frame confirmation. Existing logs omit those decisions and HA enable/status.
+Live unhalted JTAG metadata returned an invalid event-bus next=0 despite production
+init next=1; coherency is unverified, so those reads are discarded for conclusions.
+No HALT/injection/configuration change was requested during that read.
+
+Candidate 0.11.9 adds bounded numeric MATCH_RESULT (scores, policy threshold/margin,
+confirmation hits), RECOGNIZED_EVENT queue admission, GREETING_ACCEPTED/SKIP,
+GREETING_UI queue admission and periodic HA_STATUS (enabled/reachable/result/HTTP/
+counters). It logs no names, IDs, credentials, frames, PCM or embeddings. No sample,
+matching, confirmation, freshness, event, cooldown, HA opt-in or voice-gate change.
+The purpose is exact runtime triage, not assuming successful notification delivery.
+Local validation: 32/32 CTest, 24/24 Python, 3/3 checks, formatting/whitespace and
+recognition build pass, with seventeen linked IRAM functions and 2736 B UI frames.
+Candidate installation and runtime results are separate from these source checks.
+
 ## 2026-10-28 delete/recreate exposes guarded cold-start fragmentation
 
 Later 0.11.8 log records successful fresh-frame verification after several mismatch

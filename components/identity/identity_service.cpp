@@ -169,10 +169,17 @@ static void identity_events(const hb_id_status &s)
         for (unsigned i = 0; i < s.profile_count; ++i)
             if (s.profiles[i].id == e.person_id)
                 snprintf(e.person_name, sizeof(e.person_name), "%s", s.profiles[i].name);
+    bool queued = false;
     portENTER_CRITICAL(&event_lock);
     if (s.session == epoch.load())
-        hb_event_push(&event_bus, e);
+        queued = hb_event_push(&event_bus, e);
     portEXIT_CRITICAL(&event_lock);
+    static uint64_t next_recognized_log;
+    if (e.kind == HB_ID_EVENT_RECOGNIZED && (queued || now_ms() >= next_recognized_log))
+    {
+        next_recognized_log = now_ms() + 10000;
+        ESP_LOGI("identity", "RECOGNIZED_EVENT queued=%d", queued);
+    }
 }
 
 // Hash only durable fields; recognition counters and cooldowns remain RAM-only.
@@ -1063,6 +1070,23 @@ static void worker(void *)
                     state.confirmed =
                         hb_id_confirm(&tracker, state.match, ticket, state.sequence, state.frame_ms,
                                       state.completed_ms, now_ms(), &policy);
+                    static uint64_t next_match_log;
+                    static int previous_match = -1;
+                    static bool previous_confirmation;
+                    if (now_ms() >= next_match_log || (int)state.match.state != previous_match ||
+                        state.confirmed != previous_confirmation)
+                    {
+                        next_match_log = now_ms() + 10000;
+                        previous_match = (int)state.match.state;
+                        previous_confirmation = state.confirmed;
+                        ESP_LOGI("identity",
+                                 "MATCH_RESULT state=%u best=%.3f second=%.3f threshold=%.3f "
+                                 "margin=%.3f hits=%u required=%u confirmed=%d",
+                                 (unsigned)state.match.state, (double)state.match.best,
+                                 (double)state.match.second, (double)policy.threshold,
+                                 (double)policy.margin, tracker.hits, policy.confirmations,
+                                 state.confirmed);
+                    }
                     if (state.confirmed)
                     {
                         state.confirmed_id = state.match.person_id;
@@ -1296,7 +1320,10 @@ bool hb_identity_greeting(uint64_t now, char name[HB_ID_NAME])
     hb_id_status s{};
     hb_identity_get(&s);
     if (!hb_id_background(s.mode) || event.session != epoch.load())
+    {
+        ESP_LOGI("identity", "GREETING_SKIP reason=session_or_mode");
         return false;
+    }
     for (auto &c : cooldown)
     {
         bool exists = false;
@@ -1312,12 +1339,17 @@ bool hb_identity_greeting(uint64_t now, char name[HB_ID_NAME])
                 if (c.id == event.person_id || !c.id)
                 {
                     if (c.id && (now < c.ms || now - c.ms < 300000))
+                    {
+                        ESP_LOGI("identity", "GREETING_SKIP reason=cooldown");
                         return false;
+                    }
                     c = {event.person_id, now};
                     snprintf(name, HB_ID_NAME, "%s", s.profiles[i].name);
+                    ESP_LOGI("identity", "GREETING_ACCEPTED");
                     return true;
                 }
         }
+    ESP_LOGI("identity", "GREETING_SKIP reason=profile_missing");
     return false;
 }
 bool hb_identity_event_read(hb_event_consumer consumer, hb_id_event *out)

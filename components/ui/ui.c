@@ -824,7 +824,10 @@ static void identity_update(void)
     {
         char name[HB_ID_NAME];
         if (hb_identity_greeting((uint64_t)esp_timer_get_time() / 1000, name))
-            hb_ui_show_greeting(name);
+        {
+            bool queued = hb_ui_show_greeting(name);
+            ESP_LOGI("identity_ui", "GREETING_UI queued=%d", queued);
+        }
     }
     if (audio_info)
     {
