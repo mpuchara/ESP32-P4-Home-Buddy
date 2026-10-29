@@ -22,3 +22,16 @@ Two exact changes:
 Unknown/changed SDK source fails configuration instead of applying a fuzzy patch.
 Reassess and remove this adapter when upgrading IDF. Full-buffer/frequency/color
 acceptance on the connected P4 is recorded separately in DEVELOPMENT_LOG.md.
+
+## Flash-time CSI ISR callee placement (iteration 13)
+
+ESP-IDF 5.5.1's DW_GDMA_CTRL_FUNC_IN_IRAM linker list omits
+`dw_gdma_channel_config_transfer`, which the CSI ISR calls on each frame. JTAG
+captured a cache error during the profile write: fault PC 0x402dd6be in that
+function (inlined destination-master-port helper), return 0x4ff01c7a in CSI
+completion. The Flash-resident panic path then ended in HP watchdog reset.
+
+`dw_gdma_cache.lf` supplies only the missing noflash function mapping, conditional
+on CSI cache-safe mode, without changing the installed SDK or peripheral logic.
+The target ELF guard includes this function plus the DSI/DW-GDMA/cache/timer ISR
+callees. The historical 0.11.5 ELF fails the guard at this exact function.

@@ -3,10 +3,161 @@
 Local smart-home assistant for GUITION JC4880P443C_I_W_Y (SKU 10153003).
 Apache-2.0 application with an attributed MIT board-support component.
 
-**Development firmware 0.4.5-dev, not a finished product.** Implements a fullscreen
+**Development firmware 0.11.12-dev, not a finished product.** Implements a fullscreen
 cached UBox JPEG pipeline, hardware JPEG decoding and cover cropping, Warsaw clock,
 Open-Meteo temperature, queued greeting overlays and direct Wi-Fi/UBox/weather settings without administrator PIN.
 Adds local OV02C10 capture/diagnostic preview and local brightness calibration with AUTO, MANUAL and temporary override. Adds an explicit local face-detection diagnostic with bounded boxes and pinned ESP-DL weights. Adds diagnostic temporal presence with distinct-frame confirmation, delayed absence and unavailable-data handling. Adds an explicit bounded ten-minute presence test on the UBox screensaver. Physical acceptance remains incomplete. See [actual results](docs/DEVELOPMENT_LOG.md).
+
+Candidate additions: local face enrollment/AUTO and HTTP identity events, a four-section
+Polish product menu, bounded microphone diagnostics and a one-shot SV 3s embedding
+prototype. Voice accuracy and microphone acceptance remain pending. Iteration 12
+activates the existing unified schema-2 database with automatic local unencrypted
+persistence, automatic restoration and retained AUTO preference. No password, PIN
+or unlock. Physical extraction is not prevented. On 2026-10-26 the owner confirmed
+the household member and enabled recognition setting survived a restart on
+installed 0.11.2-dev after approved storage recovery. Greeting/HA delivery and
+physical resource peaks remain separately unconfirmed. See [current report](docs/ITERATION13_REPORT.md) and
+[owner storage decision](docs/PERSISTENCE_DECISION.md).
+
+## 0.11.12-dev coherent guided enrollment candidate
+
+The current generation-33 profile contains three unsupported sample outliers;
+the owner's MSR/ESPDet comparison improved apparent stability without confirming
+recognition. Guided enrollment now selects eight mutually agreeing samples from
+a rolling pool capped at the existing 15 slots. Each selected pair must meet the
+existing agreement threshold; each sample's top-three leave-one-out mean must
+meet the existing match threshold. A separate fresh-frame verification and explicit
+Save remain required. The counter reports the coherent subset, not all captured
+images. No matching/temporal threshold, model, persistent schema or buffer grows.
+Synthetic coverage includes mixed sets, disjoint clusters, full-pool replacement,
+rejected-frame preservation and delayed commit. Physical acquisition speed and
+recognition accuracy remain unaccepted; this is not population calibration.
+Installed app-only with full readback preserving generation 33 and all other
+sectors. Normal boot restores saved/clean profile 33; all five source CI jobs pass.
+The owner's subsequent guided update saves/restores generation 34 with all eight
+samples supported (leave-one-out means 0.7849-0.9098). Collection still takes
+132 s and 40 admitted candidates. Recognition/greeting retest remains pending.
+
+## 0.11.11-dev pending-confirmation cadence candidate
+
+Owner confirmed a real display greeting and HA event on 0.11.10, with slow identity
+acquisition. The new cadence yields 100 ms instead of 1000 ms only while AUTO or
+BACKGROUND has one/two known hits awaiting confirmation. Confirmed, unknown,
+ambiguous, unavailable, TEST and enrollment keep their prior cadence. Three fresh
+frames and all matching, timestamp, cooldown and opt-in guards remain unchanged.
+This removes 1800 ms of configured waiting across two successful pending gaps;
+it is not a measured physical speedup and cannot remove weak-match retries.
+Installed app-only with full readback preserving profile 26 and all other sectors;
+normal boot resumes ready AUTO. All five source CI jobs pass. New physical timing
+acceptance remains pending.
+
+## 0.11.10-dev native MNP crop geometry candidate
+
+The pinned MNP adapter squares detector candidates. Independent x/y ROI padding
+could truncate that square for a portrait face box, despite a valid box and sharp
+preview. A regression fails the old implementation. ROI mapping now contains the
+native square, including its inclusive edges, with context capped at 640x640 and
+sensor-edge handling. No downsampling, larger buffer, fabricated landmarks or
+matching/confirmation threshold change. Existing profiles are retained. Physical
+landmark/matching stability remains a target acceptance check. App-only installation
+and full Flash comparison preserve profile 23 and all other sectors. Normal boot
+restores it; the preceding foreground test may leave AUTO requiring explicit start.
+
+## 0.11.9-dev match and notification diagnostics candidate
+
+Adds bounded numeric matching/confirmation, recognized-event admission, greeting
+and HA status receipts. This diagnoses a real no-greeting/no-phone report after a
+saved new profile; successful MBF execution alone does not prove identity or event
+delivery. Thresholds, confirmation, cooldowns, HA opt-in and voice gates stay intact.
+Installed app-only with full readback preserving all other sectors and profiles.
+Normal boot restores generation 23 and ready AUTO; HA host GET returns 200.
+Actual identity/greeting/HA/phone delivery remains a separate operator test.
+
+## 0.11.8-dev enrollment feedback candidate
+
+The installed 0.11.7 keeps Save disabled until fresh-frame verification succeeds,
+including after eight samples. Its guided screen hid the worker's actual reason
+behind a generic waiting hint. This candidate shows that reason, distinguishes a
+verification mismatch from another-profile conflict, and logs numeric enrollment
+progress. Sampling, matching thresholds, verification and explicit save gates are
+unchanged. Installed app-only after the preceding session stopped: full Flash readback
+preserves all other sectors. Normal boot restores generation 17 and ready AUTO.
+All five source CI jobs pass; new enrollment-feedback acceptance remains pending.
+
+## 0.11.7-dev save-wait completion
+
+The corrected 0.11.6 backend completed six target disable/enable commits without
+reboot or model reload; exact profile payload preservation and a normal generation
+12/AUTO restart were verified. Measured saves can exceed five seconds, so the final
+UI guard waits for the durable creation receipt while storage is saving. See the
+current report for final-source app-only installation, generations 13/14, exact
+payload preservation and debugger-free generation 14/AUTO restart. All five final
+firmware CI jobs pass; visual, greeting/HA and voice acceptance remain separate.
+
+## 0.11.6-dev measured Flash-time CSI fix
+
+An exact USB-JTAG exception frame identifies a Flash-resident DW-GDMA transfer
+helper called by the CSI ISR during profile saves. A project-local linker fragment
+supplies the missing SDK 5.5.1 noflash mapping; the seventeen-function ELF guard
+rejects the previous binary at that function. No SDK source, partition, template
+format, model threshold or recovery change. 0.11.5 is withdrawn from acceptance;
+see the current report for actual post-fix results and remaining physical checks.
+
+## 0.11.5-dev shared DMA correction
+
+Installed source 311dbe1 passes app/full-readback verification, restores generation
+4 and resumes ready AUTO. CSI now completes frames at 29.6-29.7 FPS. Scene content,
+exact profile toggle/flicker, greeting/HA and voice execution still need operator
+acceptance; frame rate/model readiness alone are insufficient.
+
+The 0.11.4-dev boot check caught CSI rejecting an external-RAM callback context
+under the shared DMA IRAM setting. The follow-up enables CSI cache-safe allocation
+and places camera callbacks/frame-pool ISR callees in IRAM. Post-link ELF and
+effective-config guards enforce the contract. Physical camera/frame and toggle
+acceptance remain required; model-ready status alone is insufficient.
+
+## 0.11.4-dev profile-toggle follow-up
+
+The operator's disable/enable test on installed 0.11.3-dev saved both changes
+(generation 4), but exposed Flash-associated display flicker and a fragmented-heap
+MBF reload failure. The follow-up parks the already loaded model set only during
+an AUTO member pause, preserves explicit Stop/cancel release and all admission
+guards, and enables verified DSI/DW-GDMA IRAM-safe interrupt handling. Exact-path
+physical retest is pending. See [iteration 13](docs/ITERATION13_REPORT.md).
+
+## 0.11.3-dev persistent identity stabilization
+
+Blank storage receives a verified empty generation before enrollment. First user
+save retains that fallback; interrupted/unknown data still blocks writes without
+formatting. Flash operations are bounded to 4 KiB and yield between calls. Recovery
+keeps the app stopped in the loader throughout comparison, scoped erase and readback.
+Combined voice readiness reports PCM, 512D output, timing and cleanup numerically.
+This candidate is host-tested, built and installed under owner approval, with
+application/model readback and preservation of profiles/other sectors verified.
+Actual boot restores the existing generation and resumes ready AUTO; changed-save,
+greeting/HA and audio/model execution acceptance still need operator interaction. See [iteration 13](docs/ITERATION13_REPORT.md).
+
+## 0.11.2-dev interrupted first write and diagnostics
+
+Physical enrollment now reaches completion after the stack fix. A private read-only
+Flash audit found a blank lower bank and headerless partial data in the upper bank,
+consistent with the earlier crash during the first create/save. Approved recovery
+erased only the incomplete upper bank, with readback verification. The owner then
+confirmed profile retention and the enabled recognition setting after a restart;
+the firmware never automatically formats interrupted/unknown storage.
+The candidate fixes the 11-entry advanced menu, exposes storage result codes and
+delays the create navigation receipt until its save attempt completes. See
+[recovery scope and evidence](docs/ITERATION12_STORAGE_RECOVERY.md).
+
+## 0.11.1-dev enrollment stack fix
+
+The first installed 0.11.0-dev candidate exposed an LVGL stack protection fault
+when moving from Add household member into guided enrollment. 0.11.1-dev uses
+three bounded UI-owned status buffers instead of nested automatic snapshots and
+checks actual P4 compiler stack frames on every firmware build. Physical
+registration completed without the original reboot; profile retention and the
+enabled recognition setting after restart were confirmed on 0.11.2-dev.
+See [captured fault and fix](docs/ITERATION12_STACK_FIX.md).
 
 ## Hardware and status
 
@@ -53,13 +204,13 @@ idf.py -B build-bringup -p COM5 flash monitor
 ```
 
 COM5 is this session's port, not a fixed requirement. See [recovery](docs/BUILD.md).
-No browser installer or OTA is provided yet.
+USB is the supported update path; this architecture has no OTA.
 
 ## Current interface
 
 Tap the saver to open Wi-Fi, UBox, weather, brightness and diagnostic controls.
 Missing image/time/temperature remain unavailable. Test JPEG uses a committed
-synthetic image; Test greeting explicitly says Test UI. No biometric inference runs.
+synthetic image; Test greeting explicitly says Test UI. Experimental biometric inference runs only after explicit opt-in in the recognition build.
 All settings open directly, without an administrator PIN, at the operator's
 explicit request. Choose a Wi-Fi network and enter its password; UBox settings and weather location are edited in their own screens. Wi-Fi
 passwords stay masked; the UBox token is visible in its edit field as requested.
@@ -113,10 +264,41 @@ The future identity pipeline runs entirely on P4; HA provides no inference.
 * [Flash/PSRAM budget](docs/MEMORY_BUDGET.md)
 * [Roadmap](docs/DEVELOPMENT_PLAN.md)
 * [UBox HTTP contract](docs/UBOX_API.md)
-* [Planned MQTT API](docs/MQTT_API.md)
+* [Home Assistant Webhook / REST](docs/HOME_ASSISTANT_HTTP.md)
 * [Privacy](docs/PRIVACY.md)
 * [User guide](docs/USER_GUIDE.md)
 * [Troubleshooting](docs/TROUBLESHOOTING.md)
 
 The independent `mpuchara/HA_UBOX_bridge` repository is read-only reference material.
 Home Buddy will consume its published API only.
+
+## Experimental household identity
+
+On-device MBF execution, one-person RAM enrollment/fresh-frame confirmation,
+personalized saver greeting and a real confirmed recognition event received by
+Home Assistant over REST are operator-accepted. A matching live HA trace and
+operator receipt also accept the recognized-only notification action. Five saver/re-entry cycles pass
+after the Flash-validation watchdog fix. Secure persistence, quantified accuracy,
+extended reliability acceptance remain open. A controlled 90-second stay and
+leave/return test produced one notification per encounter with matching HA traces.
+See [hardware evidence](docs/IDENTITY_VALIDATION.md).
+
+[Implementation and on-device enrollment](docs/FACE_RECOGNITION.md) uses
+ESPDet416, real MNP landmarks, native ROI, MBF embeddings and multi-frame open-set
+matching. The 0.6.1-dev candidate uses one 7 MiB factory application, dedicated
+onboard MBF storage, a 1 MiB gated profile area and 3 MiB reserved for future voice.
+The iteration-12 recognition candidate selects LOCAL_UNENCRYPTED. HA uses native Webhook or REST
+events without a broker. No microSD, external inference or OTA.
+See [current report](docs/ITERATION7_REPORT.md), [Flash map](docs/SINGLE_IMAGE_FLASH_LAYOUT.md),
+[USB updates/recovery](docs/USB_FLASHING.md), [migration](docs/FLASH_MIGRATION.md)
+and [HA setup](docs/HOME_ASSISTANT_HTTP.md). Physical acceptance is tracked separately.
+
+
+## Iteration 8 continuation
+
+Candidate 0.7.0-dev adds opt-in AUTO with ordinary NVS preference, preserved ten-minute TEST, RAM-only reboot waiting, fresh local evaluation and manual 60-second microphone diagnostics. Installed firmware remains unchanged. See docs/ITERATION8_REPORT.md and docs/ITERATION8_ACCEPTANCE.md.
+
+
+## Iteration 10, 2026-10-25
+
+0.9.0-dev adds an explicit one-shot speaker-embedding diagnostic under advanced microphone diagnostics, a bounded preliminary activity gate, checked Flash-backed SV adapter, optional USB model package and synthetic voice/fusion safety tests. Device microphone/model/accuracy acceptance remains pending; real voice enrollment and voice HA events stay unavailable. See docs/VOICE_RECOGNITION.md and docs/ITERATION10_REPORT.md.

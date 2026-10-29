@@ -1,5 +1,19 @@
 # Memory and flash budget
 
+## Current iteration 12 policy (0.11.0-dev)
+
+The selected product mode is **persistent, unencrypted, local household storage with
+automatic restoration**. The recognition build runs the existing schema-2 engine in
+two 512 KiB banks inside the unchanged 1 MiB partition. Intentional household changes
+save automatically; valid face/voice profiles and the previously enabled AUTO mode
+restore locally at startup. No password, PIN, manual unlock, eFuse provisioning or
+mandatory encryption. Physical extraction is not prevented. Experimental voice
+identification remains gated. Implementation/host tests do not establish physical
+reboot persistence; installation and the combined acceptance session remain pending.
+See [storage decision](PERSISTENCE_DECISION.md), [database](PROFILE_DATABASE.md) and
+[iteration report](ITERATION12_REPORT.md). Older iteration notes below are historical.
+
+
 These are provisional allocations, not measured AI capacity.
 
 ## 16 MiB flash
@@ -21,7 +35,7 @@ misalignment, unequal OTA slots and overflow.
 Two app slots fit the current small firmware. **This does not prove both biometric
 model sets fit.** Only 1920 KiB is reserved separately for models. Before adding
 models, measure exact quantized weights, code growth and inference arena demand.
-Use local microSD assets if required; pin hashes, licenses and model format/version.
+All model assets must use onboard Flash; pin hashes, licenses and model format/version.
 Never fetch a model from a server as a runtime requirement. Signed OTA, rollback,
 model compatibility and partition migration are not implemented.
 
@@ -141,3 +155,41 @@ expiry release and repeated requests need measured receipts.
 no extra ROI image, histogram or heap allocation. Existing234x416 input is reused.
 64-bit sum products bound arithmetic at maximum generic800x480 ROI. Hardware
 quality_us overhead remains to be measured; no speed or recognition claim.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
+Flash for model storage, gated encrypted profile persistence and native identity
+HTTP. Iteration 12 selects LOCAL_UNENCRYPTED independently of hardware provisioning. See ITERATION7_REPORT.md and
+FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
+
+
+## Iteration 10, 2026-10-25
+
+Derived additional arrays: 96,480 B mono PCM window and 96,000 B filterbanks; 1,920 B capture stack PCM arrays; 5,120 B DMA; FFT/window/mel/model and 8 KiB voice task stack add to these. No 192,960 B full float-audio copy. The lazy SV provider requires >=128 KiB free internal, >=64 KiB largest internal and >=8 MiB largest PSRAM before construction. Those provisional admission floors are not measured usage/peaks. Metrics are sampled and include stack/load/preprocess/inference timing; physical peaks/coexistence remain pending.
+
+
+## Iteration 11, 2026-10-25
+
+Voice DB inside the live unified snapshot:65,768 B; staging holds one four-template person plus policy/session metadata, allocated lazily in PSRAM only after acceptance and an explicit Begin. Capture result is a single approximately2 KiB RAM mailbox with one worker-side consume slot. Schema2 uses312,416 B per snapshot; a transaction needs a separate same-size PSRAM scratch snapshot. The iteration-12 runtime allocates 312,416 B live plus 312,416 B scratch = 624,832 B in bounded PSRAM. These are structure/array sizes, not measured board free memory or peak usage. Actual internal/PSRAM/stack/load/inference/coexistence measurements remain pending.
+
+## 0.11.1-dev: bounded UI status workspace
+
+Captured LVGL stack protection fault during the create receipt -> enrollment page
+transition. Moved full hb_id_status values out of nested UI frames into three
+UI-task-owned page/refresh/preview slots: 4,872 B static internal RAM on P4, capped
+at 6 KiB. The 8 KiB LVGL stack is unchanged. Real target compiler frames now have
+an update/identity_update/identity_page subtotal of 2,736 B versus 7,360 B before;
+this excludes LVGL/libc/logging and is not a measured full-task peak. Each firmware
+build enforces the critical frame and nested subtotal limits. See ITERATION12_STACK_FIX.md.
+
+## 0.11.2-dev storage diagnostics
+
+One storage result scalar increases the target UI workspace from 4,872 to 4,896 B
+(ELF symbol size 0x1320), below the unchanged 6 KiB cap. Target UI nested frame
+subtotal remains 2,736 B; physical complete-task peaks remain unmeasured. No new
+snapshot, model, persistent partition or task stack is allocated.

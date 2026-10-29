@@ -1,3 +1,483 @@
+# 2026-10-24: background navigation intent fix prepared
+
+## 2026-10-29: recognition acceptance deferred until daylight
+
+Owner reports no greeting on 0.11.12 and only intermittent identity indications
+in diagnostics, in poor lighting. The latest captured matches alternate isolated
+known hits (1/3) with below-threshold results. Recognition remains unaccepted;
+lighting is an observed condition, not a proven root cause. Owner defers further
+physical testing until daylight. Passive serial capture is stopped; firmware and
+saved generation 34 remain unchanged. Resume with this same profile for comparison.
+
+## 2026-10-29: coherent set 34 saved and restored, recognition retest pending
+
+Owner completes guided 0.11.12 flow. Forty admitted candidates yield eight coherent
+samples in 132058 ms; first fresh verification fails, later one passes, explicit
+Save commits 34. Private readback validates 34/33, one changed face record with
+same ID/name/enabled/count, unchanged voice and normal restart restoration.
+Pairwise min/median/max 0.6085/0.8023/0.9370; all leave-one-out top-three means
+0.7849-0.9098, compared with three outliers in 33. Pool cap 15 holds; selector
+513-253288 us, stack watermark 5424 B, no observed crash/overflow. Enrollment is
+still slow; cohesion is not calibrated identity accuracy. New UBox greeting/HA
+and recognition latency remain pending. Existing AUTO preference is preserved;
+owner is asked to explicitly enable recognition following the foreground test.
+
+## 2026-10-29: 0.11.12 bounded coherent guided acquisition
+
+Installed source cd3b2a1: fresh backup, app-only verification and full 16 MiB
+comparison retain generation 33 and all other sectors. Normal boot restores B/33
+saved/clean, STOP preference following the foreground test, 29.5-30.1 FPS and UBox.
+Selector/support/worker target compiler frames are 960/16/4112 B; UI subtotal 2736 B.
+New physical enrollment/timing/stack acceptance remains pending.
+
+Owner reports the MSR/ESPDet toggle looks steadier but never confirms identity.
+Generation 33 remains saved; foreground logs show isolated known hits separated by
+below-threshold results. No evidence supports weakening the 0.700/0.600/0.120 policy
+or three-frame confirmation. Guided acquisition now uses a rolling 15-slot pool,
+selecting eight with all pair scores >= agreement and each leave-one-out top-three
+mean >= match threshold. Two disjoint self-matching clusters cannot complete it.
+Progress counts the supported subset; a full set still needs a later verification
+frame, other-profile conflict check and explicit Save. Saved samples stay untouched.
+
+No allocation/schema/status growth: fixed 900 B worker scratch; bounded 32767-mask
+search and in-place compaction, unused slots scrubbed. Manual sampling capacity and
+the original admission/time/duplicate guards remain. Synthetic tests cover weak
+sets, cluster separation, rolling recovery, rejected-frame no-eviction, fresh
+verification and explicit commit. Local 32/32 CTest, 24/24 Python, three project
+checks and complete ASan/UBSan pass. Target build/install and real acquisition
+timing/resource evidence will be recorded separately. Cohesion is a collection
+criterion, not population calibration or proof of recognition accuracy.
+
+## 2026-10-29: controlled frontal set 33 saved, outliers remain
+
+Fresh verification/save/readback passes; same ID/name/enabled/count, unchanged
+voice, 33/32 valid banks and ready AUTO after restart. Five of eight leave-one-out
+scores now reach 0.700, but three remain around 0.36-0.40. Aggregate pairwise median
+is 0.3498. This mixed result needs landmark-path comparison, not threshold relaxation
+or a claim of population accuracy. Next use existing MSR/ESPDet foreground diagnostic.
+
+
+## 2026-10-29: ~5 s first greeting, later candidate; profile cohesion measured
+
+Owner confirms one 0.11.11 greeting at ~5 s, current generation 32. Logged final
+series is 2903 ms, then UI admission 418 ms later. Second diagnostic indication is
+KNOWN/candidate, not confirmed; no second 3/3 or cooldown skip in the recorded window.
+Private readback validates 32/31. Eight normalized templates have pairwise median
+0.5748; leave-one-out top-three means all <0.700. This diagnostic supports a controlled
+frontal acquisition test, not threshold relaxation or population accuracy claims.
+Normal readback/restart preserves 32 and ready AUTO. Raw biometric data stays private.
+
+
+## 2026-10-29: 0.11.11 installed, AUTO/26 restored, configured fast wait observed
+
+08288bc app-only install passes verify and full 16 MiB comparison; other sectors
+unchanged. Normal boot restores saved/clean 26, ready AUTO, models 1/0. UBox and HA
+host recover. Five CI jobs pass (40893822504). Runtime logs show pending KNOWN/1
+wait_ms=100, then UNKNOWN/0 wait_ms=1000. These are configured waits, not physical
+speedup. New recognition/greeting/HA latency acceptance awaits the operator test.
+
+
+## 2026-10-29: real greeting/HA accepted; pending-confirmation wait reduction
+
+0.11.10 owner confirms display greeting and HA event, but slow acquisition. Current
+profile 26 reaches actual 3/3; UI queue receives greeting 348 ms after confirmation.
+Weak-score resets cause 34068 ms from first known candidate; final accepted series
+spans 4911 ms. These are log intervals, not entry/LCD/phone/p95 measurements.
+0.11.11 uses 100 ms wait only for one/two pending background known hits, returning
+to 1000 ms otherwise. No thresholds, three fresh-frame gates or enrollment change.
+Production-policy test removes 1800 ms configured waiting; physical gain unmeasured.
+
+
+## 2026-10-29: 0.11.10 crop correction installed, profile 23 retained
+
+585669d app-only update passes verify and complete 16 MiB comparison; all other
+sectors including profiles unchanged. Normal boot restores B/23 saved/clean.
+Source CI five jobs pass (40889248031), plus 32 CTest/24 Python/3 checks and full
+sanitizers. The preceding foreground test may leave AUTO OFF; opt-in is preserved.
+No recognition/landmark/greeting/HA/phone acceptance inferred from installation.
+
+
+## 2026-10-29: MNP square clipped by rectangular ROI, 0.11.10 candidate
+
+Sharp/stable operator preview still loses landmarks. Pinned MNP squares each
+candidate; old independent ROI margins truncate portrait candidates. A host
+regression reproduces that exact clipping. Map the native square and inclusive
+edges into bounded context, preserve sensor boundaries and the 640x640 buffer.
+500+ accepted-box contract checks plus edge/close cases cover it. No threshold,
+model, profile schema or buffer-size change. Physical stability remains unaccepted.
+
+
+## 2026-10-29: UBox encounter still unconfirmed, matching trace identifies gate
+
+0.11.9 records UNKNOWN 0.544/0.457, one KNOWN 0.726 (1/3 confirmations), then UNKNOWN
+0.515 (0/3). No admitted recognized/greeting receipt in this encounter; owner sees
+no greeting. HA is enabled/reachable and HTTP POST 200 counters rise, which does
+not prove recognized payload, automation or phone delivery. Retain all gates;
+next isolate face/landmark/image stability in the existing foreground preview.
+
+
+## 2026-10-29: 0.11.9 installed, profile 23 retained, HA host reachable
+
+714bfd1 app-only install passes verify and full 16 MiB comparison; all other sectors
+including profiles unchanged. Normal boot restores B/23 clean and ready AUTO.
+HA enabled, host GET returns 200 after initial network retries. This does not prove
+recognized-event/webhook/phone delivery. Runtime trace and owner encounter remain
+pending. CI host passes; four target builds in progress at this check.
+
+
+## 2026-10-29: generation 23/MBF ready, notification path needs runtime trace
+
+Owner reports no display or phone notification despite saved new profile. Serial
+confirms 23 clean, AUTO ready and full MBF runs, mixed with preprocessing failures.
+Add numeric matching/confirmation/event/greeting/HA receipts in 0.11.9 without
+changing any decision gate or sending diagnostic/recognized events synthetically.
+Discard incoherent live JTAG reads; rely on production runtime receipts instead.
+
+
+## 2026-10-28: new-light attempt blocked before inference by cold-start RAM
+
+0.11.8 earlier verifies eight samples and commits 18. Owner subsequently deletes
+and recreates the profile; models release and cold admission fails at 43008 B largest
+internal block (65536 B guard), despite 236079 B free. Current profile is enabled
+but has zero samples at generation 20. Profile readback and controlled restart
+preserve 20 and recover a 180224 B block. Restart is an explicit recovery, not a
+permanent fragmentation fix or artificial-light acceptance. See current report.
+
+
+## 2026-10-28: 0.11.8 feedback candidate installed, B/17 ready AUTO restored
+
+8528881 app-only update follows STOP of the preceding RAM session and a fresh full
+backup. Verify plus 16 MiB readback pass, all other sectors unchanged. Normal boot
+restores saved/clean generation 17 and ready AUTO with camera frames. Five CI jobs
+pass (40718883733), 32 CTest/24 Python/3 checks and existing IRAM/UI guards pass.
+Actual new-light enrollment/feedback acceptance remains the next operator test.
+
+
+## 2026-10-28: enrollment verification feedback candidate 0.11.8
+
+Eight samples/visible landmarks are not a verification receipt. The running session
+has verified=false; saved generation 17 remains. Guided UI hid the actual worker
+reason. Show it, separate verification mismatch from other-profile conflict and
+add bounded numeric progress logs. No threshold, sampling or commit-guard change.
+Installation deferred while the operator's unsaved enrollment session is active.
+
+
+## 2026-10-28: fresh face samples saved to existing identity
+
+Owner completed guided eight-sample re-enrollment and verification. Generation 17
+commit/readback passes; exactly one face record changed, ID/name/enabled preserved,
+voice data unchanged. Debugger-free restart restores 17, saved/clean, ready AUTO.
+Actual post-update recognized greeting/HA event remains pending. See current report.
+
+
+## 2026-10-28: touchscreen toggle, no flicker and background AUTO observed
+
+Owner confirms successful disable/enable on installed 0.11.7 and no screen flicker.
+Passive serial confirms generations 15/16, clean saves and models 1/0. Controlled
+restart restores 16 and ready AUTO. Background detection continues alongside UBox:
+faces are sometimes detected but logged attempts fail ROI/five-landmark quality
+before matching. No full identity/greeting/HA acceptance inferred. Owner reports
+poor enrollment images. See ITERATION13_REPORT.md for measured scope and limits.
+
+
+## 2026-10-26: final 0.11.7 installed, final-source persistence verified
+
+098ede3 app-only installation passes verify_flash and full 16 MiB comparison; every
+other sector unchanged. Exact-source automated worker cycle commits 13/14, stable
+boot/identity/templates, model loads/releases 1/0. After debugger shutdown, valid
+14/13 readback proves canonical payload byte-identical to pre-test 4. Normal restart
+restores 14, saved/clean and ready AUTO, CSI ~30 FPS. No recovery or re-enrollment.
+CI 40411959469: five successes; local 32 CTest/24 Python/3 checks plus seventeen
+IRAM symbols and 2736 B UI guard pass. See ITERATION13_REPORT.md for actual memory,
+source/binary hash, public package and physical visual/greeting/HA/voice limits.
+
+
+## 2026-10-26: six target commits and exact payload retention; final save-wait UI
+
+0.11.6 completed three automated disable/enable worker cycles, generations 7-12,
+without a boot-ID change or model reload/release (1/0 throughout). Names/IDs/counts
+were stable. After debugger shutdown, full profile-partition readback validates
+12/11 and proves generation 12 canonical payload byte-identical to pre-test 4.
+Normal restart restores 12 and ready AUTO. CSI continues ~30 FPS. All five firmware
+CI jobs pass (40386086581). UI/visual/watchdog acceptance during JTAG is not claimed.
+Measured saves of 5.03/6.04 s motivate 0.11.7's create timeout guard: keep waiting
+while an actual durable save is active; retain the old command timeout otherwise.
+
+
+## 2026-10-26: JTAG captures the Flash-time CSI fault, 0.11.6-dev
+
+Owner reproduced disable restart. Live serial: HP watchdog reset, previous valid
+profile generation 4 restored. Exact ELF/JTAG saved exception: mepc 0x402dd6be,
+ra 0x4ff01c7a, mcause 0x19/hart 0. The pinned SDK omitted
+`dw_gdma_channel_config_transfer` from its noflash mappings, although CSI calls it
+from its cache-safe ISR. Add a project-local conditional linker fragment and an
+expanded seventeen-function ELF guard. Existing 0.11.5 ELF now fails this precise
+guard. Debugger-injected command reproduction uses the real worker/transaction;
+it is not touchscreen or normal-watchdog acceptance. Owner explained dark camera
+metrics by darkness and device orientation; no image-path change is needed.
+
+
+## 2026-10-26: 0.11.5-dev installed, CSI and automatic restore observed
+
+311dbe1 app-only update verified, plus full Flash readback against a fresh private
+backup: all other sectors unchanged, profiles A generation 4/B generation 3 retained.
+CSI now registers and completes frames at 29.6-29.7 FPS. Actual boot restores A/4
+in 164230 us, durable clean state, LVGL and ready AUTO with models 1/0. No callback
+registration/panic/watchdog/underrun marker in first 55 s. Image luminance currently
+below range; operator lighting/lens context requested. Exact disable/enable/flicker,
+post-change restart, greeting/HA and voice acceptance remain pending. All five
+firmware-source CI jobs pass (40374472427); see ITERATION13_REPORT.md.
+
+
+## 2026-10-26: shared DMA correction, 0.11.5-dev
+
+The 0.11.4-dev post-install boot check caught DW-GDMA rejecting the CSI controller's
+external user context. No operator acceptance was claimed. DSI's IRAM-safe selection
+also affects CSI. Enable CSI cache-safe allocation and DW-GDMA IRAM control helpers;
+place application callbacks and frame-pool ISR callees in IRAM. Add a target-linked
+ELF placement guard and configuration invariant tests. Require real camera frames
+in the next boot check, alongside the preserved generation 4 and ready AUTO.
+
+
+## 2026-10-26: 0.11.3 profile toggle defect, 0.11.4-dev follow-up
+
+Owner observed Flash-associated display flicker and MBF admission failure after
+last-member disable/enable. Actual storage remained durable, clean at generation 4.
+Passive capture: free internal 249939 B, largest 59392 B; AUTO selected but not ready,
+models loaded/released 1/1. Retain the same model set only during an AUTO member
+pause, with no inference from disabled members and no guard reduction. Explicit
+Stop/cancel/delete still release. Enable and enforce DSI/DW-GDMA IRAM-safe interrupt
+handling during Flash; correct firmware labels. See ITERATION13_REPORT.md for
+causality, software checks and pending exact-path physical retest.
+
+
+## 2026-10-26: iteration 13 authorized installation and boot
+
+Owner authorized installation and necessary physical testing. Installed the
+8499ffc / 0.11.3-dev app and pinned speaker model on COM5 after a private full
+16 MiB backup and security/table checks. Application/model verify and full readback
+pass; profiles and all other sectors outside the selected ranges are byte-identical.
+No profile recovery was needed. Boot restores A generation 2 in 170369 us, retains
+durable clean status, starts LVGL and resumes ready AUTO without manual activation.
+Operator touch changes/restart/greeting/HA and PCM/model inference are still pending;
+provisioned model weights do not constitute audio/model-execution acceptance.
+See ITERATION13_REPORT.md for measurements and their limits.
+
+
+## 2026-10-26: iteration 13, 0.11.3-dev
+
+Continue from 6c095eb, preserving its later physical retention/AUTO evidence.
+Commit empty fallback only on fully blank storage; preserve unknown/torn bytes.
+Bound Flash operations, yield between them, retain commit readback and compute
+admission. Add production-engine cut tests, remove household raw save codes,
+isolate recovery in loader, and publish a numeric voice readiness report.
+See ITERATION13_REPORT.md for validation and pending target acceptance.
+
+
+Saver navigation previously consulted the worker's delayed mode snapshot. It
+could cancel an accepted but unprocessed background request, or preserve an old
+background snapshot after a newer Test request. Track accepted mode-changing UI
+commands instead, clear ownership on page close, and preserve normal cancellation
+for ordinary exits. Add a short acceptance acknowledgement and explicit worker
+background deadline/expiry logs. Host regression covers both delayed-mode
+directions, queue rejection and Stop; all 18 C tests, 7 Python tests and 3 project
+checks pass. Firmware build/package results are recorded in IDENTITY_VALIDATION.
+No device flash/reset: physical acceptance of this fix is pending and the
+operator's enrolled RAM profile is preserved.
+
+# 2026-10-24: unattended background completion observed
+
+The first expiry attempt cancelled during saver navigation after about twenty
+seconds. A retry with a twenty-second wait before saver entry remained active.
+Passive USB retry-01..10 captures show current inference from uptime 26,386,061 ms
+until clean model release at 26,925,411..26,925,433 ms; heap_ok=1 and PSRAM returns
+to 26,327,860 bytes. Camera/UBox continue without reset. This accepts unattended
+completion consistent with the ten-minute lease, not exact deadline timing:
+the start command predates the new capture. One full 2304x1296 UBox decode succeeds
+while inference is active. Preserve the RAM profile and continue to physical
+outage/negative checks. No firmware/configuration/security change was made.
+
+# 2026-10-24: operator accepts Stop/navigation notification outcome
+
+Operator reports Stop followed by no new notifications in the requested trial.
+HA's retained trace list still ends at the previous 13:54:06 run. USB shows a clean
+model release and restored PSRAM in identity-stop-acceptance-05.log, but no matching
+button timestamp, so that release is not conclusively attributed to Stop versus
+lease expiry. This accepts the operator-reported Stop/navigation path, not an
+independently timed isolated command test or separately observed greeting absence.
+Started passive capture for a fresh timed ten-minute background-expiry test and
+requested immediate operator acknowledgement of activation. No firmware write,
+reset or profile loss. Offline/negative/multi-person/security acceptance remains open.
+
+# 2026-10-24: controlled encounter deduplication and return accepted
+
+Operator reports one notification during the 90-second stay, then one after the
+15-second leave/30-second return. Retained HA traces confirm two new successful
+recognized/face/confirmed runs at 13:52:34 and 13:54:06 Europe/Warsaw, runtime about
+0.28 seconds each. Event sequences 54/57 differ, session 123 is the same, encounters
+22/23 differ, source ages are 1356/1539 ms. This accepts that one-person scenario;
+it is not broader accuracy or an uninterrupted event-stream capture. Renewed the
+HA listener (it had disconnected) and passive USB capture for explicit Stop.
+No firmware change, reset or security provisioning. Expiry/offline/negative and
+multi-person acceptance remain pending.
+
+# 2026-10-24: live recognized-only notification acceptance
+
+After operator sign-in, the live HA listener received a real recognized/face/
+confirmed event at 2026-10-24T11:34:44.764184Z (session 106, encounter 18, event
+sequence 47, source age 1576 ms). The User detection trace matches the 13:34:44
+Europe/Warsaw trigger, mobile notification execution and successful completion
+at 13:34:45, runtime 0.30 seconds. Operator confirms the expected message arrived.
+No automation YAML, firmware, thresholds or device reset were required. This
+accepts the real recognized-only harmless action; it does not establish the
+cause of the earlier missed attempt. Continued to continuous-stay deduplication
+and a real subsequent encounter, with browser/USB observation and the RAM profile
+preserved. Stop/expiry, offline and broader accuracy acceptance remain open.
+
+# 2026-10-24: unexpected notification during covered-camera trial
+
+Live HA follow-up after operator sign-in: the intended User detection automation
+is enabled and its stored YAML correctly matches recognized/face/confirmed within
+home_buddy_identity. No conditions; the existing notification action/template is
+correct. No available traces were shown. No HA configuration was changed. Started
+a read-only event listener and passive USB capture for a fresh explicit background
+leave/return trial; the operator only needs to perform that physical operation.
+
+Operator correction: the notification anomaly was caused by an incorrectly
+configured HA automation, according to the operator. Do not count the earlier
+report as a proven fresh covered-camera false acceptance. The intended automation
+still fails to run for recognition while a test event works. Inspect its live
+trigger/trace and background-versus-foreground mode; preserve the existing RAM
+profile. HA is reachable in the browser, but the agent tab requires login; the
+operator elected to sign in directly. No credential collection or firmware write.
+
+Operator reports three notifications in the deduplication trial, one while the
+camera was covered. Notification/deduplication acceptance fails; the cause is
+unassigned until actual triggering events/timestamps and notification text are
+correlated. Check fresh inference versus previously generated event/delayed phone
+delivery and older/duplicate automation. Passive camera ownership/freshness review
+retains leased frame snapshots, completion sequence/timestamp and five-second
+event freshness gates. No firmware/threshold change or reset is justified yet.
+Requested a renewed background lease, opaque local-lens cover and matching HA
+events while USB capture runs. Prior real recognized delivery remains evidence of
+the transport path, not proof that this negative-camera scenario is correct.
+
+# 2026-10-24: real confirmed identity reaches Home Assistant
+
+The operator supplied a real home_buddy_identity event with recognized/face/
+confirmed, an enrolled RAM profile name, similarity 0.762862741947174 and source
+age 1299 ms. Source timestamp 2026-10-24T07:29:31Z; HA receipt 07:29:32.000870Z.
+person_id_persistent=false and omitted person_id are expected for RAM-only mode.
+Local inference, confirmation, personalized greeting and real REST identity-event
+delivery are now accepted for the one-person scenario. Similarity is not an
+accuracy estimate, and coarse wall timestamps do not measure network latency.
+Next: recognized-only harmless automation, encounter deduplication/re-entry,
+stop/expiry and offline checks. No reset/flash while the RAM profile is in use.
+
+# 2026-10-24: operator accepts one-person local recognition scenario
+
+Background follow-up: operator confirms the expected personalized greeting on
+the saver, but the HA listener shows no event. Local greeting is accepted; actual
+recognized HA delivery remains open. Diagnose publishing enablement and repeat
+the existing harmless diagnostic POST before changing firmware/resetting the RAM
+profile. Independent greeting and HA event consumers are retained.
+Subsequently the operator supplied a real HA presence_leave event (method face,
+2026-10-24T07:28:44Z, source_age_ms=780). Automatic presence delivery is accepted;
+the next check explicitly looks through new events for recognized/face/confirmed
+with the listener already active. The leave event does not establish identity
+delivery. RAM-only nonpersistent-ID signaling is consistent with this build.
+
+The operator confirms all steps of the supplied scenario work, including name
+entry, eight-sample RAM enrollment, fresh-frame verification/save, confirmed
+KNOWN, leaving the camera frame and recognition on return. This accepts the
+household keyboard fix and that local scenario only; no quantified accuracy or
+impostor acceptance is inferred. Continued automatically to real background HA
+recognized-event delivery and the local saver greeting, preserving the live RAM
+profile without resetting/flashing. Secure persistent profiles remain gated.
+
+# 2026-10-24: household name keyboard usability
+
+Enrollment was blocked by household buttons/status drawing over keyboard keys.
+The shared focus handler now raises an opaque keyboard above later form children;
+ready/cancel hides it without clearing typed text, and tapping the field reopens
+it. Household actions use two rows above the keyboard, the title/name labels are
+shorter, profile-list contrast is explicit, and name editing no longer idle-closes.
+Actual household/form functions were rendered at 800x480 before/after using LVGL.
+The host UI harness also entered a key, checked foreground stacking, closed on
+ready, reopened on tap and verified the text survived. No biometric samples were
+enrolled as part of that UI check. On-device input was subsequently accepted in
+the operator's complete local-recognition scenario above.
+Recognition build, effective-config/budget and formatting checks pass. App-only
+COM5 installation and verify_flash pass; application is 4,386,720 bytes, SHA-256
+4f6cb3b2ac58ea8bfae7e1faed6e6883b53efc23ffc022fc25aee9e612e799bb.
+NVS, models, partition table and profile areas were not written.
+
+# 2026-10-24: captured Flash validation watchdog and mmap candidate
+
+Application-only candidate installation and Flash verification passed. The
+operator completed five re-entry cycles with landmarks/successful-frame status
+and no restart. USB confirms six validated loads, passing release heap checks
+and real 512-dimensional MBF results (total pipeline approximately 1.48..1.59 s).
+The reproduced restart scenario is accepted; soak/multi-person accuracy and
+recognized HA delivery remain pending. Proceeded to one consenting RAM-only
+enrollment and fresh-frame verification; no security provisioning or reboot.
+
+Captured CPU1 interrupt watchdog during model validation, with CPU0 waiting in
+the Flash/cache IPC handshake. Matching ELF decoding and evidence are recorded
+in IDENTITY_VALIDATION.md. Replaced thousands of raw Flash reads with one cache
+mapping, retaining header validation and full pinned SHA-256 on every load.
+Added host fault/cleanup/full-coverage/reload regression: C suite 17/17, Python
+7/7, project checks 3/3 pass. Hardware acceptance of this candidate remains open;
+the watchdog timeout and recognition thresholds are unchanged.
+
+# 2026-10-24: MBF hardware re-entry investigation
+
+Operator sees MBF ready / one face / UNKNOWN, landmarks and the successful-frame
+message. Re-entry from the saver after a completed face frame is reported to
+restart P4; this is an open acceptance blocker, not yet a reproduced/fixed cause.
+Added bounded lifecycle/reset/heap/stack diagnostics, incremental reconnecting USB
+capture and two disconnect regressions. UI shows absent comparison scores as
+"brak", with solid yellow landmark dots. Host suite 16/16 and Python 7/7 pass.
+See IDENTITY_VALIDATION.md for current observations and unresolved JPEG coexistence.
+
+# 2026-10-23: 0.6.1-dev continuation
+
+REST transport acceptance: the operator configured the LAN endpoint and supplied
+an actual HA event showing event_type home_buddy_identity, payload type
+connection_test, method diagnostic and status test (2026-10-23 20:26:07 UTC).
+The operator then confirmed that the event automation/notification works. This
+accepts authenticated device-to-HA diagnostic transport and the harmless action,
+not biometric recognition. Credentials reside only in private device NVS and
+private recovery artifacts; none is committed or embedded in public firmware.
+Firmware f764f3212696c061e92c33a6425f87fb295c4267 passed host plus all four firmware
+CI jobs in run 40008194920. Current local app is 4,383,248 bytes, SHA256
+db2827836af2913d9ef48d14d9ca8e995a915b7641708bc13c32be1d64e7b5f4.
+Next active acceptance: real onboard MBF execution, then consenting on-device
+enrollment and a real confirmed recognized event. Voice remains unimplemented.
+
+HA save correction: removed the erroneous 32-character minimum for a nonempty
+URL-safe Webhook ID (maximum 128 unchanged). No real credential is stored in tests
+or logs. Validation now identifies the offending field; saving hides the keyboard,
+confirms NVS commit plus byte-exact readback, and keeps the form/values on success
+or error. HA settings no longer idle-close while editing. Host suite 16/16 passes,
+including short synthetic IDs, save/load and commit/readback failure injection.
+
+HA form readability correction: the new panel inherited a white background while
+its labels were white. Matched the existing settings dark panel, set checkbox and
+transport colors explicitly, shortened labels to fit the left column and bounded
+the status label width. Manual LVGL 800x480 renders reproduce the invisible labels
+before and show legible fields/options/test actions after. Recognition firmware,
+font/partition checks and package integrity checks pass. Updated app is 4,382,192
+bytes (SHA256 8b45c8004f67c56600cda54963fddf2ee7d1b2c25bc03359f26730053b66f2c5).
+USB application-only installation matched the single-factory table and completed
+with exit 0, including verify_flash. Only application bytes at 0x20000 were written.
+
+Supersedes the iteration-6 dual-OTA and MQTT deployment decisions. One factory
+application, onboard MBF, protected profile gate and future voice capacity; native
+HA Webhook/REST and masked touchscreen configuration. See ITERATION7_REPORT.md
+for current code, automated receipts and separate physical/security acceptance.
+Earlier entries below are historical and retain their original version context.
+
 # Development log
 
 ## 2026-10-22: initial foundation
@@ -818,3 +1298,84 @@ not establish focus/identity suitability. Distance-response, explicit full-layou
 acceptance, repeat sessions and long combined load remain pending. Existing presence/monitor calibration and resource gates are retained;
 no image/template logging, enrollment, identity, HA event or exposure change.
 PR1 stays draft/unmerged. Documentation-only receipt [skip ci].
+
+
+## 2026-10-23: 0.5.0-dev experimental local household identity
+
+Implemented ESPDet/native RAW8 ROI -> MNP -> upstream MBF alignment/features,
+RAM-only stable-ID profiles, staged touchscreen enrollment, top-three different-
+person matching, three-frame identity confirmation, bounded opt-in recognition,
+exact-frame diagnostics and internal FACE/presence events. No partition edits or
+biometric persistence. MBF generic file uses local microSD with digest verification.
+Dependency resolver preserved ESP-DL3.3.14 and all existing pins, adding recognition0.3.3.
+Host13/13 and sanitized identity-core tests passed. Final firmware/CI receipts and
+all hardware/security acceptance limits are tracked in IDENTITY_VALIDATION.md.
+No recognition execution/accuracy/latency or new physical UI result is claimed.
+
+
+## 2026-10-23: Iteration 6, onboard-only development candidate
+
+Code b4f8bc5 implements verified onboard MBF loading, gated two-bank profile
+persistence, independent bounded identity events and MQTT 5 Home Assistant.
+CI run 39983216326 passed host and all four firmware profiles for that exact SHA.
+Local host 15/15, real-model Python validation, ASan/UBSan and four build/config
+checks passed. Recognition image: 4,438,640 bytes; model PDL3: 3,522,944 bytes.
+The security bootloader assessment requires table offset 0x10000, with private
+NVS/PHY relocation. Full backup and relocation preparation were read-only.
+No new device flash, migration, erase, eFuse/security provisioning, C6 update,
+merge or production release. Hardware MBF/accuracy/memory, persistence security,
+MQTT/TLS/HA and rollback acceptance remain incomplete. This supersedes historical
+microSD deployment instructions above. Full receipts: ITERATION6_REPORT.md.
+
+
+## Iteration 8 continuation
+
+2026-10-24: iteration 8 continues 6dab65c on codex/local-face-recognition. Baseline CI 40118442005 succeeded. Installed 00272f7 remains untouched, preserving RAM enrollment. ITERATION8_REPORT.md separates candidate validation and physical gates.
+
+
+## Iteration 10, 2026-10-25
+
+Iteration 10 implements 0.9.0-dev foundations and fixes pre-dispatch audio Stop leaving busy latched. Added production-control-flow fault injection, optional isolated speaker provisioning and passive soak telemetry. No board writes or new physical acceptance. Final receipts: ITERATION10_REPORT.md.
+
+
+## Iteration 11, 2026-10-25
+
+0.10.0-dev continues from 15f7fd0 on codex/local-face-recognition. Added reference log-mel/CMVN/quantization regression, household voice enrollment/identification ownership, stale-session fusion rejection and a separate schema-2 engine with migration/torn-write/corruption/scrub tests. Evaluated pinned standalone libfvad with reproducible synthetic probes; not admitted into firmware. No board reset, Flash write, migration activation, security provisioning or hardware measurements. Exact validation is in ITERATION11_REPORT.md.
+
+## 2026-10-25: iteration 12, 0.11.0-dev
+
+Implemented explicit local unencrypted schema-2 runtime, automatic save/restore,
+retained AUTO preference, privacy acknowledgment and retry UI. Preserved partitions,
+USB boundaries and experimental voice gates. See ITERATION12_REPORT.md for validation.
+No board flash, reboot, migration, eFuse or C6 operation was performed.
+
+## 2026-10-26: captured enrollment reboot and 0.11.1-dev stack fix
+
+Physical reproduction captured an LVGL Stack protection fault, matching ELF
+576394fb6, at the automatic receipt-to-enrollment transition. Replaced nested
+status snapshots with independent fixed page/refresh/preview buffers and added a
+target GCC stack-usage build guard plus regression for captured old frames.
+Python 16/16 and CTest 32/32 passed; target UI frame subtotal reduced from 7,360 B
+to 2,736 B. Corrected physical acceptance is tracked separately; no acceptance is
+inferred from host tests. See ITERATION12_STACK_FIX.md.
+
+## 2026-10-26: 0.11.2-dev, interrupted first-write recovery
+
+Owner completed enrollment after the stack fix, but persistent storage was blocked.
+An owner-authorized read-only USB snapshot found a blank lower bank and a partial
+upper payload with no commit header. No erase/repair was performed. Fixed the
+eleven-item advanced menu and premature create receipt; added storage result
+metadata and an offline-default, explicitly authorized, backup-bound recovery
+helper. Evidence and test boundaries: ITERATION12_STORAGE_RECOVERY.md.
+
+## 2026-10-26: physical persistence and recognition preference confirmed
+
+Installed 0.11.2-dev (88cfe34), application-only COM5, readback verified. Following
+separate explicit approval, the recovery helper compared the current partition
+with the private backup, erased only the incomplete upper bank and verified both
+banks blank. The owner then confirmed the newly enrolled member remained stored
+after restart and recognition remained enabled. This confirms that physical
+persistence/preference session; greeting/HA delivery, numeric-ID continuity,
+accuracy and physical peak resources remain separately unconfirmed. The existing
+USB candidate is unchanged; no further flashing or restart was performed to
+record this documentation update.

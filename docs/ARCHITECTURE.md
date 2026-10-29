@@ -1,8 +1,22 @@
-# Architecture, iteration 3
+# Architecture, 0.6.1-dev
+
+## Current iteration 12 policy (0.11.0-dev)
+
+The selected product mode is **persistent, unencrypted, local household storage with
+automatic restoration**. The recognition build runs the existing schema-2 engine in
+two 512 KiB banks inside the unchanged 1 MiB partition. Intentional household changes
+save automatically; valid face/voice profiles and the previously enabled AUTO mode
+restore locally at startup. No password, PIN, manual unlock, eFuse provisioning or
+mandatory encryption. Physical extraction is not prevented. Experimental voice
+identification remains gated. Implementation/host tests do not establish physical
+reboot persistence; installation and the combined acceptance session remain pending.
+See [storage decision](PERSISTENCE_DECISION.md), [database](PROFILE_DATABASE.md) and
+[iteration report](ITERATION12_REPORT.md). Older iteration notes below are historical.
+
 
 The default profile keeps outputs disabled; bringup enables board/UI and wifi also
 enables the ESP-Hosted station worker. Dependencies remain locked to IDF 5.5.1,
-LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from LVGL/networking. No biometric inference or audio capture runs.
+LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from LVGL/networking. The recognition profile adds opt-in local face inference; bounded local audio capture and a one-shot voice-embedding diagnostic are implemented; household speaker identification remains physically gated.
 
 * board: native DSI 480x800 RGB565 ping-pong and PPA rotation 270 degrees from
   logical 800x480. GT911 mapping remains x=physical_y, y=479-physical_x.
@@ -13,7 +27,7 @@ LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from L
 * configuration: validated schema-1 snapshots, mutex-protected reads and a single
   NVS blob transaction. No automatic erase on corruption. All settings open
   directly without a PIN, as explicitly requested by the operator. Existing
-  schema-1 records load without losing network/bridge/broker settings; the old
+  schema-1 records load without losing network/bridge settings; the old
   48-byte PIN field is reserved, ignored on read and zeroed on the next save.
   Wi-Fi passwords are masked; UBox token editing is intentionally visible. NVS encryption remains incomplete.
 * connectivity: ESP-Hosted 2.12.2 SDIO, legacy station APIs, bounded scan and
@@ -33,7 +47,8 @@ LVGL 8.3.11 and the existing BSP. Local camera capture runs independently from L
   separate weather record. TLS CA/hostname verification,8192-byte JSON cap, depth8,
  20-second total deadline. Current Celsius is fetched every600seconds, expires
   after3600seconds and is rejected before time sync or for a future timestamp.
-  No MQTT client/menu/subscription remains. Model weather is not a sensor reading.
+  Weather uses no broker. The identity HTTP client/menu is separate
+  (HOME_ASSISTANT_HTTP.md). Model weather is not a sensor reading.
 
 ## Buffer ownership
 
@@ -58,9 +73,9 @@ Before SNTP, time and all available-temperature measurements are rejected/unavai
 Secrets never enter general diagnostics/logs. The UBox token is deliberately
 visible in its edit field per operator request; Wi-Fi passwords remain masked.
 
-The previous identity, local-camera, audio and profile architecture remains a
-future milestone, not implemented behavior. Secure boot, encrypted persistent
-storage, migrations, OTA rollback and 72-hour acceptance remain open.
+The face identity worker, transactional profile adapter and USB migration tool are
+implemented. Physical identity acceptance, security provisioning and 72-hour soak
+remain open. Secure storage refuses unprovisioned hardware; RAM-only is explicit.
 
 ## JPEG color boundary
 
@@ -115,3 +130,38 @@ preview-coordinate mapping. No image copy/storage or new worker/model. Both mode
 and quality complete before timestamp/publication, under the same existing epoch.
 UI displays the largest face and an explicitly provisional hint; metrics never
 filter presence/detection. See FACE_QUALITY.md for arithmetic/coordinate limits.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
+Flash for model storage, gated encrypted profile persistence and native identity
+HTTP. Iteration 12 selects LOCAL_UNENCRYPTED independently of hardware provisioning. See ITERATION7_REPORT.md and
+FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.
+
+## Deployment and identity transport
+
+All four build profiles use one 7 MiB factory application and table 0x10000.
+See SINGLE_IMAGE_FLASH_LAYOUT.md for model/profile/voice ranges. No OTA or SD.
+The existing 16-entry identity bus has independent greeting, HA and compatibility
+cursors. A separate bounded HTTP worker sends Webhook or REST events, never from
+the AI or LVGL task. Offline queues are drained, session/5s freshness is checked,
+and independent HA cooldown prevents inference spam. See HOME_ASSISTANT_HTTP.md.
+
+
+## Iteration 8 continuation
+
+AUTO is a separate worker mode with resident admitted models, existing compute/camera ownership and cancellation epochs. Navigation never starts/extends a session. Ordinary NVS stores enablement only; profile persistence stays gated. Audio uses a separate bounded manual worker. Fusion is architecture only, including CONFLICT; no VOICE/BOTH event.
+
+
+## Iteration 10, 2026-10-25
+
+Audio has one I2S owner and one bounded synchronous consumer. A one-window PSRAM handoff separates capture from the voice worker; compute admission, cancellation and lazy model release preserve independent face/HTTP behavior. Pure fusion is implemented but has no runtime publisher. See VOICE_RECOGNITION.md.
+
+
+## Iteration 11, 2026-10-25
+
+The household worker now owns optional voice templates and staged enrollment by existing person ID. One bounded result mailbox receives embeddings from the existing capture/model worker; no second audio owner or publisher. Capture requires an explicit sample/verify action. Cancellation, deletion and session epochs invalidate pending work. Independent modality-session checks guard pure fusion. The runtime acceptance and calibrated-policy constants remain false. See VOICE_RECOGNITION.md and ITERATION11_REPORT.md.

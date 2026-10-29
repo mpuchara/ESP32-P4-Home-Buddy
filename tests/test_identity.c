@@ -1,0 +1,374 @@
+// SPDX-License-Identifier: Apache-2.0
+#include "hb_enrollment_flow.h"
+#include "hb_identity_core.h"
+#include <assert.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+static hb_id_policy policy = {0.70f, 0.12f, 0.60f, 3};
+static hb_id_embedding vector(unsigned axis, float primary)
+{
+    hb_id_embedding e = {{0}};
+    e.v[axis] = primary;
+    e.v[axis + 1] = sqrtf(1 - primary * primary);
+    return e;
+}
+static void fill(hb_id_database *db, uint64_t id, hb_id_embedding e, unsigned count)
+{
+    hb_id_person *p = hb_id_find(db, id);
+    assert(p);
+    p->count = count;
+    for (unsigned i = 0; i < count; ++i)
+        p->templates[i] = e;
+}
+// The pinned MNP adapter squares the supplied candidate, then clamps it to its
+// input image. A local crop must not add clipping beyond the full sensor image.
+static void mnp_crop_contract(int x1, int y1, int x2, int y2)
+{
+    const int iw = 234, ih = 416, rw = 1288, rh = 728;
+    hb_id_roi roi;
+    assert(hb_id_roi_map(x1, y1, x2, y2, iw, ih, rw, rh, &roi));
+    int left = x1 * (rh - 2) / iw, top = y1 * (rw - 2) / ih;
+    int right = (x2 + 1) * (rh - 2) / iw, bottom = (y2 + 1) * (rw - 2) / ih;
+    int side = right - left > bottom - top ? right - left : bottom - top;
+    int cx = (left + right) >> 1, cy = (top + bottom) >> 1;
+    left = cx - (side >> 1);
+    top = cy - (side >> 1);
+    right = left + side;
+    bottom = top + side;
+    if (left < 0)
+        left = 0;
+    if (top < 0)
+        top = 0;
+    if (right >= rh)
+        right = rh - 1;
+    if (bottom >= rw)
+        bottom = rw - 1;
+    assert(roi.x <= left && roi.y <= top);
+    assert(roi.x + roi.w > right && roi.y + roi.h > bottom);
+    assert(roi.w <= 640 && roi.h <= 640);
+}
+static void geometry(void)
+{
+    hb_id_landmarks l = {{{38.2946f, 51.6963f},
+                          {41.5493f, 92.3655f},
+                          {56.0252f, 71.7366f},
+                          {73.5318f, 51.5014f},
+                          {70.7299f, 92.2041f}}};
+    assert(hb_id_landmarks_valid(&l, 112, 112));
+    for (unsigned i = 0; i < 5; ++i)
+    {
+        l.p[i].x = l.p[i].x * 2 + 15;
+        l.p[i].y = l.p[i].y * 2 + 20;
+    }
+    assert(hb_id_landmarks_valid(&l, 300, 300));
+    hb_id_landmarks bad = l;
+    bad.p[0] = l.p[3];
+    bad.p[3] = l.p[0];
+    assert(!hb_id_landmarks_valid(&bad, 300, 300));
+    bad = l;
+    bad.p[2].x = NAN;
+    assert(!hb_id_landmarks_valid(&bad, 300, 300));
+    bad = l;
+    bad.p[2].y = 299;
+    assert(!hb_id_landmarks_valid(&bad, 300, 300));
+    memset(&bad, 0, sizeof(bad));
+    assert(!hb_id_alignment_valid(&bad));
+    bad = l;
+    bad.p[2].y = bad.p[0].y;
+    assert(!hb_id_landmarks_valid(&bad, 300, 300));
+    unsigned sx, sy;
+    assert(hb_id_to_sensor(0, 0, 1288, 728, &sx, &sy) && sx == 1287 && sy == 0);
+    assert(hb_id_to_sensor(727, 1287, 1288, 728, &sx, &sy) && sx == 0 && sy == 727);
+    assert(!hb_id_to_sensor(728, 0, 1288, 728, &sx, &sy));
+    hb_id_roi roi;
+    assert(hb_id_roi_map(70, 100, 160, 240, 234, 416, 1288, 728, &roi));
+    assert(roi.x >= 0 && roi.y >= 0 && roi.x + roi.w <= 728 && roi.y + roi.h <= 1288);
+    assert(roi.w > 90 && roi.h > 150);
+    mnp_crop_contract(70, 100, 160, 240); // Portrait detector box, square MNP input.
+    mnp_crop_contract(60, 80, 180, 260);  // Full square fits with bounded padding.
+    mnp_crop_contract(0, 0, 100, 140);    // Native image-edge clipping only.
+    unsigned covered = 0;
+    for (int x = 0; x < 150; x += 23)
+        for (int y = 0; y < 280; y += 53)
+            for (int w = 18; w < 150; w += 27)
+                for (int h = 22; h < 210; h += 31)
+                    if (x + w < 234 && y + h < 416 &&
+                        hb_id_roi_map(x, y, x + w, y + h, 234, 416, 1288, 728, &roi))
+                    {
+                        mnp_crop_contract(x, y, x + w, y + h);
+                        ++covered;
+                    }
+    assert(covered > 500);
+    assert(!hb_id_roi_map(-1, 100, 160, 250, 234, 416, 1288, 728, &roi));
+    assert(!hb_id_roi_map(100, 100, 100, 250, 234, 416, 1288, 728, &roi));
+    assert(!hb_id_roi_map(0, 0, 233, 415, 234, 416, 1288, 728, &roi)); // bounded ROI refusal
+    uint8_t raw[32 * 32], rgb[32 * 32 * 3];
+    for (unsigned y = 0; y < 32; ++y)
+        for (unsigned x = 0; x < 32; ++x)
+            raw[y * 32 + x] = (x + y) % 240 + 16;
+    roi = (hb_id_roi){0, 0, 32, 32};
+    assert(hb_id_raw_roi(raw, sizeof(raw), 32, 32, roi, rgb, sizeof(rgb)));
+    assert(!hb_id_raw_roi(raw, sizeof(raw) - 1, 32, 32, roi, rgb, sizeof(rgb)));
+    assert(!hb_id_raw_roi(raw, sizeof(raw), 32, 32, roi, rgb, sizeof(rgb) - 1));
+    roi.x = 1;
+    assert(!hb_id_raw_roi(raw, sizeof(raw), 32, 32, roi, rgb, sizeof(rgb)));
+}
+static void matching(void)
+{
+    hb_id_database *db = calloc(1, sizeof(*db));
+    assert(db);
+    hb_id_database_init(db, 42);
+    uint64_t a = hb_id_create(db, "Anna"), b = hb_id_create(db, "Bartek");
+    assert(a && b && a != b);
+    hb_id_embedding e = vector(0, 1), other = vector(2, 1);
+    assert(hb_id_embedding_valid(&e));
+    hb_id_embedding invalid = {{0}};
+    assert(!hb_id_embedding_valid(&invalid));
+    invalid = e;
+    invalid.v[1] = INFINITY;
+    assert(!hb_id_embedding_valid(&invalid));
+    invalid = e;
+    invalid.v[0] = 2;
+    assert(!hb_id_embedding_valid(&invalid));
+    fill(db, a, e, 8);
+    fill(db, b, other, 15);
+    hb_id_match m = hb_id_match_embedding(db, &e, &policy);
+    assert(m.state == HB_ID_KNOWN && m.person_id == a && m.best == 1 && m.second == 0);
+    hb_id_embedding stranger = vector(4, 1);
+    assert(hb_id_match_embedding(db, &stranger, &policy).state == HB_ID_UNKNOWN);
+    fill(db, b, vector(0, 0.96f), 15);
+    assert(hb_id_match_embedding(db, &e, &policy).state == HB_ID_AMBIGUOUS);
+    fill(db, b, other, 8);
+    hb_id_policy boundary = policy;
+    boundary.threshold = 1;
+    assert(hb_id_match_embedding(db, &e, &boundary).state == HB_ID_KNOWN);
+    boundary.threshold = NAN;
+    assert(hb_id_match_embedding(db, &e, &boundary).state == HB_ID_UNAVAILABLE);
+    assert(hb_id_rename(db, a, "Nowa nazwa") && hb_id_find(db, a)->id == a);
+    assert(!hb_id_rename(db, a, "\n"));
+    assert(hb_id_delete(db, a));
+    uint64_t replacement = hb_id_create(db, "Nowa osoba");
+    assert(replacement != a && hb_id_find(db, replacement)->count == 0);
+    assert(hb_id_match_embedding(db, &e, &policy).state == HB_ID_UNKNOWN);
+    hb_id_find(db, b)->count = 16;
+    assert(hb_id_match_embedding(db, &e, &policy).state == HB_ID_UNAVAILABLE);
+    hb_id_find(db, b)->count = 8;
+    db->model[0] = '!';
+    assert(hb_id_match_embedding(db, &e, &policy).state == HB_ID_UNAVAILABLE);
+    assert(!hb_id_create(db, "Wrong model"));
+    free(db);
+}
+static void temporal(void)
+{
+    hb_id_tracker t;
+    hb_id_match known = {HB_ID_KNOWN, 1, 0.9f, 0.1f};
+    hb_id_tracker_reset(&t, 3);
+    assert(!hb_id_confirm(&t, known, 3, 1, 1000, 1100, 1200, &policy));
+    assert(!hb_id_confirm(&t, known, 3, 2, 2000, 2100, 2200, &policy));
+    assert(hb_id_confirm(&t, known, 3, 3, 3000, 3100, 3200, &policy));
+    assert(!hb_id_confirm(&t, known, 3, 3, 3000, 3100, 3200, &policy)); // duplicates reset
+    assert(!t.hits);
+    assert(!hb_id_confirm(&t, known, 3, 4, 4000, 4100, 4200, &policy));
+    known.person_id = 2;
+    assert(!hb_id_confirm(&t, known, 3, 5, 5000, 5100, 5200, &policy));
+    assert(t.hits == 1 && t.person_id == 2);
+    assert(!hb_id_confirm(&t, known, 2, 6, 6000, 6100, 6200, &policy)); // cancelled session
+    hb_id_match unknown = {HB_ID_UNKNOWN, 0, 0, 0};
+    assert(!hb_id_confirm(&t, unknown, 3, 6, 6000, 6100, 6200, &policy) && !t.hits);
+    assert(!hb_id_confirm(&t, known, 3, 7, 7000, 7100, 13000, &policy)); // stale
+    assert(!hb_id_confirm(&t, known, 3, 8, 9000, 8000, 10000, &policy)); // invalid timestamps
+    assert(!hb_id_confirm(&t, known, 3, 5, 5000, 5100, 5200, &policy));  // out of order
+}
+static void enrollment(void)
+{
+    hb_id_database *db = calloc(1, sizeof(*db));
+    hb_id_enrollment *en = calloc(1, sizeof(*en));
+    assert(db && en);
+    hb_id_database_init(db, 7);
+    en->target_id = hb_id_create(db, "Test");
+    hb_id_embedding e = vector(0, 1);
+    assert(!hb_id_enroll_sample(en, &e, 0, true, 1, 1000));
+    assert(!hb_id_enroll_sample(en, &e, 2, true, 1, 1000));
+    assert(!hb_id_enroll_sample(en, &e, 1, false, 1, 1000));
+    assert(hb_id_enroll_sample(en, &e, 1, true, 1, 1000));
+    assert(!hb_id_enroll_sample(en, &e, 1, true, 2, 2000)); // redundant
+    assert(!hb_id_enroll_commit(db, en));
+    for (unsigned i = 1; i < 8; ++i)
+    {
+        e = vector(0, 0.95f);
+        e.v[1] = 0;
+        e.v[i + 1] = sqrtf(1 - 0.95f * 0.95f);
+        assert(hb_id_enroll_sample(en, &e, 1, true, i + 1, (i + 1) * 1000));
+    }
+    e = vector(0, 1);
+    assert(!hb_id_enroll_verify(en, &e, 8, 8000, &policy)); // enrollment frame
+    assert(hb_id_enroll_verify(en, &e, 9, 9000, &policy));
+    uint64_t id = en->target_id;
+    assert(hb_id_enroll_commit(db, en));
+    assert(hb_id_find(db, id)->count == 8 && !en->count);
+    assert(hb_id_enroll_begin(db, en, id));
+    assert(en->count == 8 && en->last_sequence == 8);
+    assert(!hb_id_enroll_sample(en, &e, 1, true, 10, 10000)); // existing template stays redundant
+    e = vector(0, 0.95f);
+    e.v[1] = 0;
+    e.v[9] = sqrtf(1 - 0.95f * 0.95f);
+    assert(hb_id_enroll_sample(en, &e, 1, true, 10, 10000));
+    assert(en->count == 9 && hb_id_find(db, id)->count == 8);
+    memset(en, 0, sizeof(*en)); // cancel append leaves committed templates intact
+    assert(hb_id_enroll_begin(db, en, id) && en->count == 8);
+    assert(hb_id_enroll_sample(en, &e, 1, true, 11, 11000));
+    assert(hb_id_enroll_verify(en, &e, 12, 12000, &policy));
+    assert(hb_id_enroll_commit(db, en) && hb_id_find(db, id)->count == 9);
+    // The same worker policy drives this synthetic automatic enrollment.
+    assert(hb_enroll_fresh(db, en, id));
+    assert(en->count == 0 && hb_id_find(db, id)->count == 9);
+    for (unsigned i = 0; i < 8; ++i)
+    {
+        e = vector(0, 0.95f);
+        e.v[1] = 0;
+        e.v[i + 2] = sqrtf(1 - 0.95f * 0.95f);
+        uint32_t seq = 100 + i;
+        uint64_t ms = 20000 + i * 1000;
+        assert(hb_enroll_next(en, 2, true, seq, ms) == HB_ENROLL_WAIT);
+        assert(hb_enroll_next(en, 1, false, seq, ms) == HB_ENROLL_WAIT);
+        assert(hb_enroll_next(en, 1, true, seq, ms) == HB_ENROLL_SAMPLE);
+        assert(hb_id_enroll_sample(en, &e, 1, true, seq, ms));
+        assert(hb_enroll_next(en, 1, true, seq, ms) == HB_ENROLL_WAIT);
+        assert(hb_enroll_next(en, 1, true, seq + 1, ms + 999) == HB_ENROLL_WAIT);
+        assert(hb_id_find(db, id)->count == 9);
+    }
+    e = vector(0, 1);
+    assert(hb_enroll_next(en, 1, true, 108, 28000) == HB_ENROLL_VERIFY);
+    assert(!hb_id_enroll_commit(db, en)); // Explicit final confirmation needs fresh verification.
+    assert(hb_id_enroll_verify(en, &e, 108, 28000, &policy));
+    assert(hb_enroll_next(en, 1, true, 109, 29000) == HB_ENROLL_CONFIRM);
+    assert(hb_id_enroll_commit(db, en));
+    assert(hb_id_find(db, id)->count == 8);
+    assert(hb_id_delete(db, id));
+    assert(!hb_id_enroll_commit(db, en));
+    free(en);
+    free(db);
+}
+static hb_id_embedding cohort(unsigned axis, unsigned unique, float primary)
+{
+    hb_id_embedding e = {{0}};
+    e.v[axis] = primary;
+    e.v[unique] = sqrtf(1 - primary * primary);
+    return e;
+}
+static void coherent_enrollment(void)
+{
+    hb_id_database *db = calloc(1, sizeof(*db));
+    hb_id_enrollment *en = calloc(1, sizeof(*en)), *before = calloc(1, sizeof(*before));
+    assert(db && en && before);
+    hb_id_database_init(db, 8);
+    uint64_t id = hb_id_create(db, "Existing");
+    fill(db, id, vector(40, 1), 8);
+    assert(hb_enroll_fresh(db, en, id));
+    unsigned progress = 0;
+    bool ready = false;
+    for (unsigned i = 0; i < 8; ++i)
+    {
+        hb_id_embedding e = cohort(0, i + 1, .95f);
+        assert(hb_enroll_sample_coherent(en, &e, 1, true, i + 1, (i + 1) * 1000, &policy, &progress,
+                                         &ready));
+        assert(progress == i + 1 && ready == (i == 7) && !en->verified);
+        assert(hb_id_find(db, id)->templates[0].v[40] == 1);
+    }
+    assert(!hb_id_enroll_commit(db, en));
+    hb_id_embedding heldout = vector(0, 1);
+    assert(!hb_id_enroll_verify(en, &heldout, 8, 8000, &policy));
+    assert(hb_id_enroll_verify(en, &heldout, 9, 9000, &policy));
+    assert(hb_id_enroll_commit(db, en));
+    assert(hb_id_find(db, id)->count == 8 && hb_id_find(db, id)->enabled);
+    assert(!strcmp(hb_id_find(db, id)->name, "Existing"));
+
+    // Each weak sample passes the old held-out verification (.71), but the
+    // samples disagree with one another (.5041). Keep collecting beyond eight.
+    assert(hb_enroll_fresh(db, en, id));
+    for (unsigned i = 0; i < 15; ++i)
+    {
+        hb_id_embedding e = cohort(0, i + 1, .71f);
+        assert(hb_enroll_sample_coherent(en, &e, 1, true, i + 1, (i + 1) * 1000, &policy, &progress,
+                                         &ready));
+        assert(!ready && progress == 1 && en->count == i + 1);
+    }
+    *before = *en;
+    hb_id_embedding e = cohort(20, 21, .95f);
+    hb_id_policy invalid = policy;
+    invalid.threshold = NAN;
+    assert(!hb_enroll_sample_coherent(en, &e, 1, true, 16, 16000, &invalid, &progress, &ready));
+    assert(!hb_enroll_sample_coherent(en, &e, 1, true, 16, 16000, &policy, NULL, &ready));
+    assert(!hb_id_enroll_sample_rolling(en, &en->samples[0], 1, true, 16, 16000));
+    assert(!hb_id_enroll_sample_rolling(en, &e, 2, true, 16, 16000));
+    assert(!hb_id_enroll_sample_rolling(en, &e, 1, false, 16, 16000));
+    assert(!hb_id_enroll_sample_rolling(en, &e, 1, true, 15, 16000));
+    assert(!hb_id_enroll_sample_rolling(en, &e, 1, true, 16, 15999));
+    hb_id_embedding bad = {{0}};
+    assert(!hb_id_enroll_sample_rolling(en, &bad, 1, true, 16, 16000));
+    assert(!hb_id_enroll_sample(en, &e, 1, true, 16, 16000)); // Manual capacity unchanged.
+    assert(!memcmp(en, before, sizeof(*en)));                 // No rejected frame evicts anything.
+    for (unsigned i = 0; i < 8; ++i)
+    {
+        e = cohort(20, i + 21, .95f);
+        assert(hb_enroll_sample_coherent(en, &e, 1, true, 16 + i, (16 + i) * 1000, &policy,
+                                         &progress, &ready));
+        assert(progress == i + 1 && ready == (i == 7));
+        assert(en->count == (ready ? 8U : 15U) && !en->verified);
+    }
+    assert(en->last_sequence == 23 && en->last_ms == 23000);
+    for (unsigned i = 8; i < HB_ID_TEMPLATES; ++i)
+        assert(!memcmp(&en->samples[i], &bad, sizeof(bad)));
+    heldout = vector(20, 1);
+    assert(!hb_id_enroll_verify(en, &heldout, 23, 23000, &policy));
+    assert(hb_id_enroll_verify(en, &heldout, 24, 24000, &policy));
+    // Selection and verification alone still do not replace the saved profile.
+    assert(hb_id_find(db, id)->templates[0].v[0] == .95f);
+
+    assert(hb_enroll_fresh(db, en, id));
+    for (unsigned i = 0; i < 8; ++i)
+    {
+        e = cohort(i < 4 ? 0 : 20, i + 30, .95f);
+        assert(hb_enroll_sample_coherent(en, &e, 1, true, i + 1, (i + 1) * 1000, &policy, &progress,
+                                         &ready));
+        assert(!ready && progress <= 4); // Two disjoint self-matching clusters are not a set.
+    }
+    free(before);
+    free(en);
+    free(db);
+}
+int main(void)
+{
+    hb_id_evaluation stats = {0};
+    hb_id_match trial = {HB_ID_KNOWN, 1, 0.9f, 0};
+    assert(hb_id_evaluate(&stats, 1, trial, true, 1, 1000));
+    assert(!hb_id_evaluate(&stats, 1, trial, true, 1, 1000));
+    assert(hb_id_evaluate(&stats, 2, trial, true, 2, 2000));
+    assert(hb_id_evaluate(&stats, 0, trial, true, 3, 3000));
+    trial.state = HB_ID_AMBIGUOUS;
+    assert(hb_id_evaluate(&stats, 0, trial, false, 4, 4000));
+    assert(hb_id_evaluate(&stats, 1, trial, false, 5, 5000));
+    assert(stats.true_accept == 1 && stats.confusion == 1 && stats.unknown_accept == 1);
+    assert(stats.unknown_reject == 0 && stats.false_reject == 0 && stats.ambiguous == 2);
+    assert(stats.known_ambiguous == 1 && stats.unknown_ambiguous == 1);
+    trial.state = HB_ID_UNAVAILABLE;
+    assert(hb_id_evaluate(&stats, 1, trial, false, 6, 6000));
+    assert(hb_id_evaluate(&stats, 0, trial, false, 7, 7000));
+    assert(stats.known_trials == 4 && stats.unknown_trials == 3);
+    assert(stats.known_unavailable == 1 && stats.unknown_unavailable == 1);
+    assert(stats.unknown_reject == 0); // Missing capture is not a correct unknown rejection.
+    hb_id_evaluation_unavailable(&stats, 1);
+    hb_id_evaluation_unavailable(&stats, 0);
+    assert(stats.known_trials == 5 && stats.unknown_trials == 4);
+    assert(stats.known_unavailable == 2 && stats.unknown_unavailable == 2);
+    geometry();
+    matching();
+    temporal();
+    enrollment();
+    coherent_enrollment();
+    puts("Identity: geometry, native ROI, embeddings, profiles, matching, temporal and enrollment "
+         "passed");
+    return 0;
+}

@@ -96,3 +96,14 @@ Long combined tests and identity/presence behavior remain future work.
 PRESENCE.md. Closing the camera page now removes only foreground demand; a live
 background lease continues on the saver. Color-pattern selection cancels both.
 There is still one lazy model/input, no default-on monitoring or identity events.
+
+
+## 0.5.0-dev local identity experiment
+
+See [face recognition implementation and limitations](FACE_RECOGNITION.md),
+[onboard Flash layout and migration proposal](IDENTITY_FLASH_LAYOUT.md), and
+[actual build/test versus pending hardware acceptance](IDENTITY_VALIDATION.md).
+The experimental MBF worker remains opt-in. The 0.6.1-dev candidate uses onboard
+Flash for model storage, gated encrypted profile persistence and native identity
+HTTP. Unprovisioned hardware remains RAM-only. See ITERATION7_REPORT.md and
+FLASH_MIGRATION.md before installation. UBox/Open-Meteo/clock and camera leases remain.

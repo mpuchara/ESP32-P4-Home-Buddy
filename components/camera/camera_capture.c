@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "driver/i2c_master.h"
 #include "driver/isp.h"
+#include "esp_attr.h"
 #include "esp_cam_ctlr.h"
 #include "esp_cam_ctlr_csi.h"
 #include "esp_heap_caps.h"
@@ -49,7 +50,8 @@ static esp_err_t read_regs(uint16_t address, uint8_t *bytes, size_t size)
     uint8_t reg[] = {(uint8_t)(address >> 8), (uint8_t)address};
     return i2c_master_transmit_receive(sensor, reg, 2, bytes, size, 100);
 }
-static bool next_buffer(esp_cam_ctlr_handle_t handle, esp_cam_ctlr_trans_t *trans, void *arg)
+static bool IRAM_ATTR camera_next_buffer(esp_cam_ctlr_handle_t handle, esp_cam_ctlr_trans_t *trans,
+                                         void *arg)
 {
     (void)handle;
     (void)arg;
@@ -66,7 +68,8 @@ static bool next_buffer(esp_cam_ctlr_handle_t handle, esp_cam_ctlr_trans_t *tran
     portEXIT_CRITICAL_ISR(&lock);
     return false;
 }
-static bool finished(esp_cam_ctlr_handle_t handle, esp_cam_ctlr_trans_t *trans, void *arg)
+static bool IRAM_ATTR camera_frame_finished(esp_cam_ctlr_handle_t handle,
+                                            esp_cam_ctlr_trans_t *trans, void *arg)
 {
     (void)handle;
     (void)arg;
@@ -187,8 +190,8 @@ static esp_err_t initialize(void)
             if (!storage[i])
                 return ESP_ERR_NO_MEM;
         }
-    esp_cam_ctlr_evt_cbs_t callbacks = {.on_get_new_trans = next_buffer,
-                                        .on_trans_finished = finished};
+    esp_cam_ctlr_evt_cbs_t callbacks = {.on_get_new_trans = camera_next_buffer,
+                                        .on_trans_finished = camera_frame_finished};
     e = esp_cam_ctlr_register_event_callbacks(controller, &callbacks, NULL);
     if (e != ESP_OK)
         return e;

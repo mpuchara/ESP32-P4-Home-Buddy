@@ -2,6 +2,7 @@
 #pragma once
 #include "hb_brightness.h"
 #include "hb_config.h"
+#include "hb_ha.h"
 typedef enum
 {
     CMD_IMAGE,
@@ -10,7 +11,9 @@ typedef enum
     CMD_TEMPERATURE,
     CMD_PLACES,
     CMD_SAVED,
-    CMD_CONFIG_ERROR
+    CMD_CONFIG_ERROR,
+    CMD_HA_SAVED,
+    CMD_HA_CONFIG_ERROR
 } command_type;
 typedef struct
 {
@@ -28,6 +31,8 @@ typedef struct
     bool wifi;
     bool weather;
     bool brightness;
+    bool ha;
+    hb_ha_config ha_value;
     hb_brightness_config brightness_value;
     hb_weather_config_t weather_value;
     hb_config_t value;

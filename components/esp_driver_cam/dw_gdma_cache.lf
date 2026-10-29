@@ -1,0 +1,7 @@
+# ESP-IDF 5.5.1 omits this CSI ISR callee from DW_GDMA_CTRL_FUNC_IN_IRAM.
+# Project-local mapping; do not modify the installed SDK.
+[mapping:hb_csi_dma_config_cache_safe]
+archive: libesp_hw_support.a
+entries:
+    if CAM_CTLR_MIPI_CSI_ISR_CACHE_SAFE = y:
+        dw_gdma: dw_gdma_channel_config_transfer (noflash)

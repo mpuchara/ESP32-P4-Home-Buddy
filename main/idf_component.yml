@@ -6,3 +6,5 @@ dependencies:
   espressif/esp_hosted: "==2.12.2"
   espressif/esp-dl: "==3.3.14"
   espressif/human_face_detect: "==0.5.1"
+  espressif/human_face_recognition: "==0.3.3"
+  espressif/esp_codec_dev: "==1.6.2"

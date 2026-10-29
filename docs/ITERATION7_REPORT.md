@@ -1,0 +1,152 @@
+# 0.6.1-dev single-image / HA HTTP continuation
+
+This report supersedes iteration 6 deployment decisions. Builds/tests below are
+not evidence of physical recognition accuracy or a working HA automation.
+
+1. **Source revision:** firmware implementation d938878958886ab78ecb24784a1cbf270450d75f.
+   Use `git rev-parse HEAD` for the latest receipt/tooling commit. PR #2 stays
+   draft on codex/local-face-recognition, based on codex/initial-hardware-foundation.
+2. **Implemented:** preserves onboard ESPDet416/MNP/alignment/MBF, enrollment,
+   transactions and bounded event bus; replaces MQTT with separate Webhook/REST
+   HTTP task and visible credential fields at the owner's request. Preserves fullscreen UBox, clock,
+   weather, brightness and independent greeting. No OTA, SD, external inference,
+   voice implementation, broker or HA custom integration.
+3. **Flash map:** table 0x10000; NVS 0x11000/24 KiB; PHY 0x19000/4 KiB;
+   encrypted NVS-key reserve 0x1a000/4 KiB; factory 0x20000/7 MiB;
+   MBF 0x720000/4 MiB; encrypted-flag profiles 0xb20000/1 MiB;
+   future sv_model_3s 0xc20000/3 MiB; reserve 0xf20000/896 KiB.
+   Exact ranges and gaps: SINGLE_IMAGE_FLASH_LAYOUT.md. No OTA metadata.
+4. **Firmware:** locally built recognition image 4,382,064 bytes, SHA256
+   4704c52a0f255a11d39eafda5f60aeb7b3b5edacdb04e1cb6374daf18a0d78e8.
+   App growth headroom 2,957,968 bytes, above enforced 256 KiB floor.
+5. **MBF:** raw 3,522,832 bytes; locked PDL3 package 3,522,944 bytes, SHA256
+   f8aa1d21c47814bf324b78ec3a050f993dfa38b1f6a582b6afb5ce0264daf294.
+   Standard Flash-partition loader follows pinned-image/hash validation.
+6. **Voice:** 3,145,728-byte partition. Actual upstream 3s asset 2,844,528 bytes;
+   locked packer output 2,844,624, leaving 301,104 bytes. One asset fits, both
+   3s/6s do not. Runtime/operator compatibility is unverified. Future integration
+   must explicitly select 3s and replace upstream dual-model flash defaults.
+7. **Free space:** app 2,957,968; MBF 671,360; separately reserved 917,504 bytes.
+   Future voice region remains unprovisioned. Profile first 512 KiB holds two
+   256 KiB face banks, each with 246,640-byte snapshot +128-byte header and
+   15,376-byte headroom; second 512 KiB is future voice storage, no format yet.
+   Reserved partitions are not interchangeable general free heap/filesystem.
+8. **USB:** USB_FLASHING.md gives build/package, application-only/model/full
+   commands and ROM recovery. Package validates hashes and image bounds; normal
+   updates check installed table and exclude models/profiles/settings. Full mode
+   requires new private full backup, security query and explicit layout flag.
+9. **Webhook:** HOME_ASSISTANT_HTTP.md gives graphical automation setup, local
+   POST-only trigger, secret entry on Home Buddy, diagnostic branch and actual
+   recognition test. GET reachability and POST 2xx do not establish HA action success.
+10. **REST:** same document covers separate HA Long-Lived Access Token, Bearer
+    header, GET /api/ test, actual POST /api/events/home_buddy_identity and event
+    automation trigger. UBox credentials are never reused.
+11. **Helper:** graphical Text helper and recognized-only input_text.set_value
+    action. This is not an auto-registered device sensor. Optional inbound status
+    endpoint evaluated and deferred; /api/status is not implemented.
+12. **Automated validation:** local recognition firmware builds; effective config,
+    budget enforcement and three USB dry-run modes pass. Host C suite 15/15;
+    project checks 3/3; Python model/USB tests 5/5; ASan/UBSan storage/event and
+    HTTP policy/payload executables pass. Fault injection preserves
+    transaction recovery and event overflow/session semantics. HTTP tests cover
+    payload escaping, URLs, credentials, status classification, cooldown and
+    freshness; they do not substitute for real ESP TLS/network fault injection.
+13. **CI:** see PR checks for this implementation revision. Historical iteration-6
+    success is not counted as current CI. Current run result will be recorded in
+    the physical/CI receipt below.
+14. **Physical:** migration and USB/boot/MBF/HA results are recorded below when
+    actually observed. Operator must enter the webhook on the screen and perform
+    real enrollment/recognition. A connection_test is not biometric acceptance.
+15. **Security/migration:** necessary layout migration authorized by owner; no
+    eFuses, secure boot provisioning, C6 flash or production release authorized.
+    Unsecured hardware remains explicitly RAM-only. Secure persistent activation,
+    signed USB recovery, encrypted credentials, real power-loss/deletion tests,
+    multi-person open-set accuracy, long stress/leak/watchdog and harmless real HA
+    recognition automation acceptance remain separate requirements.
+
+## Physical and CI receipt
+
+Prepared newer candidate (not installed): accepted background navigation intent
+replaces asynchronous worker-mode polling, with queue acknowledgement and session
+deadline/expiry diagnostics. Host C tests 18/18, Python 7/7, project checks 3/3,
+recognition build/configuration/budget pass. Package
+dist/0.6.1-dev-background-navigation contains a 4,387,152-byte application,
+SHA256 75f23473c787f9d3ab7219439337ffd5580d194ffacd66ee364899941208fbe0.
+Immediate-saver physical acceptance is pending; preserve the current RAM profile.
+
+Installed firmware source: 00272f7 (household keyboard UI follow-up), app 4,386,720 bytes,
+SHA256 4f6cb3b2ac58ea8bfae7e1faed6e6883b53efc23ffc022fc25aee9e612e799bb.
+Recognition build/config/budget and app-only COM5 Flash verification pass. Host
+C suite is 17/17, Python 7/7, project checks 3/3. A captured re-entry interrupt
+watchdog in raw Flash validation led to cache-mapped full SHA-256 validation.
+The operator completed five re-entry cycles without restart; USB captures show
+six validated loads and real 512-dimensional MBF pipeline results in about
+1.48..1.59 seconds. See IDENTITY_VALIDATION.md for exact evidence and limits.
+The operator confirms the complete one-person RAM-only enrollment/fresh-frame
+verification/confirmed-KNOWN/leave-return scenario works, including the corrected
+name keyboard. The operator also confirms the personalized saver greeting works.
+An initial HA listening attempt showed no event; a later supplied HA presence_leave
+event confirms automatic face-presence delivery. The operator then supplied a real
+recognized/face/confirmed event with the enrolled RAM profile, timestamp
+2026-10-24T07:29:31Z and source_age_ms=1299. Real recognized REST delivery is accepted.
+Live browser inspection subsequently confirms a real recognized event triggered
+the intended notification action at 13:34:44 Europe/Warsaw and finished in 0.30 s;
+the operator confirms receipt. No YAML/firmware change was required.
+The controlled one-person 90-second stay and leave/return test is also accepted:
+one notification per encounter, with two matching successful HA traces, different
+event IDs and encounters in the same session (13:52:34 and 13:54:06 Europe/Warsaw).
+Operator-reported Stop/navigation also produced no new notifications; matching
+button/release timing was not captured, so no isolated-command timing is claimed.
+Unattended background completion is observed on a retry, with clean model release
+and continued camera/UBox operation. Exact start/deadline timing was not captured;
+an earlier navigation cancellation is excluded. Offline and negative/multi-person
+tests remain open.
+Quantified identity accuracy remains pending. This
+is not a soak or multi-person accuracy acceptance. CI run 40071157529 for the
+current firmware source completed successfully; later commits are documentation.
+
+Previous HA settings firmware: f764f3212696c061e92c33a6425f87fb295c4267, app 4,383,248 bytes,
+SHA256 db2827836af2913d9ef48d14d9ca8e995a915b7641708bc13c32be1d64e7b5f4.
+[CI run 40008194920](https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40008194920)
+passed host and all four firmware profiles; local host suite is now 16/16.
+This HA settings baseline superseded the older image/version/size receipts below.
+
+REST diagnostic transport accepted by the operator: HA received a real
+home_buddy_identity event with payload connection_test/method diagnostic/status
+test at 2026-10-23 20:26:07 UTC. The operator confirmed the matching automation
+and notification work. Device uses the operator-configured LAN HA endpoint and
+an NVS-stored token, never committed or placed in public firmware. This does not
+accept actual face recognition, enrollment or a recognized-triggered automation.
+Those hardware acceptance steps are now active; no voice implementation starts
+before that acceptance. Secure profile persistence still requires its separate gate.
+
+Later HA form readability fix: explicit dark panel/contrast, shorter labels,
+readable checkbox/transport text and bounded status wrapping. Verified using
+before/after 800x480 LVGL renders of the actual form construction. This updated
+recognition app is 4,382,192 bytes, SHA256
+8b45c8004f67c56600cda54963fddf2ee7d1b2c25bc03359f26730053b66f2c5;
+app headroom 2,957,840 bytes. Earlier image sizes above remain baseline receipts.
+Application-only P4 COM5 update completed with exit 0 and verify_flash passed;
+the installed table matched and only 0x20000 application bytes were written.
+
+2026-10-23: [implementation CI run](https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/39988036946)
+passed host and all four firmware profiles on d938878. Subsequent tooling/document
+changes retain the same firmware source; their latest checks remain visible in PR #2.
+
+P4 COM5 full migration completed with exit 0. Before any write, a fresh private
+16,777,216-byte backup was read and SHA256-verified:
+f1fbe5ecf3c24ec4a9941592bd3e18dae101ea4200a03aeefe5ee2f64eaf04bf.
+It matches the original snapshot. Current ROM query confirmed Secure Boot and
+Flash encryption disabled. NVS/PHY were relocated byte-for-byte from that copy.
+Bootloader/table/application/MBF/settings writes all passed verify_flash. No chip
+erase, profile/voice writes, eFuses or C6 flash. Backup/credentials remain private.
+
+The migrated application boots and captures OV02C10 frames at approximately
+30 fps. Stored Wi-Fi reconnected and obtained DHCP; UBox reports accepted=1,
+HTTP 304 and successful decode after initial network recovery. Short serial
+observation to about 108 seconds uptime showed no panic/watchdog or reboot;
+PSRAM settled near 26.3 MB free. This is not a soak/leak test. Visual touchscreen,
+brightness/weather regression, real enrollment,
+multi-person accuracy and actual recognized
+HA automation remain unaccepted until directly observed. The diagnostic REST
+transport and harmless diagnostic automation are separately accepted above.
