@@ -1,8 +1,28 @@
 # Iteration 13: persistent identity stabilization
 
-Date: 2026-10-26. Installed candidate: **0.11.10-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
+Date: 2026-10-26. Installed candidate: **0.11.11-dev**; final-source transactions and restart verified; 0.11.4/0.11.5 withdrawn, branch `codex/local-face-recognition`.
 Baseline: `6c095eb505f371c121211117f83280a46fb61c8b` (verified against origin).
 Final source commit and binary SHA256 are recorded in the USB package metadata.
+
+## 2026-10-29 0.11.11 cadence candidate installed with profile 26 intact
+
+Source `08288bc2ac544bd549c3fce1525f78be4b57af5c`. App 4,507,168 B,
+headroom 2,832,864 B, SHA256
+`bbde53bc6d8ae79a6e3e06ed0533b1ec755ca74c5b3cf4f277367bebab46fd54`.
+Fresh private full backup, application-only write at 0x20000, verify_flash and
+complete 16 MiB readback pass. All other sectors/profiles/NVS/models/table are
+unchanged. Normal boot restores A/26 saved/clean, ready AUTO, models 1/0. UBox
+image and HA host GET HTTP 200 recover after initial network retries. No recognized
+admission/greeting was observed during the boot capture before the new encounter.
+
+All five exact-source CI jobs pass, including sanitizers and four target builds:
+https://github.com/mpuchara/ESP32-P4-Home-Buddy/actions/runs/40893822504.
+Local validation and safety bounds are below. Final public package is
+`dist/0.11.11-dev-confirmation-cadence`, with 54 verified hashes and a verified ZIP.
+A subsequent runtime receipt shows a known 1/3 candidate with wait_ms=100 followed
+by UNKNOWN/0 with wait_ms=1000. This validates configured cadence selection; no
+new physical latency improvement is inferred. The next three-confirmation,
+visible greeting and HA encounter remains an operator acceptance test.
 
 ## 2026-10-29 real greeting/HA accepted on 0.11.10; latency baseline
 

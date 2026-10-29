@@ -28,6 +28,9 @@ ambiguous, unavailable, TEST and enrollment keep their prior cadence. Three fres
 frames and all matching, timestamp, cooldown and opt-in guards remain unchanged.
 This removes 1800 ms of configured waiting across two successful pending gaps;
 it is not a measured physical speedup and cannot remove weak-match retries.
+Installed app-only with full readback preserving profile 26 and all other sectors;
+normal boot resumes ready AUTO. All five source CI jobs pass. New physical timing
+acceptance remains pending.
 
 ## 0.11.10-dev native MNP crop geometry candidate
 

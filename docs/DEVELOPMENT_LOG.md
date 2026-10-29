@@ -1,5 +1,14 @@
 # 2026-10-24: background navigation intent fix prepared
 
+## 2026-10-29: 0.11.11 installed, AUTO/26 restored, configured fast wait observed
+
+08288bc app-only install passes verify and full 16 MiB comparison; other sectors
+unchanged. Normal boot restores saved/clean 26, ready AUTO, models 1/0. UBox and HA
+host recover. Five CI jobs pass (40893822504). Runtime logs show pending KNOWN/1
+wait_ms=100, then UNKNOWN/0 wait_ms=1000. These are configured waits, not physical
+speedup. New recognition/greeting/HA latency acceptance awaits the operator test.
+
+
 ## 2026-10-29: real greeting/HA accepted; pending-confirmation wait reduction
 
 0.11.10 owner confirms display greeting and HA event, but slow acquisition. Current
