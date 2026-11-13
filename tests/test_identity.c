@@ -104,6 +104,8 @@ static void geometry(void)
     assert(!hb_id_roi_map(-1, 100, 160, 250, 234, 416, 1288, 728, &roi));
     assert(!hb_id_roi_map(100, 100, 100, 250, 234, 416, 1288, 728, &roi));
     assert(!hb_id_roi_map(0, 0, 233, 415, 234, 416, 1288, 728, &roi)); // bounded ROI refusal
+    assert(hb_id_roi_map_large(0, 0, 233, 415, 234, 416, 1288, 728, &roi));
+    assert(roi.w <= 728 && roi.h <= 1288 && roi.h > 640);
     uint8_t raw[32 * 32], rgb[32 * 32 * 3];
     for (unsigned y = 0; y < 32; ++y)
         for (unsigned x = 0; x < 32; ++x)

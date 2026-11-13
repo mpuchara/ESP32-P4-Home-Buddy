@@ -101,6 +101,9 @@ extern "C"
                        uint8_t *rgb, size_t capacity);
     bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, unsigned raw_w,
                        unsigned raw_h, hb_id_roi *out);
+    // Larger source crop for very near faces; caller must downscale to its bounded scratch.
+    bool hb_id_roi_map_large(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih,
+                             unsigned raw_w, unsigned raw_h, hb_id_roi *out);
     // Inverse 90-degree CCW transform, upright pixel -> sensor pixel.
     bool hb_id_to_sensor(unsigned x, unsigned y, unsigned raw_w, unsigned raw_h, unsigned *sx,
                          unsigned *sy);

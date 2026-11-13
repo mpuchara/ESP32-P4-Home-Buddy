@@ -260,3 +260,24 @@ void hb_camera_exposure_plan(float line_us, unsigned max_lines, unsigned old_lin
     *lines = n;
     *gain = (unsigned)fminf(2048, fmaxf(256, lroundf(total * 256 / n))) & ~1U;
 }
+
+bool hb_rgb888_crop_scaled(const uint8_t *src, unsigned w, unsigned h, unsigned x, unsigned y,
+                           unsigned cw, unsigned ch, uint8_t *dst, unsigned ow, unsigned oh,
+                           size_t capacity)
+{
+    if (!dst || !rgb_bounds(src, w, h, x, y, cw, ch) || !ow || !oh || ow > cw || oh > ch ||
+        capacity < (size_t)ow * oh * 3)
+        return false;
+    for (unsigned j = 0; j < oh; ++j)
+        for (unsigned i = 0; i < ow; ++i)
+        {
+            unsigned sx = x + i * cw / ow;
+            unsigned sy = y + j * ch / oh;
+            const uint8_t *p = upright(src, w, sx, sy);
+            uint8_t *d = dst + ((size_t)j * ow + i) * 3;
+            d[0] = p[2];
+            d[1] = p[1];
+            d[2] = p[0];
+        }
+    return true;
+}

@@ -45,3 +45,8 @@ uint32_t hb_isp_gamma_gain(uint32_t x, float gain);
 void hb_camera_exposure_plan(float line_us, unsigned max_lines, unsigned old_lines,
                              unsigned old_gain, float luma, bool face, unsigned *lines,
                              unsigned *gain);
+
+// Bounded downsample of an upright native RGB888 crop; RGB output for ESP-DL.
+bool hb_rgb888_crop_scaled(const uint8_t *src, unsigned w, unsigned h, unsigned x, unsigned y,
+                           unsigned cw, unsigned ch, uint8_t *dst, unsigned ow, unsigned oh,
+                           size_t capacity);

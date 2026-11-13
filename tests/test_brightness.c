@@ -305,6 +305,9 @@ static void rgb888(void)
     CHECK(crop[0] == 240 && crop[1] == 100 && crop[2] == 10);
     CHECK(!hb_rgb888_crop(src, 32, 32, 30, 0, 8, 8, crop, sizeof(crop)));
     CHECK(!hb_rgb888_crop(src, 32, 32, 0, 0, 8, 8, crop, 1));
+    CHECK(hb_rgb888_crop_scaled(src, 32, 32, 0, 0, 32, 32, crop, 8, 8, sizeof(crop)));
+    CHECK(crop[0] == 240 && crop[1] == 100 && crop[2] == 10);
+    CHECK(!hb_rgb888_crop_scaled(src, 32, 32, 0, 0, 8, 8, crop, 9, 8, sizeof(crop)));
     hb_rgb888_stats q = hb_rgb888_quality(src, 32, 32, 0, 0, 32, 32);
     CHECK(q.valid && q.contrast < 1 && q.detail == 0);
     memset(src, 0, sizeof(src));

@@ -577,7 +577,7 @@ class Models
         uint32_t seen = s.sequence;
         float best_rank = -1000, best_score = 0;
         int box[4] = {};
-        unsigned rw = 0, rh = 0;
+        unsigned rw = 0, rh = 0, crop_w = 0, crop_h = 0;
         hb_rgb888_stats best_quality{};
         unsigned attempts = s.mode == HB_ID_ENROLL ? 3 : 2;
         bool multiple = false;
@@ -643,7 +643,9 @@ class Models
                 const auto &b = detections.front().box;
                 hb_id_roi roi{};
                 if (hb_id_roi_map(b[0], b[1], b[2], b[3], HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT,
-                                  f.width, f.height, &roi))
+                                  f.width, f.height, &roi) ||
+                    hb_id_roi_map_large(b[0], b[1], b[2], b[3], HB_FACE_INPUT_WIDTH,
+                                        HB_FACE_INPUT_HEIGHT, f.width, f.height, &roi))
                 {
                     unsigned x = b[0] * (f.height - 2) / HB_FACE_INPUT_WIDTH;
                     unsigned y = b[1] * (f.width - 2) / HB_FACE_INPUT_HEIGHT;
@@ -656,13 +658,22 @@ class Models
                     if (!f.settled)
                         rank -= 8;
                     bool copied = false;
+                    unsigned cw = roi.w, ch = roi.h;
+                    unsigned side = cw > ch ? cw : ch;
+                    if (side > 640)
+                    {
+                        cw = cw * 640 / side;
+                        ch = ch * 640 / side;
+                    }
                     if (q.valid && rank > best_rank)
                     {
-                        copied = accelerate(f, roi.x, roi.y, roi.w, roi.h, roi_pixels,
-                                            640 * 640 * 3, false);
+                        if (side <= 640)
+                            copied = accelerate(f, roi.x, roi.y, roi.w, roi.h, roi_pixels,
+                                                640 * 640 * 3, false);
                         if (!copied)
-                            copied = hb_rgb888_crop(f.pixels, f.width, f.height, roi.x, roi.y, roi.w,
-                                                    roi.h, roi_pixels, 640 * 640 * 3);
+                            copied = hb_rgb888_crop_scaled(f.pixels, f.width, f.height, roi.x, roi.y,
+                                                           roi.w, roi.h, roi_pixels, cw, ch,
+                                                           640 * 640 * 3);
                     }
                     if (copied)
                     {
@@ -673,6 +684,8 @@ class Models
                             box[i] = b[i];
                         rw = f.width;
                         rh = f.height;
+                        crop_w = cw;
+                        crop_h = ch;
                         s.roi = roi;
                         s.sequence = f.sequence;
                         s.frame_ms = f.timestamp_ms;
@@ -707,14 +720,18 @@ class Models
         last_roi_ms = s.frame_ms;
         const auto &roi = s.roi;
         dl::image::img_t crop{.data = roi_pixels,
-                              .width = (uint16_t)roi.w,
-                              .height = (uint16_t)roi.h,
+                              .width = (uint16_t)crop_w,
+                              .height = (uint16_t)crop_h,
                               .pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB888};
         std::list<dl::detect::result_t> candidates;
         int left = box[0] * (rh - 2) / HB_FACE_INPUT_WIDTH - roi.x;
         int top = box[1] * (rw - 2) / HB_FACE_INPUT_HEIGHT - roi.y;
         int right = (box[2] + 1) * (rh - 2) / HB_FACE_INPUT_WIDTH - roi.x;
         int bottom = (box[3] + 1) * (rw - 2) / HB_FACE_INPUT_HEIGHT - roi.y;
+        left = left * (int)crop_w / roi.w;
+        right = right * (int)crop_w / roi.w;
+        top = top * (int)crop_h / roi.h;
+        bottom = bottom * (int)crop_h / roi.h;
         candidates.push_back({0, best_score, {left, top, right, bottom}, {}});
         int64_t stage = esp_timer_get_time();
         if (s.official_landmarks && !official &&
@@ -739,13 +756,14 @@ class Models
         hb_id_landmarks local{};
         for (unsigned j = 0; j < 5; ++j)
             local.p[j] = {(float)keypoints[2 * j], (float)keypoints[2 * j + 1]};
-        if (!hb_id_landmarks_valid(&local, roi.w, roi.h))
+        if (!hb_id_landmarks_valid(&local, crop_w, crop_h))
         {
             message(s, "Spójrz w kamerę: nieprawidłowa geometria twarzy");
             return false;
         }
         for (unsigned j = 0; j < 5; ++j)
-            s.landmarks.p[j] = {local.p[j].x + roi.x, local.p[j].y + roi.y};
+            s.landmarks.p[j] = {local.p[j].x * roi.w / crop_w + roi.x,
+                                 local.p[j].y * roi.h / crop_h + roi.y};
         if (s.mode == HB_ID_TEST || s.mode == HB_ID_ENROLL)
             capture_aligned(s, crop, keypoints);
         stage = esp_timer_get_time();
@@ -811,7 +829,7 @@ static void worker(void *)
     hb_id_roi previous_roi{};
     uint64_t previous_ms = 0;
     uint32_t previous_ticket = 0;
-    hb_id_match previous_match{};
+    hb_id_match previous_result{};
 #endif
     for (;;)
     {
@@ -1326,6 +1344,14 @@ static void worker(void *)
                             hb_id_match_embedding(database, &embedding, &shadow_policies[k]);
                     state.calibration[3] =
                         hb_id_match_top1(database, &embedding, &shadow_policies[3], false);
+                    if (state.mode == HB_ID_TEST)
+                        ESP_LOGI("identity_calibration", "seq=%u expected=%llu top1=%.3f 70=%u 65=%u 60=%u 50=%u",
+                                 (unsigned)state.sequence, (unsigned long long)state.expected_id,
+                                 (double)state.calibration[3].best,
+                                 (unsigned)state.calibration[0].state,
+                                 (unsigned)state.calibration[1].state,
+                                 (unsigned)state.calibration[2].state,
+                                 (unsigned)state.calibration[3].state);
                     auto direct = state.match;
                     // Blend only adjacent, overlapping, mutually similar unknown embeddings.
                     // Never merge known conflicting identities or ambiguous candidates.
@@ -1334,7 +1360,7 @@ static void worker(void *)
                                       state.frame_ms - previous_ms <= 1800 &&
                                       hb_id_same_roi(previous_roi, state.roi);
                     if (continuous && direct.state == HB_ID_UNKNOWN &&
-                        previous_match.state == HB_ID_UNKNOWN &&
+                        previous_result.state == HB_ID_UNKNOWN &&
                         hb_id_blend(&blended, &previous_embedding, &embedding, 1, 1))
                     {
                         auto combined = hb_id_match_top1(database, &blended, &policy, true);
@@ -1348,7 +1374,7 @@ static void worker(void *)
                     previous_roi = state.roi;
                     previous_ms = state.frame_ms;
                     previous_ticket = ticket;
-                    previous_match = direct;
+                    previous_result = direct;
                     state.confirmed =
                         hb_id_confirm(&tracker, state.match, ticket, state.sequence, state.frame_ms,
                                       state.completed_ms, now_ms(), &policy);

@@ -240,8 +240,8 @@ bool hb_id_to_sensor(unsigned x, unsigned y, unsigned rw, unsigned rh, unsigned 
     *sy = x;
     return true;
 }
-bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, unsigned rw,
-                   unsigned rh, hb_id_roi *out)
+static bool roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, unsigned rw,
+                    unsigned rh, int limit, hb_id_roi *out)
 {
     if (!out || !iw || !ih || iw > 4096 || ih > 4096 || rw < 32 || rh < 32 || rw > 4096 ||
         rh > 4096 || x1 < 0 || y1 < 0 || x2 <= x1 || y2 <= y1 || x2 >= (int)iw || y2 >= (int)ih)
@@ -258,11 +258,11 @@ bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, uns
     left = cx - (side >> 1);
     top = cy - (side >> 1);
     int span = side + 1; // MNP's inclusive right/bottom edges must fit as well.
-    if (span > 640)
+    if (span > limit)
         return false;
     int context = span + 2 * (side / 5);
-    if (context > 640)
-        context = 640;
+    if (context > limit)
+        context = limit;
     int width = context < (int)rh ? context : (int)rh;
     int height = context < (int)rw ? context : (int)rw;
     left -= (width - span) / 2;
@@ -277,7 +277,17 @@ bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, uns
         top = rw - height;
     *out = (hb_id_roi){left, top, width, height};
     // Bounded native-resolution ROI, never downsample it to the detection thumbnail.
-    return out->w >= 32 && out->h >= 32 && out->w <= 640 && out->h <= 640;
+    return out->w >= 32 && out->h >= 32 && out->w <= limit && out->h <= limit;
+}
+bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, unsigned rw,
+                   unsigned rh, hb_id_roi *out)
+{
+    return roi_map(x1, y1, x2, y2, iw, ih, rw, rh, 640, out);
+}
+bool hb_id_roi_map_large(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, unsigned rw,
+                         unsigned rh, hb_id_roi *out)
+{
+    return roi_map(x1, y1, x2, y2, iw, ih, rw, rh, 4096, out);
 }
 void hb_id_database_init(hb_id_database *db, uint32_t nonce)
 {
