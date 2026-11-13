@@ -251,7 +251,7 @@ static esp_err_t ensure_worker(bool enabled)
 {
     if (enabled && !started.exchange(true))
     {
-        if (xTaskCreate(worker, "face_diagnostic", 8192, nullptr, 1, nullptr) != pdPASS)
+        if (xTaskCreatePinnedToCore(worker, "face_diagnostic", 8192, nullptr, 2, nullptr, 1) != pdPASS)
         {
             started.store(false);
             fail(ESP_ERR_NO_MEM);

@@ -666,7 +666,7 @@ esp_err_t hb_camera_start(void)
     if (atomic_exchange(&started, true))
         return ESP_ERR_INVALID_STATE;
     hb_frame_pool_init(&pool);
-    if (xTaskCreate(worker, "local_camera", 6144, NULL, 1, NULL) == pdPASS)
+    if (xTaskCreatePinnedToCore(worker, "local_camera", 6144, NULL, 2, NULL, 0) == pdPASS)
         return ESP_OK;
     atomic_store(&started, false);
     return ESP_ERR_NO_MEM;
