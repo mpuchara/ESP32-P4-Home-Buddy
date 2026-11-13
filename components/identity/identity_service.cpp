@@ -512,6 +512,15 @@ class Models
         op.mode = PPA_TRANS_MODE_BLOCKING;
         return ppa_do_scale_rotate_mirror(ppa, &op) == ESP_OK;
     }
+    bool crop_cpu(const hb_camera_frame &f, hb_id_roi roi, unsigned cw, unsigned ch)
+    {
+        unsigned w = f.width, h = f.height;
+        unsigned x = roi.x, y = roi.y, rw = roi.w, rh = roi.h;
+        auto *dst = roi_pixels;
+        const auto *src = f.pixels;
+        size_t cap = 640 * 640 * 3;
+        return hb_rgb888_crop_scaled(src, w, h, x, y, rw, rh, dst, cw, ch, cap);
+    }
     bool prepare(const hb_camera_frame &f)
     {
         if (scaled && f.width == 1288 && f.height == 728 &&
@@ -540,8 +549,8 @@ class Models
         // Same upstream preprocessor and normalization as the MBF wrapper. Capture before
         // inference, because ESP-DL may reuse input memory while executing the graph.
         std::array<float, 3> normalization{127.5f, 127.5f, 127.5f};
-        dl::image::FeatImagePreprocessor pre(mbf->get_raw_model(), normalization, normalization,
-                                            true);
+        auto *model = mbf->get_raw_model();
+        dl::image::FeatImagePreprocessor pre(model, normalization, normalization, true);
         pre.preprocess(crop, keypoints);
         auto *input = mbf->get_raw_model()->get_input();
         if (!input || !input->data || input->dtype != dl::DATA_TYPE_INT8 ||
@@ -681,10 +690,7 @@ class Models
                                                 640 * 640 * 3, false);
                         if (!copied)
                         {
-                            const auto *src = f.pixels;
-                            copied = hb_rgb888_crop_scaled(src, f.width, f.height, roi.x, roi.y,
-                                                           roi.w, roi.h, roi_pixels, cw, ch,
-                                                           640 * 640 * 3);
+                            copied = crop_cpu(f, roi, cw, ch);
                         }
                     }
                     if (copied)
@@ -816,6 +822,10 @@ class Models
 };
 #endif
 
+static bool sample_diverse(const hb_id_status &s, const hb_id_embedding &e, unsigned &n, bool &ready)
+{
+    return hb_enroll_sample_diverse(enrollment, &e, s.faces, s.sequence, s.frame_ms, &n, &ready);
+}
 static void worker(void *)
 {
     hb_id_status state{};
@@ -1312,11 +1322,7 @@ static void worker(void *)
                             unsigned pool = enrollment->count < HB_ID_TEMPLATES
                                                 ? enrollment->count + 1
                                                 : HB_ID_TEMPLATES;
-                            unsigned seq = state.sequence;
-                            uint64_t ms = state.frame_ms;
-                            accepted = hb_enroll_sample_diverse(enrollment, &embedding, state.faces,
-                                                                seq, ms, &guided_samples,
-                                                                &guided_ready);
+                            accepted = sample_diverse(state, embedding, guided_samples, guided_ready);
                             if (accepted)
                                 ESP_LOGI(
                                     "identity",
@@ -1396,8 +1402,8 @@ static void worker(void *)
                                       state.frame_ms > previous_ms &&
                                       state.frame_ms - previous_ms <= 1800 &&
                                       hb_id_same_roi(previous_roi, state.roi);
-                    bool candidates_unknown = direct.state == HB_ID_UNKNOWN &&
-                                              previous_result.state == HB_ID_UNKNOWN;
+                    bool candidates_unknown = direct.state == HB_ID_UNKNOWN;
+                    candidates_unknown &= previous_result.state == HB_ID_UNKNOWN;
                     if (continuous && candidates_unknown &&
                         hb_id_blend(&blended, &previous_embedding, &embedding, previous_weight,
                                     weight))

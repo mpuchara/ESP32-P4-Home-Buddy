@@ -951,17 +951,19 @@ static void identity_update(void)
     }
     else if (aligned_view)
     {
-        snprintf(text, sizeof(text), "Wejście MBF 112x112 | det %u | PPA %d | fuzja %d\n"
-                                     "Progi: TA / FR / FA / mylne / brak",
-                 s->detector_size, s->ppa_used, s->fused);
+        const char *fmt = "MBF 112x112 | det %u | PPA %d | fuzja %d\nTA/FR/FA/mylne/brak";
+        snprintf(text, sizeof(text), fmt, s->detector_size, s->ppa_used, s->fused);
         const char *thresholds[] = {"0.70", "0.65", "0.60", "0.50 ref"};
         for (unsigned k = 0; k < 4; ++k)
         {
             size_t len = strlen(text);
-            snprintf(text + len, sizeof(text) - len, "\n%s: %u / %u / %u / %u / %u",
-                     thresholds[k], s->calibration_ta[k], s->calibration_fr[k],
-                     s->calibration_fa[k], s->calibration_confusion[k],
-                     s->calibration_unavailable[k]);
+            const char *name = thresholds[k];
+            unsigned ta = s->calibration_ta[k], fr = s->calibration_fr[k];
+            unsigned fa = s->calibration_fa[k], wrong = s->calibration_confusion[k];
+            unsigned missing = s->calibration_unavailable[k];
+            char row[100];
+            snprintf(row, sizeof(row), "\n%s: %u/%u/%u/%u/%u", name, ta, fr, fa, wrong, missing);
+            strlcpy(text + len, row, sizeof(text) - len);
         }
         size_t len = strlen(text);
         snprintf(text + len, sizeof(text) - len, "\nPróby znane %u / gość %u | %s",
