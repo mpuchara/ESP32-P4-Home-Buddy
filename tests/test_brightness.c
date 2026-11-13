@@ -250,6 +250,22 @@ static void raw_frame(void)
     CHECK(!hb_raw_light(source, 64, 64, 1000, 1, 1, true).valid); // black target alone
     CHECK(!hb_raw_thumbnail(source, 63, 64, output, 32, 32));
 }
+static void isp_gamma(void)
+{
+    CHECK(hb_isp_gamma_black_corrected(0) == 0);
+    CHECK(hb_isp_gamma_black_corrected(16) == 0);
+    CHECK(hb_isp_gamma_black_corrected(17) > 0);
+    CHECK(hb_isp_gamma_black_corrected(32) >= 60);
+    CHECK(hb_isp_gamma_black_corrected(32) <= 70);
+    CHECK(hb_isp_gamma_black_corrected(128) >= 170);
+    CHECK(hb_isp_gamma_black_corrected(255) == 255);
+    CHECK(hb_isp_gamma_black_corrected(256) == 255);
+    for (uint32_t x = 1; x <= 255; ++x)
+        CHECK(hb_isp_gamma_black_corrected(x) >= hb_isp_gamma_black_corrected(x - 1));
+    // Hardware uses 16 points: the first at 16 must be zero to preserve true black.
+    for (uint32_t x = 16; x < 256; x += 16)
+        CHECK(hb_isp_gamma_black_corrected(x) < 256);
+}
 int main(void)
 {
     controller();
@@ -258,6 +274,7 @@ int main(void)
     dark_limit();
     preview();
     raw_frame();
+    isp_gamma();
     puts("brightness, bounded frame leases, robust exposure-compensated meter: OK");
     return 0;
 }

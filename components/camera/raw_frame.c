@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "hb_raw_frame.h"
+#include <math.h>
 #include <stddef.h>
 static unsigned linear_channel(unsigned value)
 {
@@ -69,4 +70,16 @@ bool hb_rgb_thumbnail_upright(const uint8_t *src, unsigned w, unsigned h, uint16
             dst[(size_t)y * ow + x] =
                 rgb[(size_t)(x * (h - 2) / ow) * w + w - 2 - y * (w - 2) / oh];
     return true;
+}
+
+uint32_t hb_isp_gamma_black_corrected(uint32_t x)
+{
+    // OV02C10 mode has RAW10 black target 64, i.e. 16 in the ISP 8-bit gamma domain.
+    // CCM rows sum to one, so a neutral black pedestal is unchanged by that stage.
+    if (x <= 16)
+        return 0;
+    if (x >= 255)
+        return 255;
+    float linear = (x - 16) / 239.0f;
+    return (uint32_t)lroundf(255 * powf(linear, 0.518f));
 }

@@ -136,10 +136,6 @@ void hb_camera_set_sample_seconds(uint32_t seconds)
 }
 // OV02C10 SDK-inspired conservative fixed tuning. Keep the sensor/CSI owner
 // and audited DMA adapter; no second capture owner or competing AE controller.
-static uint32_t gamma_curve(uint32_t x)
-{
-    return x == 256 ? 256 : (uint32_t)fminf(255, 256 * powf(x / 256.0f, 0.518f));
-}
 static esp_err_t configure_isp(void)
 {
     esp_isp_bf_config_t bf = {.padding_mode = ISP_BF_EDGE_PADDING_MODE_SRND_DATA,
@@ -172,7 +168,7 @@ static esp_err_t configure_isp(void)
         return e;
     ccm_enabled = true;
     isp_gamma_curve_points_t points;
-    e = esp_isp_gamma_fill_curve_points(gamma_curve, &points);
+    e = esp_isp_gamma_fill_curve_points(hb_isp_gamma_black_corrected, &points);
     for (int c = COLOR_COMPONENT_R; e == ESP_OK && c <= COLOR_COMPONENT_B; ++c)
         e = esp_isp_gamma_configure(isp, (color_component_t)c, &points);
     if (e != ESP_OK)

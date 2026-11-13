@@ -15,3 +15,6 @@ hb_light_reading hb_raw_light(const uint8_t *source, unsigned width, unsigned he
 // ISP RGB565 display/AI path; preserve the legacy Bayer coordinate convention.
 bool hb_rgb_thumbnail_upright(const uint8_t *source, unsigned width, unsigned height,
                               uint16_t *target, unsigned out_width, unsigned out_height);
+
+// Sensor black pedestal removed before hardware gamma; input/output in [0, 255].
+uint32_t hb_isp_gamma_black_corrected(uint32_t x);
