@@ -197,8 +197,9 @@ bool hb_id_raw_roi(const uint8_t *raw, size_t bytes, unsigned rw, unsigned rh, h
         for (unsigned x = 0; x < 16; ++x)
         {
             unsigned sx, sy, c[3];
-            hb_id_to_sensor(roi.x + x * (roi.w - 1) / 15, roi.y + y * (roi.h - 1) / 11, rw, rh, &sx,
-                            &sy);
+            if (!hb_id_to_sensor(roi.x + x * (roi.w - 1) / 15, roi.y + y * (roi.h - 1) / 11,
+                                 rw, rh, &sx, &sy))
+                return false;
             bayer(raw, rw, sx, sy, c);
             if (c[0] < 16 || c[1] < 16 || c[2] < 16 || c[0] > 239 || c[1] > 239 || c[2] > 239)
                 continue;
@@ -224,7 +225,8 @@ bool hb_id_raw_roi(const uint8_t *raw, size_t bytes, unsigned rw, unsigned rh, h
         for (int x = 0; x < roi.w; ++x)
         {
             unsigned sx, sy, c[3];
-            hb_id_to_sensor(roi.x + x, roi.y + y, rw, rh, &sx, &sy);
+            if (!hb_id_to_sensor(roi.x + x, roi.y + y, rw, rh, &sx, &sy))
+                return false;
             bayer(raw, rw, sx, sy, c);
             uint8_t *d = rgb + ((size_t)y * roi.w + x) * 3;
             for (unsigned j = 0; j < 3; ++j)
@@ -240,8 +242,8 @@ bool hb_id_to_sensor(unsigned x, unsigned y, unsigned rw, unsigned rh, unsigned 
     *sy = x;
     return true;
 }
-bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, unsigned rw,
-                   unsigned rh, hb_id_roi *out)
+static bool roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, unsigned rw,
+                    unsigned rh, int limit, hb_id_roi *out)
 {
     if (!out || !iw || !ih || iw > 4096 || ih > 4096 || rw < 32 || rh < 32 || rw > 4096 ||
         rh > 4096 || x1 < 0 || y1 < 0 || x2 <= x1 || y2 <= y1 || x2 >= (int)iw || y2 >= (int)ih)
@@ -258,11 +260,11 @@ bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, uns
     left = cx - (side >> 1);
     top = cy - (side >> 1);
     int span = side + 1; // MNP's inclusive right/bottom edges must fit as well.
-    if (span > 640)
+    if (span > limit)
         return false;
     int context = span + 2 * (side / 5);
-    if (context > 640)
-        context = 640;
+    if (context > limit)
+        context = limit;
     int width = context < (int)rh ? context : (int)rh;
     int height = context < (int)rw ? context : (int)rw;
     left -= (width - span) / 2;
@@ -277,7 +279,17 @@ bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, uns
         top = rw - height;
     *out = (hb_id_roi){left, top, width, height};
     // Bounded native-resolution ROI, never downsample it to the detection thumbnail.
-    return out->w >= 32 && out->h >= 32 && out->w <= 640 && out->h <= 640;
+    return out->w >= 32 && out->h >= 32 && out->w <= limit && out->h <= limit;
+}
+bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, unsigned rw,
+                   unsigned rh, hb_id_roi *out)
+{
+    return roi_map(x1, y1, x2, y2, iw, ih, rw, rh, 640, out);
+}
+bool hb_id_roi_map_large(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, unsigned rw,
+                         unsigned rh, hb_id_roi *out)
+{
+    return roi_map(x1, y1, x2, y2, iw, ih, rw, rh, 4096, out);
 }
 void hb_id_database_init(hb_id_database *db, uint32_t nonce)
 {
@@ -391,6 +403,83 @@ hb_id_match hb_id_match_embedding(const hb_id_database *db, const hb_id_embeddin
     if (r.state != HB_ID_KNOWN)
         r.person_id = 0;
     return r;
+}
+hb_id_match hb_id_match_top1(const hb_id_database *db, const hb_id_embedding *e,
+                             const hb_id_policy *policy, bool protected_match)
+{
+    hb_id_match r = {HB_ID_UNAVAILABLE, 0, -1, -1};
+    if (!db || memcmp(db->model, HB_ID_MODEL, sizeof(db->model)) || !hb_id_policy_valid(policy) ||
+        !hb_id_embedding_valid(e))
+        return r;
+    r.state = HB_ID_UNKNOWN;
+    unsigned support = 0;
+    for (unsigned i = 0; i < HB_ID_PEOPLE; ++i)
+    {
+        const hb_id_person *p = &db->people[i];
+        if (!p->enabled || !p->id || p->count < HB_ID_MIN_SAMPLES)
+            continue;
+        if (p->count > HB_ID_TEMPLATES)
+            return (hb_id_match){HB_ID_UNAVAILABLE, 0, -1, -1};
+        float best = -1;
+        unsigned votes = 0;
+        for (unsigned j = 0; j < p->count; ++j)
+        {
+            float score = hb_id_similarity(e, &p->templates[j]);
+            if (!isfinite(score))
+                return (hb_id_match){HB_ID_UNAVAILABLE, 0, -1, -1};
+            best = fmaxf(best, score);
+            votes += score >= policy->agreement;
+        }
+        if (best > r.best)
+        {
+            r.second = r.best;
+            r.best = best;
+            r.person_id = p->id;
+            support = votes;
+        }
+        else if (best > r.second)
+            r.second = best;
+    }
+    if (r.best >= policy->threshold && (!protected_match || support >= 2))
+    {
+        bool ambiguous = protected_match && r.best - r.second < policy->margin;
+        r.state = ambiguous ? HB_ID_AMBIGUOUS : HB_ID_KNOWN;
+    }
+    if (r.state != HB_ID_KNOWN)
+        r.person_id = 0;
+    return r;
+}
+bool hb_id_blend(hb_id_embedding *out, const hb_id_embedding *a, const hb_id_embedding *b, float wa,
+                 float wb)
+{
+    if (!out || !hb_id_embedding_valid(a) || !hb_id_embedding_valid(b) || !isfinite(wa) ||
+        !isfinite(wb) || wa <= 0 || wb <= 0 || hb_id_similarity(a, b) < 0.65f)
+        return false;
+    double norm = 0;
+    for (unsigned i = 0; i < HB_ID_DIM; ++i)
+    {
+        double v = wa * a->v[i] + wb * b->v[i];
+        norm += v * v;
+    }
+    if (!isfinite(norm) || norm <= 0)
+        return false;
+    float scale = 1 / sqrtf(norm);
+    for (unsigned i = 0; i < HB_ID_DIM; ++i)
+        out->v[i] = scale * (wa * a->v[i] + wb * b->v[i]);
+    return hb_id_embedding_valid(out);
+}
+bool hb_id_same_roi(hb_id_roi a, hb_id_roi b)
+{
+    if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0)
+        return false;
+    int x = a.x > b.x ? a.x : b.x;
+    int y = a.y > b.y ? a.y : b.y;
+    int right = a.x + a.w < b.x + b.w ? a.x + a.w : b.x + b.w;
+    int bottom = a.y + a.h < b.y + b.h ? a.y + a.h : b.y + b.h;
+    if (right <= x || bottom <= y)
+        return false;
+    float intersection = (right - x) * (bottom - y);
+    return intersection / (a.w * a.h + b.w * b.h - intersection) >= 0.5f;
 }
 void hb_id_tracker_reset(hb_id_tracker *t, uint32_t session)
 {

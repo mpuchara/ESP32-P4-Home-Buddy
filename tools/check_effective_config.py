@@ -6,11 +6,14 @@ import sys
 config = json.loads(Path(sys.argv[1]).read_text())
 profile = sys.argv[2]
 expected = {
+    "COMPILER_OPTIMIZATION_PERF": True,
+    "CACHE_L2_CACHE_256KB": True,
+    "CACHE_L2_CACHE_LINE_128B": True,
     "IDF_TARGET": "esp32p4",
     "ESPTOOLPY_FLASHSIZE": "16MB",
     "LV_COLOR_DEPTH": 16,
     "FLASH_HUMAN_FACE_DETECT_MSRMNP_S8_V1": profile == "recognition",
-    "FLASH_ESPDET_PICO_224_224_FACE": False,
+    "FLASH_ESPDET_PICO_224_224_FACE": profile == "recognition",
     "FLASH_ESPDET_PICO_416_416_FACE": True,
     "HUMAN_FACE_DETECT_MODEL_IN_FLASH_RODATA": True,
     "FREERTOS_SUPPORT_STATIC_ALLOCATION": True,
@@ -39,9 +42,9 @@ expected = {
     "HUMAN_FACE_FEAT_MBF_S8_V1": True,
     "FLASH_HUMAN_FACE_FEAT_MFN_S8_V1": False,
     "FLASH_HUMAN_FACE_FEAT_MBF_S8_V1": True,
-    "HB_IDENTITY_THRESHOLD_MILLI": 700,
-    "HB_IDENTITY_MARGIN_MILLI": 120,
-    "HB_IDENTITY_AGREEMENT_MILLI": 600,
+    "HB_IDENTITY_THRESHOLD_MILLI": 500,
+    "HB_IDENTITY_MARGIN_MILLI": 100,
+    "HB_IDENTITY_AGREEMENT_MILLI": 450,
 }
 if profile in ("wifi", "recognition"):
     expected.update({

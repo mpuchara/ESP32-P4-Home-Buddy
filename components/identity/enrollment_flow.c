@@ -97,6 +97,24 @@ bool hb_enroll_sample_coherent(hb_id_enrollment *en, const hb_id_embedding *e, u
     *ready = true;
     return true;
 }
+bool hb_enroll_sample_diverse(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
+                              uint32_t sequence, uint64_t frame_ms, unsigned *progress, bool *ready)
+{
+    if (!en || !progress || !ready || !hb_id_embedding_valid(e) || en->count >= HB_ID_TEMPLATES)
+        return false;
+    // Never weaken enrollment identity checks just because recognition is more sensitive.
+    unsigned anchors = en->count < 3 ? en->count : 3;
+    unsigned votes = 0;
+    for (unsigned i = 0; i < anchors; ++i)
+        votes += hb_id_similarity(e, &en->samples[i]) >= (anchors < 3 ? 0.70f : 0.55f);
+    if (votes < (anchors < 3 ? anchors : 2))
+        return false;
+    if (!hb_id_enroll_sample(en, e, faces, true, sequence, frame_ms))
+        return false;
+    *progress = en->count;
+    *ready = en->count >= HB_ID_MIN_SAMPLES;
+    return true;
+}
 hb_enroll_step hb_enroll_next(const hb_id_enrollment *en, unsigned faces, bool valid,
                               uint32_t sequence, uint64_t frame_ms)
 {

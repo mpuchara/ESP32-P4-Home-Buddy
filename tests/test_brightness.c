@@ -250,6 +250,75 @@ static void raw_frame(void)
     CHECK(!hb_raw_light(source, 64, 64, 1000, 1, 1, true).valid); // black target alone
     CHECK(!hb_raw_thumbnail(source, 63, 64, output, 32, 32));
 }
+static void isp_gamma(void)
+{
+    CHECK(hb_isp_gamma_black_corrected(0) == 0);
+    CHECK(hb_isp_gamma_black_corrected(16) == 0);
+    CHECK(hb_isp_gamma_black_corrected(17) > 0);
+    CHECK(hb_isp_gamma_black_corrected(32) >= 60);
+    CHECK(hb_isp_gamma_black_corrected(32) <= 70);
+    CHECK(hb_isp_gamma_black_corrected(128) >= 170);
+    CHECK(hb_isp_gamma_black_corrected(255) == 255);
+    CHECK(hb_isp_gamma_black_corrected(256) == 255);
+    for (uint32_t x = 1; x <= 255; ++x)
+        CHECK(hb_isp_gamma_black_corrected(x) >= hb_isp_gamma_black_corrected(x - 1));
+    // Hardware uses 16 points: the first at 16 must be zero to preserve true black.
+    for (uint32_t x = 16; x < 256; x += 16)
+        CHECK(hb_isp_gamma_black_corrected(x) < 256);
+}
+static void isp_color_curves(void)
+{
+    for (uint32_t x = 0; x <= 16; ++x)
+    {
+        CHECK(hb_isp_gamma_red(x) == 0);
+        CHECK(hb_isp_gamma_blue(x) == 0);
+    }
+    for (uint32_t x = 17; x <= 255; ++x)
+    {
+        CHECK(hb_isp_gamma_red(x) >= hb_isp_gamma_black_corrected(x));
+        CHECK(hb_isp_gamma_blue(x) >= hb_isp_gamma_black_corrected(x));
+        CHECK(hb_isp_gamma_red(x) >= hb_isp_gamma_red(x - 1));
+        CHECK(hb_isp_gamma_blue(x) >= hb_isp_gamma_blue(x - 1));
+    }
+    CHECK(hb_isp_gamma_red(96) > hb_isp_gamma_black_corrected(96));
+    CHECK(hb_isp_gamma_blue(96) > hb_isp_gamma_black_corrected(96));
+    CHECK(hb_isp_gamma_red(224) < 255);
+    CHECK(hb_isp_gamma_blue(224) < 255);
+    CHECK(hb_isp_gamma_red(255) == 255);
+    CHECK(hb_isp_gamma_blue(255) == 255);
+}
+static void rgb888(void)
+{
+    uint8_t src[32 * 32 * 3], crop[8 * 8 * 3], thumb[8 * 8 * 3];
+    uint16_t preview[8 * 8];
+    for (unsigned i = 0; i < 32 * 32; ++i)
+    {
+        src[i * 3] = 10;
+        src[i * 3 + 1] = 100;
+        src[i * 3 + 2] = 240;
+    }
+    CHECK(hb_rgb888_thumbnail(src, 32, 32, thumb, 8, 8));
+    CHECK(thumb[0] == 240 && thumb[1] == 100 && thumb[2] == 10);
+    CHECK(hb_rgb888_preview(src, 32, 32, preview, 8, 8));
+    CHECK(preview[0] == ((30 << 11) | (25 << 5) | 1));
+    CHECK(hb_rgb888_crop(src, 32, 32, 0, 0, 8, 8, crop, sizeof(crop)));
+    CHECK(crop[0] == 240 && crop[1] == 100 && crop[2] == 10);
+    CHECK(!hb_rgb888_crop(src, 32, 32, 30, 0, 8, 8, crop, sizeof(crop)));
+    CHECK(!hb_rgb888_crop(src, 32, 32, 0, 0, 8, 8, crop, 1));
+    CHECK(hb_rgb888_crop_scaled(src, 32, 32, 0, 0, 32, 32, crop, 8, 8, sizeof(crop)));
+    CHECK(crop[0] == 240 && crop[1] == 100 && crop[2] == 10);
+    CHECK(!hb_rgb888_crop_scaled(src, 32, 32, 0, 0, 8, 8, crop, 9, 8, sizeof(crop)));
+    hb_rgb888_stats q = hb_rgb888_quality(src, 32, 32, 0, 0, 32, 32);
+    CHECK(q.valid && q.contrast < 1 && q.detail == 0);
+    memset(src, 0, sizeof(src));
+    q = hb_rgb888_quality(src, 32, 32, 0, 0, 32, 32);
+    CHECK(q.valid && q.clipped == 1 && q.mean == 0);
+    unsigned lines = 1000, gain = 256;
+    hb_camera_exposure_plan(25, 1100, 1000, 256, 125, true, &lines, &gain);
+    CHECK(lines == 400 && gain == 640);
+    hb_camera_exposure_plan(25, 1100, 400, 2048, 20, true, &lines, &gain);
+    CHECK(lines >= 400 && lines <= 1100 && gain <= 2048);
+}
 int main(void)
 {
     controller();
@@ -258,6 +327,9 @@ int main(void)
     dark_limit();
     preview();
     raw_frame();
+    isp_gamma();
+    isp_color_curves();
+    rgb888();
     puts("brightness, bounded frame leases, robust exposure-compensated meter: OK");
     return 0;
 }

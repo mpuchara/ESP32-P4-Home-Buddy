@@ -61,6 +61,11 @@ extern "C"
         uint64_t created_id, saved_id, deleted_id; // Worker completion receipts.
         hb_id_mode mode;
         hb_id_match match;
+        hb_id_match calibration[4];
+        unsigned calibration_ta[4], calibration_fr[4], calibration_fa[4];
+        unsigned calibration_confusion[4], calibration_unavailable[4];
+        unsigned detector_size;
+        bool fused, ppa_used, aligned_valid;
         bool ready, confirmed, verified, official_landmarks, detection_valid;
         bool persistence_ready, auto_enabled;
         bool storage_saved, storage_saving;
@@ -97,6 +102,7 @@ extern "C"
     esp_err_t hb_identity_start(void);
     void hb_identity_get(hb_id_status *out);
     bool hb_identity_preview(uint16_t *rgb565, size_t pixels, hb_id_status *status);
+    bool hb_identity_aligned(uint16_t *rgb565, size_t pixels, uint32_t sequence);
     // Called from UI thread. Revalidates session/freshness/profile and per-person cooldown.
     bool hb_identity_greeting(uint64_t now_ms, char name[HB_ID_NAME]);
     // Compatibility consumer; independent from greetings and HA HTTP.

@@ -24,7 +24,7 @@ dependencies:
       type: service
     version: 1.1.6
   espressif/esp-dl:
-    component_hash: 3608ac32875cb7fa93805fba2372619bde3d8a02cee47c622cf5e91a1308fe92
+    component_hash: bec531351a359de9f49f7bad90038e5328a24d004da56d0a27731f9448ce7af8
     dependencies:
     - name: espressif/dl_fft
       registry_url: https://components.espressif.com
@@ -50,7 +50,7 @@ dependencies:
     - esp32s2
     - esp32s3
     - esp32s31
-    version: 3.3.14
+    version: 3.3.15
   espressif/esp_codec_dev:
     component_hash: 4779f31a3ba3f9b38aee1afe6ccb9ba8f6108dc3a6e77d39d7d714e9a215371b
     dependencies:
@@ -145,16 +145,16 @@ dependencies:
       type: service
     version: 1.2.2
   espressif/human_face_detect:
-    component_hash: 0b2d938ce60c629eedeff0b5888eb1145633430475047ea84bf87c160cc2ca6e
+    component_hash: 78e59910d978521b75402062adb6496deb8f03b45581c39c748fa15000bf3e28
     dependencies:
     - name: espressif/esp-dl
       registry_url: https://components.espressif.com
       require: private
-      version: ~3.3.13
+      version: ~3.3.14
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 0.5.1
+    version: 0.5.2
   espressif/human_face_recognition:
     component_hash: 1c7d89f2bdf59ecf8396d657576cbf88739b20156edf990df0f9859e018c08f8
     dependencies:

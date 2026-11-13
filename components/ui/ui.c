@@ -76,7 +76,8 @@ static void update(lv_timer_t *timer);
 static lv_obj_t *camera_info, *camera_photo, *brightness_info, *pwm_info;
 static lv_obj_t *monitor_info, *quality_info;
 static lv_obj_t *face_label, *presence_label, *face_boxes[HB_FACE_MAX];
-static lv_img_dsc_t camera_image;
+static lv_img_dsc_t camera_image, aligned_image;
+static bool aligned_view;
 static uint16_t *preview_pixels;
 static bool preview_enabled;
 static uint32_t preview_tick, preview_sequence;
@@ -229,6 +230,7 @@ static void close_page(void)
         }
     }
     identity_screen = false;
+    aligned_view = false;
     voice_screen = false;
     resume_auto = false;
     recognition_settings = false;
@@ -258,12 +260,14 @@ static void close_page(void)
     if (preview_pixels)
     {
         lv_img_cache_invalidate_src(&camera_image);
+        lv_img_cache_invalidate_src(&aligned_image);
         // Delete the image widget before releasing its descriptor storage.
         if (camera_photo)
             lv_obj_del(camera_photo);
         free(preview_pixels);
         preview_pixels = NULL;
         memset(&camera_image, 0, sizeof(camera_image));
+        memset(&aligned_image, 0, sizeof(aligned_image));
     }
     camera_photo = NULL;
     diagnostic = false;
@@ -661,6 +665,20 @@ static void voice_enrollment_page(lv_event_t *e)
     lv_obj_set_width(identity_info, 745);
     lv_scr_load(page);
 }
+static void identity_aligned_toggle(lv_event_t *e)
+{
+    (void)e;
+    if (!camera_photo || !preview_pixels)
+        return;
+    aligned_view = !aligned_view;
+    lv_img_cache_invalidate_src(&camera_image);
+    lv_img_cache_invalidate_src(&aligned_image);
+    lv_img_set_src(camera_photo, aligned_view ? &aligned_image : &camera_image);
+    lv_obj_set_pos(camera_photo, aligned_view ? 46 : 12, aligned_view ? 125 : 70);
+    for (unsigned i = 0; i < 5; ++i)
+        lv_obj_add_flag(identity_marks[i], LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(identity_box, LV_OBJ_FLAG_HIDDEN);
+}
 static void identity_page(lv_event_t *e)
 {
     bool enroll = e && (uintptr_t)lv_event_get_user_data(e) == 1;
@@ -704,9 +722,13 @@ static void identity_page(lv_event_t *e)
                (void *)(uintptr_t)HB_ID_CMD_LANDMARK_METHOD);
         button(page, "Stop", 590, 125, 190, identity_send, (void *)(uintptr_t)HB_ID_CMD_STOP);
     }
+    button(page, "112x112 / kamera", 205, 125, 180, identity_aligned_toggle, NULL);
     preview_pixels = heap_caps_calloc(180 * 318, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (preview_pixels)
     {
+        aligned_image = (lv_img_dsc_t){.header = {.cf = LV_IMG_CF_TRUE_COLOR, .w = 112, .h = 112},
+                                       .data_size = 112 * 112 * 2,
+                                       .data = (const uint8_t *)preview_pixels};
         camera_image = (lv_img_dsc_t){.header = {.cf = LV_IMG_CF_TRUE_COLOR, .w = 180, .h = 318},
                                       .data_size = 180 * 318 * 2,
                                       .data = (const uint8_t *)preview_pixels};
@@ -927,20 +949,51 @@ static void identity_update(void)
                           s->mode != HB_ID_ENROLL && !s->storage_saved ? "Ponów zapis"
                                                                        : "Potwierdź zapis profilu");
     }
+    else if (aligned_view)
+    {
+        const char *fmt = "MBF 112x112 | det %u | PPA %d | fuzja %d\nTA/FR/FA/mylne/brak";
+        snprintf(text, sizeof(text), fmt, s->detector_size, s->ppa_used, s->fused);
+        const char *thresholds[] = {"0.70", "0.65", "0.60", "0.50 ref"};
+        for (unsigned k = 0; k < 4; ++k)
+        {
+            size_t len = strlen(text);
+            const char *name = thresholds[k];
+            unsigned ta = s->calibration_ta[k], fr = s->calibration_fr[k];
+            unsigned fa = s->calibration_fa[k], wrong = s->calibration_confusion[k];
+            unsigned missing = s->calibration_unavailable[k];
+            char row[100];
+            snprintf(row, sizeof(row), "\n%s: %u/%u/%u/%u/%u", name, ta, fr, fa, wrong, missing);
+            strlcpy(text + len, row, sizeof(text) - len);
+        }
+        size_t len = strlen(text);
+        snprintf(text + len, sizeof(text) - len, "\nPróby znane %u / gość %u | %s",
+                 s->evaluation.known_trials, s->evaluation.unknown_trials, s->message);
+        lv_label_set_text(identity_info, text);
+    }
     else
         lv_label_set_text(identity_info, text);
     if (preview_pixels)
     {
         hb_id_status *preview = &identity_workspace.preview;
         bool same = hb_identity_preview(preview_pixels, 180 * 318, preview);
+        if (aligned_view)
+        {
+            if (!same || !hb_identity_aligned(preview_pixels, 180 * 318, preview->sequence))
+                memset(preview_pixels, 0, 112 * 112 * 2);
+            lv_img_cache_invalidate_src(&aligned_image);
+            lv_obj_invalidate(camera_photo);
+            for (unsigned i = 0; i < 5; ++i)
+                lv_obj_add_flag(identity_marks[i], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(identity_box, LV_OBJ_FLAG_HIDDEN);
+            return;
+        }
         if (!same)
         {
             hb_camera_frame frame = {0};
             if (hb_camera_acquire(&frame))
             {
-                hb_raw_thumbnail_upright(frame.pixels, frame.width, frame.height, preview_pixels,
-                                         180, 318);
-                hb_camera_make_preview(preview_pixels, 180, 318, preview_pixels, 180, 318);
+                hb_rgb888_preview(frame.pixels, frame.width, frame.height, preview_pixels, 180,
+                                  318);
                 hb_camera_release(&frame);
             }
         }
@@ -1532,7 +1585,7 @@ static void camera_brightness_update(void)
 {
     if (!camera_info && !brightness_info && !monitor_info && !quality_info)
         return;
-    if ((uint32_t)(lv_tick_get() - preview_tick) < 100)
+    if ((uint32_t)(lv_tick_get() - preview_tick) < 33)
         return;
     preview_tick = lv_tick_get();
     hb_camera_status camera;
@@ -1556,7 +1609,7 @@ static void camera_brightness_update(void)
             camera_info_tick = lv_tick_get();
             char text[640];
             snprintf(text, sizeof(text),
-                     "ID: 0x%04x  %s\n%u x %u RAW8 | %.1f FPS\nKlatki: %u  Błędy: %u\nPominięte: "
+                     "ID: 0x%04x  %s\n%u x %u RGB888 | %.1f FPS\nKlatki: %u  Błędy: %u\nPominięte: "
                      "%u\nExp: %.0f us G: %.1f/%.1f\nŚwiatło: %s\nPodgląd: %.1f "
                      "FPS RAM: %u MB\n%s",
                      camera.sensor_id,
@@ -1580,10 +1633,8 @@ static void camera_brightness_update(void)
                 if (frame.sequence != preview_sequence)
                 {
                     int64_t started = esp_timer_get_time();
-                    hb_raw_thumbnail_upright(frame.pixels, frame.width, frame.height,
-                                             preview_pixels, 180, 318);
-                    if (!camera.test_pattern)
-                        hb_camera_make_preview(preview_pixels, 180, 318, preview_pixels, 180, 318);
+                    hb_rgb888_preview(frame.pixels, frame.width, frame.height, preview_pixels, 180,
+                                      318);
                     preview_sequence = frame.sequence;
                     preview_count++;
                     if (preview_count % 50 == 0)
@@ -2093,7 +2144,7 @@ esp_err_t hb_ui_start(void)
     jobs = xQueueCreate(2, sizeof(config_job));
     if (!commands || !jobs)
         return ESP_ERR_NO_MEM;
-    pixels = heap_caps_aligned_alloc(64, 800 * 480 * sizeof(lv_color_t),
+    pixels = heap_caps_aligned_alloc(128, 800 * 480 * sizeof(lv_color_t),
                                      MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!pixels)
         return ESP_ERR_NO_MEM;
@@ -2121,7 +2172,7 @@ esp_err_t hb_ui_start(void)
         return err;
     if (xTaskCreate(config_worker, "config", 8192, NULL, 1, NULL) != pdPASS)
         return ESP_ERR_NO_MEM;
-    if (xTaskCreate(task, "lvgl", 8192, NULL, 3, NULL) != pdPASS)
+    if (xTaskCreatePinnedToCore(task, "lvgl", 8192, NULL, 3, NULL, 0) != pdPASS)
         return ESP_ERR_NO_MEM;
     ESP_LOGI("ui", "LVGL 800x480 ready; queued image/config commands");
     return ESP_OK;

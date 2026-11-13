@@ -15,3 +15,17 @@ menu "Home Buddy"
             Opt in after checking the installed C6 firmware against esp_hosted.
             Does not flash the C6. Scan runs in its own worker task.
 endmenu
+
+# Component manager also evaluates conditional manifests of newer ESP-Hosted
+# releases while resolving the pinned SDIO-only 2.12.2 component. These USB
+# transport switches do not exist in 2.12.2. Explicit integer zero keeps
+# these optional dependencies disabled in all four build profiles.
+config ESP_HOSTED_HOST_USB_CDC_ACM_MANIFEST
+    int
+    default 0
+config ESP_HOSTED_HOST_USB_RNDIS_MANIFEST
+    int
+    default 0
+config ESP_HOSTED_HOST_USB_CHERRYUSB_MANIFEST
+    int
+    default 0

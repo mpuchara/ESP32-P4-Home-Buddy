@@ -19,6 +19,10 @@ extern "C"
     bool hb_enroll_sample_coherent(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
                                    bool alignment, uint32_t sequence, uint64_t frame_ms,
                                    const hb_id_policy *policy, unsigned *progress, bool *ready);
+    // Three coherent frontal anchors, then independently supported diverse samples.
+    bool hb_enroll_sample_diverse(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
+                                  uint32_t sequence, uint64_t frame_ms, unsigned *progress,
+                                  bool *ready);
     hb_enroll_step hb_enroll_next(const hb_id_enrollment *en, unsigned faces, bool valid,
                                   uint32_t sequence, uint64_t frame_ms);
 #ifdef __cplusplus

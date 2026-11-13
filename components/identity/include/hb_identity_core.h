@@ -101,6 +101,9 @@ extern "C"
                        uint8_t *rgb, size_t capacity);
     bool hb_id_roi_map(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih, unsigned raw_w,
                        unsigned raw_h, hb_id_roi *out);
+    // Larger source crop for very near faces; caller must downscale to its bounded scratch.
+    bool hb_id_roi_map_large(int x1, int y1, int x2, int y2, unsigned iw, unsigned ih,
+                             unsigned raw_w, unsigned raw_h, hb_id_roi *out);
     // Inverse 90-degree CCW transform, upright pixel -> sensor pixel.
     bool hb_id_to_sensor(unsigned x, unsigned y, unsigned raw_w, unsigned raw_h, unsigned *sx,
                          unsigned *sy);
@@ -112,6 +115,12 @@ extern "C"
     bool hb_id_policy_valid(const hb_id_policy *policy);
     hb_id_match hb_id_match_embedding(const hb_id_database *db, const hb_id_embedding *e,
                                       const hb_id_policy *policy);
+    // Top-1 reference scores with optional household ambiguity/support protection.
+    hb_id_match hb_id_match_top1(const hb_id_database *db, const hb_id_embedding *e,
+                                 const hb_id_policy *policy, bool protected_match);
+    bool hb_id_blend(hb_id_embedding *out, const hb_id_embedding *a, const hb_id_embedding *b,
+                     float weight_a, float weight_b);
+    bool hb_id_same_roi(hb_id_roi a, hb_id_roi b);
     void hb_id_tracker_reset(hb_id_tracker *t, uint32_t session);
     bool hb_id_confirm(hb_id_tracker *t, hb_id_match match, uint32_t session, uint32_t sequence,
                        uint64_t frame_ms, uint64_t completed_ms, uint64_t now_ms,

@@ -104,6 +104,8 @@ static void geometry(void)
     assert(!hb_id_roi_map(-1, 100, 160, 250, 234, 416, 1288, 728, &roi));
     assert(!hb_id_roi_map(100, 100, 100, 250, 234, 416, 1288, 728, &roi));
     assert(!hb_id_roi_map(0, 0, 233, 415, 234, 416, 1288, 728, &roi)); // bounded ROI refusal
+    assert(hb_id_roi_map_large(0, 0, 233, 415, 234, 416, 1288, 728, &roi));
+    assert(roi.w <= 728 && roi.h <= 1288 && roi.h > 640);
     uint8_t raw[32 * 32], rgb[32 * 32 * 3];
     for (unsigned y = 0; y < 32; ++y)
         for (unsigned x = 0; x < 32; ++x)
@@ -339,6 +341,43 @@ static void coherent_enrollment(void)
     free(en);
     free(db);
 }
+static void adaptive_matching(void)
+{
+    hb_id_database *db = calloc(1, sizeof(*db));
+    hb_id_enrollment *en = calloc(1, sizeof(*en));
+    assert(db && en);
+    hb_id_database_init(db, 123);
+    uint64_t a = hb_id_create(db, "A"), b = hb_id_create(db, "B");
+    hb_id_embedding query = vector(0, 1);
+    fill(db, a, vector(0, .59f), 8);
+    fill(db, b, vector(2, 1), 8);
+    hb_id_policy sensitive = {.50f, .10f, .45f, 3};
+    assert(hb_id_match_top1(db, &query, &sensitive, true).person_id == a);
+    assert(hb_id_match_embedding(db, &query, &policy).state == HB_ID_UNKNOWN);
+    fill(db, b, vector(0, .55f), 8);
+    assert(hb_id_match_top1(db, &query, &sensitive, true).state == HB_ID_AMBIGUOUS);
+    assert(hb_id_match_top1(db, &query, &sensitive, false).person_id == a);
+    hb_id_embedding out, other = vector(0, .8f);
+    assert(hb_id_blend(&out, &query, &other, 1, 1));
+    assert(hb_id_embedding_valid(&out));
+    other = vector(4, 1);
+    assert(!hb_id_blend(&out, &query, &other, 1, 1));
+    assert(hb_id_same_roi((hb_id_roi){0, 0, 100, 100}, (hb_id_roi){10, 10, 100, 100}));
+    assert(!hb_id_same_roi((hb_id_roi){0, 0, 100, 100}, (hb_id_roi){200, 0, 100, 100}));
+    assert(hb_enroll_fresh(db, en, a));
+    unsigned progress = 0;
+    bool ready = false;
+    for (unsigned i = 0; i < 8; ++i)
+    {
+        float v = i < 3 ? .95f : .70f;
+        hb_id_embedding e = cohort(0, i + 1, v);
+        assert(hb_enroll_sample_diverse(en, &e, 1, i + 1, (i + 1) * 1000, &progress, &ready));
+    }
+    assert(ready && progress == 8);
+    assert(!hb_enroll_sample_diverse(en, &other, 1, 9, 9000, &progress, &ready));
+    free(en);
+    free(db);
+}
 int main(void)
 {
     hb_id_evaluation stats = {0};
@@ -368,6 +407,7 @@ int main(void)
     temporal();
     enrollment();
     coherent_enrollment();
+    adaptive_matching();
     puts("Identity: geometry, native ROI, embeddings, profiles, matching, temporal and enrollment "
          "passed");
     return 0;

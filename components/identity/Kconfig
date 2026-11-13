@@ -20,13 +20,13 @@ config HB_IDENTITY_LOCAL_UNENCRYPTED
 config HB_IDENTITY_THRESHOLD_MILLI
     int "Experimental cosine acceptance threshold (thousandths)"
     range 0 1000
-    default 700
+    default 500
 config HB_IDENTITY_MARGIN_MILLI
     int "Experimental different-person margin (thousandths)"
     range 1 1000
-    default 120
+    default 100
 config HB_IDENTITY_AGREEMENT_MILLI
     int "Experimental template agreement floor (thousandths)"
     range 0 1000
-    default 600
+    default 450
 endmenu

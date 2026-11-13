@@ -11,6 +11,16 @@ string(REPLACE "ctlr->h_res * ctlr->v_res * ctlr->in_bpp / 64"
                "ctlr->h_res * ctlr->v_res * ctlr->out_bpp / 64" csi "${csi}")
 string(REPLACE "ctlr->trans.buffer), ctlr->trans.received_size, ESP_CACHE_MSYNC_FLAG_DIR_M2C"
                "ctlr->trans.buffer), ctlr->fb_size_in_bytes, ESP_CACHE_MSYNC_FLAG_DIR_M2C" csi "${csi}")
+# RGB888 payload ends 64 bytes into a 128-byte L2 cache line. Pad the backing
+# allocation and cache maintenance, not the DMA transfer or published length.
+string(REPLACE "heap_caps_aligned_alloc(alignment, ctlr->fb_size_in_bytes, MALLOC_CAP_SPIRAM)"
+               "heap_caps_aligned_alloc(alignment, (ctlr->fb_size_in_bytes + 127U) & ~127U, MALLOC_CAP_SPIRAM)" csi "${csi}")
+string(REPLACE "ctlr->backup_buffer), ctlr->fb_size_in_bytes, ESP_CACHE_MSYNC_FLAG_DIR_C2M"
+               "ctlr->backup_buffer), (ctlr->fb_size_in_bytes + 127U) & ~127U, ESP_CACHE_MSYNC_FLAG_DIR_C2M" csi "${csi}")
+string(REPLACE "ctlr->trans.buffer), ctlr->fb_size_in_bytes, ESP_CACHE_MSYNC_FLAG_DIR_M2C"
+               "ctlr->trans.buffer), (ctlr->fb_size_in_bytes + 127U) & ~127U, ESP_CACHE_MSYNC_FLAG_DIR_M2C" csi "${csi}")
+string(REPLACE "heap_caps_calloc(1, size, buf_caps)"
+               "heap_caps_aligned_calloc(128, 1, (size + 127U) & ~127U, buf_caps)" csi "${csi}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/esp_cam_ctlr_csi.c" "${csi}")
 idf_component_register(
     SRCS "${native}/esp_cam_ctlr.c" "${native}/dvp_share_ctrl.c"

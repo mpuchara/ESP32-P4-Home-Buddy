@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include "driver/ppa.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_random.h"
@@ -17,6 +18,7 @@
 #include "hb_profile_store_v2.h"
 #include "hb_voice.h"
 #include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -47,6 +49,8 @@ static hb_id_database *database;
 static hb_id_enrollment *enrollment;
 static uint16_t *published_preview;
 static uint32_t preview_sequence;
+static uint16_t *aligned_preview;
+static uint32_t aligned_sequence;
 static portMUX_TYPE event_lock = portMUX_INITIALIZER_UNLOCKED;
 static hb_event_bus event_bus;
 static uint64_t boot_id;
@@ -70,6 +74,12 @@ static bool voice_verifying;
 static const hb_id_policy policy{CONFIG_HB_IDENTITY_THRESHOLD_MILLI / 1000.0f,
                                  CONFIG_HB_IDENTITY_MARGIN_MILLI / 1000.0f,
                                  CONFIG_HB_IDENTITY_AGREEMENT_MILLI / 1000.0f, 3};
+// Stronger enrollment validation remains independent of the recognition threshold.
+static const hb_id_policy enrollment_policy{0.65f, 0.10f, 0.55f, 3};
+static const hb_id_policy shadow_policies[] = {{0.70f, 0.12f, 0.60f, 3},
+                                               {0.65f, 0.10f, 0.55f, 3},
+                                               {0.60f, 0.10f, 0.50f, 3},
+                                               {0.50f, 0.10f, 0.45f, 3}};
 static hb_id_mode resting_mode(bool auto_enabled)
 {
     unsigned usable = 0;
@@ -324,15 +334,21 @@ static bool persistence_commit(hb_id_status &s, bool deletion)
 class Models
 {
   public:
-    HumanFaceDetect *detector = nullptr, *official = nullptr;
+    HumanFaceDetect *detector = nullptr, *official = nullptr, *fast = nullptr;
     human_face_detect::MNP *mnp = nullptr;
     HumanFaceFeat *mbf = nullptr;
-    uint8_t *raw = nullptr, *roi_pixels = nullptr;
+    uint8_t *candidate = nullptr, *roi_pixels = nullptr;
     uint16_t *thumbnail = nullptr;
-    static constexpr size_t raw_capacity = 1288 * 728;
+    ppa_client_handle_t ppa = nullptr;
+    uint8_t *scaled = nullptr;
+    static constexpr size_t scaled_bytes = 364 * 644 * 3;
+    unsigned detection_round = 0;
+    uint64_t last_roi_ms = 0;
+    hb_id_roi last_roi{};
+    static constexpr size_t candidate_bytes = HB_FACE_INPUT_WIDTH * HB_FACE_INPUT_HEIGHT * 3;
     void unload()
     {
-        if (!mbf && !official && !mnp && !detector && !raw && !roi_pixels && !thumbnail)
+        if (!mbf && !official && !mnp && !detector && !candidate && !roi_pixels && !thumbnail)
             return;
         ESP_LOGI("identity", "MODEL_RELEASE begin heap_ok=%d stack_min=%u",
                  heap_caps_check_integrity_all(true),
@@ -346,8 +362,16 @@ class Models
         mnp = nullptr;
         delete detector;
         detector = nullptr;
-        free(raw);
-        raw = nullptr;
+        delete fast;
+        fast = nullptr;
+        if (ppa)
+            ppa_unregister_client(ppa);
+        ppa = nullptr;
+        free(scaled);
+        scaled = nullptr;
+        last_roi_ms = 0;
+        free(candidate);
+        candidate = nullptr;
         free(roi_pixels);
         roi_pixels = nullptr;
         free(thumbnail);
@@ -392,18 +416,19 @@ class Models
         ESP_LOGI("identity",
                  "MODEL_ADMISSION internal=%u largest_internal=%u psram=%u largest_psram=%u",
                  (unsigned)i, (unsigned)largest_i, (unsigned)p, (unsigned)largest_p);
-        if (p < 20 * 1024 * 1024 || largest_p < 12 * 1024 * 1024 || i < 180 * 1024 ||
+        if (p < 16 * 1024 * 1024 || largest_p < 8 * 1024 * 1024 || i < 180 * 1024 ||
             largest_i < 64 * 1024)
         {
             message(s, "Za mało pamięci na bezpieczny start MBF");
             return false;
         }
-        raw = (uint8_t *)heap_caps_malloc(raw_capacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        roi_pixels =
-            (uint8_t *)heap_caps_malloc(640 * 640 * 3, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        candidate =
+            (uint8_t *)heap_caps_malloc(candidate_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        uint32_t caps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+        roi_pixels = (uint8_t *)heap_caps_aligned_alloc(128, 640 * 640 * 3, caps);
         thumbnail =
             (uint16_t *)heap_caps_malloc(HB_FACE_INPUT_BYTES, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        if (!raw || !roi_pixels || !thumbnail)
+        if (!candidate || !roi_pixels || !thumbnail)
         {
             unload();
             return false;
@@ -440,77 +465,295 @@ class Models
             message(s, "Przekroczono budżet pamięci modeli");
             return false;
         }
+        // Optional accelerators: do not consume the existing model safety reserve.
+        if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 10 * 1024 * 1024 &&
+            heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) > 2 * 1024 * 1024 &&
+            heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) > 160 * 1024)
+        {
+            fast = new (std::nothrow)
+                HumanFaceDetect(HumanFaceDetect::ESPDET_PICO_224_224_FACE, false);
+        }
+        if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 8 * 1024 * 1024)
+        {
+            ppa_client_config_t cfg{};
+            cfg.oper_type = PPA_OPERATION_SRM;
+            cfg.max_pending_trans_num = 1;
+            if (ppa_register_client(&cfg, &ppa) == ESP_OK)
+            {
+                size_t bytes = (scaled_bytes + 127) & ~127U;
+                scaled = (uint8_t *)heap_caps_aligned_alloc(128, bytes, caps);
+            }
+        }
         s.model_load_us = esp_timer_get_time() - load_started;
         return true;
+    }
+    bool accelerate(const hb_camera_frame &f, unsigned x, unsigned y, unsigned w, unsigned h,
+                    uint8_t *dst, size_t capacity, bool half)
+    {
+        if (!ppa || !dst || x + w > f.height || y + h > f.width)
+            return false;
+        ppa_srm_oper_config_t op{};
+        op.in.buffer = f.pixels;
+        op.in.pic_w = f.width;
+        op.in.pic_h = f.height;
+        op.in.block_w = h;
+        op.in.block_h = w;
+        op.in.block_offset_x = f.width - y - h;
+        op.in.block_offset_y = x;
+        op.in.srm_cm = PPA_SRM_COLOR_MODE_RGB888;
+        op.out.buffer = dst;
+        op.out.buffer_size = capacity;
+        op.out.pic_w = half ? w / 2 : w;
+        op.out.pic_h = half ? h / 2 : h;
+        op.out.srm_cm = PPA_SRM_COLOR_MODE_RGB888;
+        op.scale_x = op.scale_y = half ? 0.5f : 1.0f;
+        op.rotation_angle = PPA_SRM_ROTATION_ANGLE_90;
+        op.rgb_swap = true;
+        op.mode = PPA_TRANS_MODE_BLOCKING;
+        return ppa_do_scale_rotate_mirror(ppa, &op) == ESP_OK;
+    }
+    bool crop_cpu(const hb_camera_frame &f, hb_id_roi roi, unsigned cw, unsigned ch)
+    {
+        unsigned w = f.width, h = f.height;
+        unsigned x = roi.x, y = roi.y, rw = roi.w, rh = roi.h;
+        auto *dst = roi_pixels;
+        const auto *src = f.pixels;
+        size_t cap = 640 * 640 * 3;
+        return hb_rgb888_crop_scaled(src, w, h, x, y, rw, rh, dst, cw, ch, cap);
+    }
+    bool prepare(const hb_camera_frame &f)
+    {
+        if (scaled && f.width == 1288 && f.height == 728 &&
+            accelerate(f, 0, 0, f.height, f.width, scaled, (scaled_bytes + 127) & ~127U, true))
+        {
+            // Exact half-size PPA, then remap to the existing detector coordinate convention.
+            for (unsigned y = 0; y < HB_FACE_INPUT_HEIGHT; ++y)
+                for (unsigned x = 0; x < HB_FACE_INPUT_WIDTH; ++x)
+                {
+                    unsigned sx = x * 363 / HB_FACE_INPUT_WIDTH;
+                    unsigned sy = y * 643 / HB_FACE_INPUT_HEIGHT;
+                    const uint8_t *p = scaled + (sy * 364 + sx) * 3;
+                    memcpy(candidate + (y * HB_FACE_INPUT_WIDTH + x) * 3, p, 3);
+                }
+            return true;
+        }
+        hb_rgb888_thumbnail(f.pixels, f.width, f.height, candidate, HB_FACE_INPUT_WIDTH,
+                            HB_FACE_INPUT_HEIGHT);
+        return false;
+    }
+    void capture_aligned(hb_id_status &s, const dl::image::img_t &crop,
+                         const std::vector<int> &keypoints)
+    {
+        if (!aligned_preview)
+            return;
+        // Same upstream preprocessor and normalization as the MBF wrapper. Capture before
+        // inference, because ESP-DL may reuse input memory while executing the graph.
+        std::array<float, 3> normalization{127.5f, 127.5f, 127.5f};
+        auto *model = mbf->get_raw_model();
+        dl::image::FeatImagePreprocessor pre(model, normalization, normalization, true);
+        pre.preprocess(crop, keypoints);
+        auto *input = mbf->get_raw_model()->get_input();
+        if (!input || !input->data || input->dtype != dl::DATA_TYPE_INT8 ||
+            input->get_size() != 112 * 112 * 3)
+            return;
+        int exponent = input->exponent;
+        if (exponent < -16 || exponent > 0)
+            return;
+        const int8_t *q = static_cast<const int8_t *>(input->data);
+        float scale = std::ldexp(127.5f, exponent);
+        xSemaphoreTake(guard, portMAX_DELAY);
+        for (unsigned i = 0; i < 112 * 112; ++i)
+        {
+            unsigned c[3];
+            for (unsigned j = 0; j < 3; ++j)
+            {
+                float v = q[i * 3 + j] * scale + 127.5f;
+                c[j] = (unsigned)std::fmin(255.0f, std::fmax(0.0f, v));
+            }
+            aligned_preview[i] = ((c[0] >> 3) << 11) | ((c[1] >> 2) << 5) | (c[2] >> 3);
+        }
+        aligned_sequence = s.sequence;
+        s.aligned_valid = true;
+        xSemaphoreGive(guard);
     }
     bool infer(hb_id_status &s, hb_id_embedding &embedding)
     {
         hb_camera_status cs{};
         hb_camera_get_status(&cs);
-        hb_camera_frame f{};
-        if (!cs.running || cs.test_pattern || !hb_camera_acquire(&f))
+        if (!cs.running || cs.test_pattern)
         {
             message(s, "Brak aktualnej klatki kamery");
             return false;
         }
-        unsigned rw = f.width, rh = f.height;
         uint64_t begin = esp_timer_get_time();
-        bool valid = f.rotation_ccw == 90 && rw >= 32 && rh >= 32 && !(rw & 1) && !(rh & 1) &&
-                     (size_t)rw * rh <= raw_capacity && f.sequence > s.sequence && f.timestamp_ms &&
-                     f.timestamp_ms <= now_ms() && now_ms() - f.timestamp_ms <= 500;
-        if (valid)
+        uint32_t seen = s.sequence;
+        float best_rank = -1000, best_score = 0;
+        int box[4] = {};
+        unsigned rw = 0, rh = 0, crop_w = 0, crop_h = 0;
+        hb_rgb888_stats best_quality{};
+        unsigned attempts = s.mode == HB_ID_ENROLL ? 3 : 2;
+        bool multiple = false;
+        uint32_t detection_us = 0;
+        for (unsigned attempt = 0; attempt < attempts; ++attempt)
         {
-            // One reusable RAW8 snapshot preserves exact-frame ROI pixels after releasing DMA.
-            memcpy(raw, f.pixels, (size_t)rw * rh);
-            s.sequence = f.sequence;
-            s.frame_ms = f.timestamp_ms;
+            hb_camera_frame f{};
+            if (!hb_camera_acquire(&f))
+                break;
+            uint64_t now = now_ms();
+            bool valid = f.rotation_ccw == 90 && f.width >= 32 && f.height >= 32 &&
+                         f.sequence > seen && f.timestamp_ms && f.timestamp_ms <= now &&
+                         now - f.timestamp_ms <= 500;
+            if (!valid)
+            {
+                hb_camera_release(&f);
+                vTaskDelay(pdMS_TO_TICKS(40));
+                continue;
+            }
+            seen = f.sequence;
+            s.ppa_used = prepare(f);
+            dl::image::img_t small{.data = candidate,
+                                   .width = HB_FACE_INPUT_WIDTH,
+                                   .height = HB_FACE_INPUT_HEIGHT,
+                                   .pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB888};
+            int64_t detect_begin = esp_timer_get_time();
+            // Full-scene audit regularly, and whenever the fast detector is uncertain.
+            bool full = !fast || s.mode == HB_ID_ENROLL || !last_roi_ms ||
+                        now - last_roi_ms > 2000 || (++detection_round % 4 == 0);
+            auto *active = full ? detector : fast;
+            auto *results = &active->run(small);
+            if (!full)
+            {
+                bool retry = results->size() != 1;
+                if (!retry)
+                {
+                    const auto &b = results->front().box;
+                    hb_id_roi tracked{};
+                    retry = b.size() != 4 || b[2] - b[0] < 40 || b[3] - b[1] < 40 ||
+                            results->front().score < 0.70f;
+                    if (!retry)
+                        retry = !hb_id_roi_map_large(b[0], b[1], b[2], b[3], HB_FACE_INPUT_WIDTH,
+                                                     HB_FACE_INPUT_HEIGHT, f.width, f.height,
+                                                     &tracked) ||
+                                !hb_id_same_roi(last_roi, tracked);
+                }
+                if (retry)
+                {
+                    results = &detector->run(small);
+                    full = true;
+                }
+            }
+            auto &detections = *results;
+            s.detector_size = full ? 416 : 224;
+            detection_us += esp_timer_get_time() - detect_begin;
+            s.detection_valid = true;
+            if (best_rank == -1000)
+            {
+                s.sequence = f.sequence;
+                s.frame_ms = f.timestamp_ms;
+                s.faces = detections.size();
+                hb_rgb888_preview(f.pixels, f.width, f.height, thumbnail, HB_FACE_INPUT_WIDTH,
+                                  HB_FACE_INPUT_HEIGHT);
+            }
+            if (detections.size() > 1)
+                multiple = true;
+            if (detections.size() == 1 && detections.front().box.size() == 4)
+            {
+                const auto &b = detections.front().box;
+                hb_id_roi roi{};
+                if (hb_id_roi_map(b[0], b[1], b[2], b[3], HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT,
+                                  f.width, f.height, &roi) ||
+                    hb_id_roi_map_large(b[0], b[1], b[2], b[3], HB_FACE_INPUT_WIDTH,
+                                        HB_FACE_INPUT_HEIGHT, f.width, f.height, &roi))
+                {
+                    unsigned x = b[0] * (f.height - 2) / HB_FACE_INPUT_WIDTH;
+                    unsigned y = b[1] * (f.width - 2) / HB_FACE_INPUT_HEIGHT;
+                    unsigned w = (b[2] + 1) * (f.height - 2) / HB_FACE_INPUT_WIDTH - x;
+                    unsigned h = (b[3] + 1) * (f.width - 2) / HB_FACE_INPUT_HEIGHT - y;
+                    hb_camera_face_hint(x, y, w, h, f.timestamp_ms);
+                    auto q = hb_rgb888_quality(f.pixels, f.width, f.height, x, y, w, h);
+                    float rank = hb_rgb888_rank(q) + detections.front().score * 2;
+                    // Prefer stable ISP/exposure; don't indefinitely refuse dark scenes.
+                    if (!f.settled)
+                        rank -= 8;
+                    bool copied = false;
+                    unsigned cw = roi.w, ch = roi.h;
+                    unsigned side = cw > ch ? cw : ch;
+                    if (side > 640)
+                    {
+                        cw = cw * 640 / side;
+                        ch = ch * 640 / side;
+                    }
+                    if (q.valid && rank > best_rank)
+                    {
+                        if (side <= 640)
+                            copied = accelerate(f, roi.x, roi.y, roi.w, roi.h, roi_pixels,
+                                                640 * 640 * 3, false);
+                        if (!copied)
+                        {
+                            copied = crop_cpu(f, roi, cw, ch);
+                        }
+                    }
+                    if (copied)
+                    {
+                        best_rank = rank;
+                        best_score = detections.front().score;
+                        best_quality = q;
+                        for (unsigned i = 0; i < 4; ++i)
+                            box[i] = b[i];
+                        rw = f.width;
+                        rh = f.height;
+                        crop_w = cw;
+                        crop_h = ch;
+                        s.roi = roi;
+                        s.sequence = f.sequence;
+                        s.frame_ms = f.timestamp_ms;
+                        s.faces = 1;
+                        hb_rgb888_preview(f.pixels, rw, rh, thumbnail, HB_FACE_INPUT_WIDTH,
+                                          HB_FACE_INPUT_HEIGHT);
+                    }
+                }
+            }
+            // A single lease spans detection only; no full frame copy and no lease during MBF.
+            hb_camera_release(&f);
+            if (attempt + 1 < attempts)
+                vTaskDelay(pdMS_TO_TICKS(40));
         }
-        hb_camera_release(&f);
-        if (!valid)
+        s.detection_us = detection_us;
+        if (multiple || best_rank == -1000)
         {
-            message(s, "Nieaktualna lub nieobsługiwana klatka");
+            last_roi_ms = 0;
+            s.faces = multiple ? 2 : s.faces;
+            message(s, multiple ? "Wykryto więcej niż jedną twarz" : "Spójrz w kamerę");
             return false;
         }
-        hb_raw_thumbnail_upright(raw, rw, rh, thumbnail, HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
-        hb_camera_make_preview(thumbnail, HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT, thumbnail,
-                               HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
-        dl::image::img_t small{.data = thumbnail,
-                               .width = HB_FACE_INPUT_WIDTH,
-                               .height = HB_FACE_INPUT_HEIGHT,
-                               .pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB565LE};
-        int64_t stage = esp_timer_get_time();
-        auto &detections = detector->run(small);
-        s.detection_valid = true;
-        s.detection_us = esp_timer_get_time() - stage;
-        s.faces = detections.size();
-        if (s.faces != 1 || detections.front().box.size() != 4)
-        {
-            message(s, s.faces > 1 ? "Wykryto więcej niż jedną twarz" : "Spójrz w kamerę");
-            return false;
-        }
-        const auto &box = detections.front().box;
         s.quality = hb_face_quality_measure(thumbnail, HB_FACE_INPUT_BYTES, HB_FACE_INPUT_WIDTH,
                                             HB_FACE_INPUT_HEIGHT, box[0], box[1], box[2], box[3]);
-        if (!hb_id_roi_map(box[0], box[1], box[2], box[3], HB_FACE_INPUT_WIDTH,
-                           HB_FACE_INPUT_HEIGHT, rw, rh, &s.roi))
+        // Enrollment refuses only clearly unusable native crops. Other thresholds stay diagnostic.
+        if (s.mode == HB_ID_ENROLL &&
+            (best_quality.width < 80 || best_quality.height < 80 || best_quality.clipped > 0.65f ||
+             best_quality.mean < 25 || best_quality.mean > 240 || best_quality.contrast < 5))
         {
-            message(s, "Powtórz zdjęcie: twarz poza zakresem ROI");
+            message(s, "Popraw światło lub podejdź bliżej: słaba jakość twarzy");
             return false;
         }
+        last_roi_ms = s.frame_ms;
+        last_roi = s.roi;
         const auto &roi = s.roi;
-        if (!hb_id_raw_roi(raw, (size_t)rw * rh, rw, rh, roi, roi_pixels, 640 * 640 * 3))
-            return false;
         dl::image::img_t crop{.data = roi_pixels,
-                              .width = (uint16_t)roi.w,
-                              .height = (uint16_t)roi.h,
+                              .width = (uint16_t)crop_w,
+                              .height = (uint16_t)crop_h,
                               .pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB888};
         std::list<dl::detect::result_t> candidates;
         int left = box[0] * (rh - 2) / HB_FACE_INPUT_WIDTH - roi.x;
         int top = box[1] * (rw - 2) / HB_FACE_INPUT_HEIGHT - roi.y;
         int right = (box[2] + 1) * (rh - 2) / HB_FACE_INPUT_WIDTH - roi.x;
         int bottom = (box[3] + 1) * (rw - 2) / HB_FACE_INPUT_HEIGHT - roi.y;
-        candidates.push_back({0, detections.front().score, {left, top, right, bottom}, {}});
-        stage = esp_timer_get_time();
+        left = left * (int)crop_w / roi.w;
+        right = right * (int)crop_w / roi.w;
+        top = top * (int)crop_h / roi.h;
+        bottom = bottom * (int)crop_h / roi.h;
+        candidates.push_back({0, best_score, {left, top, right, bottom}, {}});
+        int64_t stage = esp_timer_get_time();
         if (s.official_landmarks && !official &&
             (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) < 8 * 1024 * 1024 ||
              heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 128 * 1024))
@@ -533,13 +776,19 @@ class Models
         hb_id_landmarks local{};
         for (unsigned j = 0; j < 5; ++j)
             local.p[j] = {(float)keypoints[2 * j], (float)keypoints[2 * j + 1]};
-        if (!hb_id_landmarks_valid(&local, roi.w, roi.h))
+        if (!hb_id_landmarks_valid(&local, crop_w, crop_h))
         {
             message(s, "Spójrz w kamerę: nieprawidłowa geometria twarzy");
             return false;
         }
         for (unsigned j = 0; j < 5; ++j)
-            s.landmarks.p[j] = {local.p[j].x + roi.x, local.p[j].y + roi.y};
+        {
+            float x = local.p[j].x * roi.w / crop_w + roi.x;
+            float y = local.p[j].y * roi.h / crop_h + roi.y;
+            s.landmarks.p[j] = {x, y};
+        }
+        if (s.mode == HB_ID_TEST || s.mode == HB_ID_ENROLL)
+            capture_aligned(s, crop, keypoints);
         stage = esp_timer_get_time();
         // Actual upstream similarity alignment + 112x112 RGB preprocessing, not box proportions.
         dl::TensorBase *feat = mbf->run(crop, keypoints);
@@ -573,6 +822,13 @@ class Models
 };
 #endif
 
+#if CONFIG_HB_IDENTITY_EXPERIMENTAL
+static bool sample_diverse(const hb_id_status &s, const hb_id_embedding &e, unsigned &n,
+                           bool &ready)
+{
+    return hb_enroll_sample_diverse(enrollment, &e, s.faces, s.sequence, s.frame_ms, &n, &ready);
+}
+#endif
 static void worker(void *)
 {
     hb_id_status state{};
@@ -599,6 +855,15 @@ static void worker(void *)
 #if CONFIG_HB_IDENTITY_EXPERIMENTAL
     Models models;
     hb_id_embedding embedding{};
+    static hb_id_embedding previous_embedding{}, blended{};
+    hb_id_roi previous_roi{};
+    uint64_t previous_ms = 0;
+    uint32_t previous_ticket = 0;
+    hb_id_match previous_result{};
+    float previous_weight = 1;
+    hb_id_tracker shadow_trackers[4]{};
+    bool shadow_confirmed[4]{};
+    hb_id_evaluation shadow_evaluations[4]{};
 #endif
     for (;;)
     {
@@ -668,6 +933,11 @@ static void worker(void *)
                     evaluation_expected = state.expected_id;
                     evaluation_sequence = state.sequence;
                     hb_id_tracker_reset(&tracker, epoch.load());
+#if CONFIG_HB_IDENTITY_EXPERIMENTAL
+                    for (auto &t : shadow_trackers)
+                        hb_id_tracker_reset(&t, epoch.load());
+                    previous_ms = 0;
+#endif
                     message(state, "Nowa próba: trzy nowe obserwacje; bez zapisu zdjęć");
                 }
                 else
@@ -973,6 +1243,10 @@ static void worker(void *)
             }
             state.confirmed = false;
             state.confirmed_id = 0;
+            state.fused = state.ppa_used = state.aligned_valid = false;
+            state.detector_size = 0;
+            for (auto &m : state.calibration)
+                m = {HB_ID_UNAVAILABLE, 0, -1, -1};
             state.match = {HB_ID_UNAVAILABLE, 0, -1, -1};
             state.landmarks = {};
             state.roi = {};
@@ -1051,9 +1325,8 @@ static void worker(void *)
                             unsigned pool = enrollment->count < HB_ID_TEMPLATES
                                                 ? enrollment->count + 1
                                                 : HB_ID_TEMPLATES;
-                            accepted = hb_enroll_sample_coherent(
-                                enrollment, &embedding, state.faces, true, state.sequence,
-                                state.frame_ms, &policy, &guided_samples, &guided_ready);
+                            accepted =
+                                sample_diverse(state, embedding, guided_samples, guided_ready);
                             if (accepted)
                                 ESP_LOGI(
                                     "identity",
@@ -1064,17 +1337,25 @@ static void worker(void *)
                         else
                             accepted = hb_id_enroll_sample(enrollment, &embedding, state.faces,
                                                            true, state.sequence, state.frame_ms);
-                        message(state, !accepted ? "Próbka podobna lub nieaktualna. Patrz prosto."
-                                       : guided_ready
-                                           ? "Spójny zestaw gotowy. Poczekaj na weryfikację."
-                                           : "Zbieram zgodne próbki. Utrzymaj podobną pozycję.");
+                        const char *hint = "Spójrz prosto, zmień lekko odległość.";
+                        if (!accepted)
+                            hint = "Próbka podobna lub nieaktualna. Patrz prosto.";
+                        else if (guided_ready)
+                            hint = "Spójny zestaw gotowy. Poczekaj na weryfikację.";
+                        else if (!guided || guided_samples < 3)
+                            hint = "Patrz prosto; utrzymaj twarz w kadrze.";
+                        else if (guided_samples < 5)
+                            hint = "Obróć głowę lekko w lewo, bez pośpiechu.";
+                        else if (guided_samples < 7)
+                            hint = "Obróć głowę lekko w prawo.";
+                        message(state, hint);
                     }
                     if (verify && (!guided || guided_ready))
                     {
                         bool accepted = hb_id_enroll_verify(enrollment, &embedding, state.sequence,
-                                                            state.frame_ms, &policy);
+                                                            state.frame_ms, &enrollment_policy);
                         // Reject a new enrollment also matching a different registered person.
-                        auto other = hb_id_match_embedding(database, &embedding, &policy);
+                        auto other = hb_id_match_top1(database, &embedding, &policy, true);
                         bool conflict = other.state == HB_ID_AMBIGUOUS ||
                                         (other.state == HB_ID_KNOWN &&
                                          other.person_id != enrollment->target_id);
@@ -1095,7 +1376,55 @@ static void worker(void *)
                 }
                 else if (ok)
                 {
-                    state.match = hb_id_match_embedding(database, &embedding, &policy);
+                    state.match = hb_id_match_top1(database, &embedding, &policy, true);
+                    for (unsigned k = 0; k < 3; ++k)
+                        state.calibration[k] =
+                            hb_id_match_embedding(database, &embedding, &shadow_policies[k]);
+                    state.calibration[3] =
+                        hb_id_match_top1(database, &embedding, &shadow_policies[3], false);
+                    if (state.mode == HB_ID_TEST)
+                        ESP_LOGI("id_cal", "seq=%u top1=%.3f 70=%u 65=%u 60=%u 50=%u",
+                                 (unsigned)state.sequence, (double)state.calibration[3].best,
+                                 (unsigned)state.calibration[0].state,
+                                 (unsigned)state.calibration[1].state,
+                                 (unsigned)state.calibration[2].state,
+                                 (unsigned)state.calibration[3].state);
+                    for (unsigned k = 0; k < 4; ++k)
+                    {
+                        if (shadow_trackers[k].session != ticket)
+                            hb_id_tracker_reset(&shadow_trackers[k], ticket);
+                        shadow_confirmed[k] = hb_id_confirm(
+                            &shadow_trackers[k], state.calibration[k], ticket, state.sequence,
+                            state.frame_ms, state.completed_ms, now_ms(), &shadow_policies[k]);
+                    }
+                    auto direct = state.match;
+                    float detail = state.quality.detail + 0.15f * state.quality.contrast;
+                    float weight = std::fmax(1.0f, detail);
+                    // Blend only adjacent, overlapping, mutually similar unknown embeddings.
+                    // Never merge known conflicting identities or ambiguous candidates.
+                    bool continuous = previous_ticket == ticket && previous_ms &&
+                                      state.frame_ms > previous_ms &&
+                                      state.frame_ms - previous_ms <= 1800 &&
+                                      hb_id_same_roi(previous_roi, state.roi);
+                    bool candidates_unknown = direct.state == HB_ID_UNKNOWN;
+                    candidates_unknown &= previous_result.state == HB_ID_UNKNOWN;
+                    if (continuous && candidates_unknown &&
+                        hb_id_blend(&blended, &previous_embedding, &embedding, previous_weight,
+                                    weight))
+                    {
+                        auto combined = hb_id_match_top1(database, &blended, &policy, true);
+                        if (combined.state == HB_ID_KNOWN)
+                        {
+                            state.match = combined;
+                            state.fused = true;
+                        }
+                    }
+                    previous_embedding = embedding;
+                    previous_roi = state.roi;
+                    previous_ms = state.fused ? 0 : state.frame_ms;
+                    previous_weight = weight;
+                    previous_ticket = ticket;
+                    previous_result = direct;
                     state.confirmed =
                         hb_id_confirm(&tracker, state.match, ticket, state.sequence, state.frame_ms,
                                       state.completed_ms, now_ms(), &policy);
@@ -1134,6 +1463,13 @@ static void worker(void *)
                 {
                     state.match.state = hb_id_detection_failure(state.detection_valid, state.faces);
                     hb_id_tracker_reset(&tracker, ticket);
+                    previous_ms = 0;
+                    for (unsigned k = 0; k < 4; ++k)
+                    {
+                        hb_id_tracker_reset(&shadow_trackers[k], ticket);
+                        shadow_confirmed[k] = false;
+                        state.calibration[k] = state.match;
+                    }
                 }
             }
             else
@@ -1158,6 +1494,20 @@ static void worker(void *)
                         if (state.total_us > state.evaluation.latency_max_us)
                             state.evaluation.latency_max_us = state.total_us;
                     }
+                }
+                for (unsigned k = 0; k < 4; ++k)
+                {
+                    auto &v = shadow_evaluations[k];
+                    if (state.sequence <= evaluation_sequence || !state.detection_valid)
+                        hb_id_evaluation_unavailable(&v, evaluation_expected);
+                    else
+                        hb_id_evaluate(&v, evaluation_expected, state.calibration[k],
+                                       shadow_confirmed[k], state.sequence, state.frame_ms);
+                    state.calibration_ta[k] = v.true_accept;
+                    state.calibration_fr[k] = v.false_reject;
+                    state.calibration_fa[k] = v.unknown_accept;
+                    state.calibration_confusion[k] = v.confusion;
+                    state.calibration_unavailable[k] = v.unavailable;
                 }
                 evaluate = false;
                 message(state, "Próba oceniona; zmień warunek przed kolejną próbą");
@@ -1235,6 +1585,8 @@ esp_err_t hb_identity_start(void)
                                                           MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         published_preview =
             (uint16_t *)heap_caps_calloc(180 * 318, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        aligned_preview =
+            (uint16_t *)heap_caps_calloc(112 * 112, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         guard = xSemaphoreCreateMutex();
         jobs = xQueueCreate(8, sizeof(hb_id_command));
         if (!database || !enrollment || !published_preview || !guard || !jobs)
@@ -1242,6 +1594,8 @@ esp_err_t hb_identity_start(void)
             free(household);
             free(enrollment);
             free(published_preview);
+            free(aligned_preview);
+            aligned_preview = nullptr;
             if (guard)
                 vSemaphoreDelete(guard);
             if (jobs)
@@ -1256,11 +1610,14 @@ esp_err_t hb_identity_start(void)
         portENTER_CRITICAL(&event_lock);
         hb_event_bus_init(&event_bus);
         portEXIT_CRITICAL(&event_lock);
-        if (xTaskCreate(worker, "local_identity", 12288, nullptr, 1, nullptr) != pdPASS)
+        if (xTaskCreatePinnedToCore(worker, "local_identity", 12288, nullptr, 2, nullptr, 1) !=
+            pdPASS)
         {
             free(household);
             free(enrollment);
             free(published_preview);
+            free(aligned_preview);
+            aligned_preview = nullptr;
             vSemaphoreDelete(guard);
             vQueueDelete(jobs);
             guard = nullptr;
@@ -1333,6 +1690,18 @@ bool hb_identity_preview(uint16_t *pixels, size_t capacity, hb_id_status *out)
         memcpy(pixels, published_preview, 180 * 318 * 2);
         *out = published;
     }
+    xSemaphoreGive(guard);
+    return valid;
+}
+bool hb_identity_aligned(uint16_t *pixels, size_t capacity, uint32_t sequence)
+{
+    if (!guard || !aligned_preview || !pixels || capacity < 112 * 112)
+        return false;
+    xSemaphoreTake(guard, portMAX_DELAY);
+    bool valid = sequence && sequence == aligned_sequence && sequence == published.sequence &&
+                 published.aligned_valid && published.session == epoch.load();
+    if (valid)
+        memcpy(pixels, aligned_preview, 112 * 112 * 2);
     xSemaphoreGive(guard);
     return valid;
 }

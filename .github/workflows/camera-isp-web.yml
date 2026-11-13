@@ -1,0 +1,63 @@
+name: Camera ISP web installer
+on:
+  push:
+    branches: [codex/camera-isp-web-upgrade]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Camera native regression and formatting
+        run: |
+          python -m pip install -r tools/requirements-dev.txt
+          python tools/check_format.py
+          cc -Wall -Wextra -Werror -Icomponents/core/include -Icomponents/camera/include \
+            tests/test_brightness.c components/core/brightness.c components/camera/frame_pool.c \
+            components/camera/light_meter.c components/camera/camera_preview.c \
+            components/camera/raw_frame.c -lm -o /tmp/hb-camera-tests
+          /tmp/hb-camera-tests
+          cc -Wall -Wextra -Werror -Icomponents/identity/include tests/test_identity.c components/identity/identity_core.c components/identity/enrollment_flow.c -lm -o /tmp/hb-identity-tests
+          /tmp/hb-identity-tests
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5.1@sha256:dfa2d076c796769c07c155eba6c672b9f395aec943b2ba3701b73379b5f9e884
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build recognition app
+        shell: bash
+        run: |
+          cp dependencies.lock /tmp/hb-dependencies.lock
+          . /opt/esp/idf/export.sh
+          idf.py -D 'SDKCONFIG_DEFAULTS=sdkconfig.defaults;config/sdkconfig.recognition' set-target esp32p4
+          python tools/check_locked_components.py /tmp/hb-dependencies.lock dependencies.lock
+          idf.py build
+          cp /tmp/hb-dependencies.lock dependencies.lock
+          python tools/check_effective_config.py build/config/sdkconfig.json recognition
+          python tools/identity_flash_budget.py build --enforce
+          python -m unittest discover -s tests -p 'test_*.py'
+          python tools/package_firmware.py build dist/recognition
+          python tools/build_web_installer.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: camera-isp-web
+          path: web-dist
+          if-no-files-found: error
+  publish:
+    needs: [build, host]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: camera-isp-web
+          path: web-dist
+      - name: Publish tested-build prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="camera-isp-test-${GITHUB_SHA:0:12}"
+          gh release create "$tag" web-dist/index.html web-dist/home_buddy.bin web-dist/SHA256SUMS --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false --title "Camera ISP test $tag" --notes "Experimental application-only update. Build checks passed; hardware acceptance pending. Download index.html and open in desktop Chrome or Edge. Existing single-factory-v1 layout required; no full erase."
