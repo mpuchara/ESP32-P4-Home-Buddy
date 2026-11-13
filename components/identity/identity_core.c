@@ -197,8 +197,9 @@ bool hb_id_raw_roi(const uint8_t *raw, size_t bytes, unsigned rw, unsigned rh, h
         for (unsigned x = 0; x < 16; ++x)
         {
             unsigned sx, sy, c[3];
-            hb_id_to_sensor(roi.x + x * (roi.w - 1) / 15, roi.y + y * (roi.h - 1) / 11, rw, rh, &sx,
-                            &sy);
+            if (!hb_id_to_sensor(roi.x + x * (roi.w - 1) / 15, roi.y + y * (roi.h - 1) / 11,
+                                 rw, rh, &sx, &sy))
+                return false;
             bayer(raw, rw, sx, sy, c);
             if (c[0] < 16 || c[1] < 16 || c[2] < 16 || c[0] > 239 || c[1] > 239 || c[2] > 239)
                 continue;
@@ -224,7 +225,8 @@ bool hb_id_raw_roi(const uint8_t *raw, size_t bytes, unsigned rw, unsigned rh, h
         for (int x = 0; x < roi.w; ++x)
         {
             unsigned sx, sy, c[3];
-            hb_id_to_sensor(roi.x + x, roi.y + y, rw, rh, &sx, &sy);
+            if (!hb_id_to_sensor(roi.x + x, roi.y + y, rw, rh, &sx, &sy))
+                return false;
             bayer(raw, rw, sx, sy, c);
             uint8_t *d = rgb + ((size_t)y * roi.w + x) * 3;
             for (unsigned j = 0; j < 3; ++j)
