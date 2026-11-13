@@ -16,4 +16,14 @@ paths.extend((root / "tests" / "brightness_platform").rglob("*.h"))
 binary = Path(clang_format.__file__).parent / "data" / "bin" / "clang-format"
 if not binary.is_file():
     binary = binary.with_suffix(".exe")
-subprocess.run([str(binary), "--dry-run", "--Werror", *map(str, sorted(paths))], check=True)
+result = subprocess.run([str(binary), "--dry-run", "--Werror", *map(str, sorted(paths))])
+if result.returncode:
+    import difflib
+    for path in sorted(paths):
+        original = path.read_text(encoding="utf-8")
+        formatted = subprocess.check_output([str(binary), str(path)]).decode("utf-8")
+        if original != formatted:
+            relative = str(path.relative_to(root))
+            print("".join(difflib.unified_diff(original.splitlines(True), formatted.splitlines(True),
+                                                fromfile="a/" + relative, tofile="b/" + relative)))
+    raise SystemExit(result.returncode)

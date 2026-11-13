@@ -98,7 +98,7 @@ bool hb_enroll_sample_coherent(hb_id_enrollment *en, const hb_id_embedding *e, u
     return true;
 }
 hb_enroll_admission hb_enroll_sample_stable(hb_id_enrollment *en, const hb_id_embedding *e,
-                                           unsigned faces, uint32_t sequence, uint64_t frame_ms)
+                                            unsigned faces, uint32_t sequence, uint64_t frame_ms)
 {
     if (!en || !en->target_id || en->verified || en->count >= HB_ID_MIN_SAMPLES || faces != 1 ||
         !hb_id_embedding_valid(e) || !sequence || sequence <= en->last_sequence || !frame_ms ||
@@ -118,8 +118,8 @@ hb_enroll_admission hb_enroll_sample_stable(hb_id_enrollment *en, const hb_id_em
     }
     if (votes < (anchors < 3 ? anchors : 2))
         return HB_ENROLL_MISMATCH;
-    return hb_id_enroll_sample(en, e, faces, true, sequence, frame_ms) ? HB_ENROLL_ACCEPTED
-                                                                     : HB_ENROLL_INVALID;
+    bool accepted = hb_id_enroll_sample(en, e, faces, true, sequence, frame_ms);
+    return accepted ? HB_ENROLL_ACCEPTED : HB_ENROLL_INVALID;
 }
 hb_enroll_step hb_enroll_next(const hb_id_enrollment *en, unsigned faces, bool valid,
                               uint32_t sequence, uint64_t frame_ms)

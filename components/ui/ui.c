@@ -912,7 +912,7 @@ static void identity_update(void)
     if (guided_enrollment)
     {
         lv_label_set_text_fmt(
-            identity_info, "Zapisane próbki twarzy: %u/%u\n%s\n%s", s->samples, HB_ID_MIN_SAMPLES,
+            identity_info, "Przyjęte próbki twarzy: %u/%u\n%s\n%s", s->samples, HB_ID_MIN_SAMPLES,
             s->verified                       ? "Weryfikacja zakończona. Potwierdź zapis."
             : s->samples >= HB_ID_MIN_SAMPLES ? "Próbki zebrane. Potrzebna weryfikacja."
                                               : "Próbki zachowane. Postępuj według wskazówek.",

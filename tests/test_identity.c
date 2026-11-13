@@ -351,26 +351,22 @@ static void stable_enrollment(void)
     for (unsigned i = 0; i < 6; ++i)
     {
         hb_id_embedding e = cohort(0, i + 1, i < 3 ? .95f : .65f);
-        assert(hb_enroll_sample_stable(en, &e, 1, i + 1, (i + 1) * 1000) ==
-               HB_ENROLL_ACCEPTED);
+        assert(hb_enroll_sample_stable(en, &e, 1, i + 1, (i + 1) * 1000) == HB_ENROLL_ACCEPTED);
         assert(en->count == i + 1);
     }
     *before = *en;
     for (unsigned i = 7; i < 27; ++i)
     {
         hb_id_embedding stranger = cohort(30, 31, .95f);
-        assert(hb_enroll_sample_stable(en, &stranger, 1, i, i * 1000) ==
-               HB_ENROLL_MISMATCH);
+        assert(hb_enroll_sample_stable(en, &stranger, 1, i, i * 1000) == HB_ENROLL_MISMATCH);
         assert(!memcmp(en, before, sizeof(*en)));
     }
-    assert(hb_enroll_sample_stable(en, &en->samples[0], 1, 27, 27000) ==
-           HB_ENROLL_DUPLICATE);
+    assert(hb_enroll_sample_stable(en, &en->samples[0], 1, 27, 27000) == HB_ENROLL_DUPLICATE);
     assert(!memcmp(en, before, sizeof(*en)));
     for (unsigned i = 6; i < 8; ++i)
     {
         hb_id_embedding e = cohort(0, i + 1, .65f);
-        assert(hb_enroll_sample_stable(en, &e, 1, i + 22, (i + 22) * 1000) ==
-               HB_ENROLL_ACCEPTED);
+        assert(hb_enroll_sample_stable(en, &e, 1, i + 22, (i + 22) * 1000) == HB_ENROLL_ACCEPTED);
     }
     assert(en->count == 8 && !en->verified);
     hb_id_embedding e = vector(0, 1);
