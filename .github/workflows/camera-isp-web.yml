@@ -46,26 +46,3 @@ jobs:
         run: |
           tag="camera-isp-test-${GITHUB_SHA:0:12}"
           gh release create "$tag" web-dist/index.html web-dist/home_buddy.bin web-dist/SHA256SUMS --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false --title "Camera ISP test $tag" --notes "Experimental application-only update. Build checks passed; hardware acceptance pending. Download index.html and open in desktop Chrome or Edge. Existing single-factory-v1 layout required; no full erase."
-  pages:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: camera-isp-web
-          path: web-dist
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: web-dist
-      - uses: actions/deploy-pages@v4
-        id: deployment

@@ -72,7 +72,7 @@ bool hb_rgb_thumbnail_upright(const uint8_t *src, unsigned w, unsigned h, uint16
     return true;
 }
 
-uint32_t hb_isp_gamma_black_corrected(uint32_t x)
+static uint32_t isp_gamma(uint32_t x, float gain)
 {
     // OV02C10 mode has RAW10 black target 64, i.e. 16 in the ISP 8-bit gamma domain.
     // CCM rows sum to one, so a neutral black pedestal is unchanged by that stage.
@@ -81,5 +81,23 @@ uint32_t hb_isp_gamma_black_corrected(uint32_t x)
     if (x >= 255)
         return 255;
     float linear = (x - 16) / 239.0f;
+    // A soft highlight shoulder preserves the white endpoint without hard clipping.
+    linear = gain * linear / (1 + (gain - 1) * linear);
     return (uint32_t)lroundf(255 * powf(linear, 0.518f));
 }
+
+uint32_t hb_isp_gamma_black_corrected(uint32_t x)
+{
+    return isp_gamma(x, 1.0f);
+}
+
+uint32_t hb_isp_gamma_red(uint32_t x)
+{
+    return isp_gamma(x, 1.65f);
+}
+
+uint32_t hb_isp_gamma_blue(uint32_t x)
+{
+    return isp_gamma(x, 1.55f);
+}
+

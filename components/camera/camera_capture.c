@@ -33,7 +33,7 @@ static isp_proc_handle_t isp;
 static i2c_master_dev_handle_t sensor;
 static bool controller_enabled, controller_started, isp_enabled;
 static bool isp_quarantined;
-static bool bf_enabled, demosaic_enabled, ccm_enabled, gamma_enabled;
+static bool bf_enabled, demosaic_enabled, ccm_enabled, gamma_enabled, color_enabled;
 static atomic_uint sample_seconds = 5;
 static atomic_bool started;
 static atomic_bool requested_pattern;
@@ -136,6 +136,14 @@ void hb_camera_set_sample_seconds(uint32_t seconds)
 }
 // OV02C10 SDK-inspired conservative fixed tuning. Keep the sensor/CSI owner
 // and audited DMA adapter; no second capture owner or competing AE controller.
+static esp_err_t configure_gamma_channel(color_component_t channel, uint32_t (*curve)(uint32_t))
+{
+    isp_gamma_curve_points_t points;
+    esp_err_t e = esp_isp_gamma_fill_curve_points(curve, &points);
+    if (e != ESP_OK)
+        return e;
+    return esp_isp_gamma_configure(isp, channel, &points);
+}
 static esp_err_t configure_isp(void)
 {
     esp_isp_bf_config_t bf = {.padding_mode = ISP_BF_EDGE_PADDING_MODE_SRND_DATA,
@@ -167,19 +175,36 @@ static esp_err_t configure_isp(void)
     if (e != ESP_OK)
         return e;
     ccm_enabled = true;
-    isp_gamma_curve_points_t points;
-    e = esp_isp_gamma_fill_curve_points(hb_isp_gamma_black_corrected, &points);
-    for (int c = COLOR_COMPONENT_R; e == ESP_OK && c <= COLOR_COMPONENT_B; ++c)
-        e = esp_isp_gamma_configure(isp, (color_component_t)c, &points);
+    e = configure_gamma_channel(COLOR_COMPONENT_R, hb_isp_gamma_red);
+    if (e == ESP_OK)
+        e = configure_gamma_channel(COLOR_COMPONENT_G, hb_isp_gamma_black_corrected);
+    if (e == ESP_OK)
+        e = configure_gamma_channel(COLOR_COMPONENT_B, hb_isp_gamma_blue);
     if (e != ESP_OK)
         return e;
     e = esp_isp_gamma_enable(isp);
-    gamma_enabled = e == ESP_OK;
+    if (e != ESP_OK)
+        return e;
+    gamma_enabled = true;
+    // OV02C10 SDK ACC saturation=136 in Q1.7 (unity=128).
+    // Leave contrast at unity and brightness/hue at zero to retain the corrected black.
+    esp_isp_color_config_t color = {.color_contrast = {.val = 128},
+                                    .color_saturation = {.val = 136},
+                                    .color_hue = 0,
+                                    .color_brightness = 0};
+    e = esp_isp_color_configure(isp, &color);
+    if (e != ESP_OK)
+        return e;
+    e = esp_isp_color_enable(isp);
+    color_enabled = e == ESP_OK;
     return e;
 }
 static esp_err_t disable_isp_modules(void)
 {
     esp_err_t e = ESP_OK;
+    if (color_enabled && (e = esp_isp_color_disable(isp)) != ESP_OK)
+        return e;
+    color_enabled = false;
     if (gamma_enabled && (e = esp_isp_gamma_disable(isp)) != ESP_OK)
         return e;
     gamma_enabled = false;

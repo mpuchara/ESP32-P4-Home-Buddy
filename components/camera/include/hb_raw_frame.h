@@ -18,3 +18,7 @@ bool hb_rgb_thumbnail_upright(const uint8_t *source, unsigned width, unsigned he
 
 // Sensor black pedestal removed before hardware gamma; input/output in [0, 255].
 uint32_t hb_isp_gamma_black_corrected(uint32_t x);
+
+// Initial fixed post-CCM white-balance curves; preserve black and white endpoints.
+uint32_t hb_isp_gamma_red(uint32_t x);
+uint32_t hb_isp_gamma_blue(uint32_t x);

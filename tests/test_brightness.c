@@ -266,6 +266,27 @@ static void isp_gamma(void)
     for (uint32_t x = 16; x < 256; x += 16)
         CHECK(hb_isp_gamma_black_corrected(x) < 256);
 }
+static void isp_color_curves(void)
+{
+    for (uint32_t x = 0; x <= 16; ++x)
+    {
+        CHECK(hb_isp_gamma_red(x) == 0);
+        CHECK(hb_isp_gamma_blue(x) == 0);
+    }
+    for (uint32_t x = 17; x <= 255; ++x)
+    {
+        CHECK(hb_isp_gamma_red(x) >= hb_isp_gamma_black_corrected(x));
+        CHECK(hb_isp_gamma_blue(x) >= hb_isp_gamma_black_corrected(x));
+        CHECK(hb_isp_gamma_red(x) >= hb_isp_gamma_red(x - 1));
+        CHECK(hb_isp_gamma_blue(x) >= hb_isp_gamma_blue(x - 1));
+    }
+    CHECK(hb_isp_gamma_red(96) > hb_isp_gamma_black_corrected(96));
+    CHECK(hb_isp_gamma_blue(96) > hb_isp_gamma_black_corrected(96));
+    CHECK(hb_isp_gamma_red(224) < 255);
+    CHECK(hb_isp_gamma_blue(224) < 255);
+    CHECK(hb_isp_gamma_red(255) == 255);
+    CHECK(hb_isp_gamma_blue(255) == 255);
+}
 int main(void)
 {
     controller();
@@ -275,6 +296,7 @@ int main(void)
     preview();
     raw_frame();
     isp_gamma();
+    isp_color_curves();
     puts("brightness, bounded frame leases, robust exposure-compensated meter: OK");
     return 0;
 }

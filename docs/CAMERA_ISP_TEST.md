@@ -44,3 +44,24 @@ black, midtones, highlights and monotonicity. The 16 DN pedestal is
 derived from the existing sensor configuration, not a new physical
 measurement. Verify covered lens after AE settles, then dim/daylight
 faces and enrollment. Exact black and low-light results require hardware.
+
+## 0.12.2: fixed white-balance and saturation candidate
+
+Physical feedback on 0.12.1: contrast substantially improved, colors pale
+and greenish. The OV02C10 reference SDK specifies AWB ratios R/G
+0.573..0.9096, B/G 0.5368..0.9634 and ACC saturation 136 (Q1.7 unity 128).
+Our native IDF 5.5.1 pipeline has no vendor IPA white-balance controller.
+Keep the existing CCM, and use distinct hardware gamma curves for R/G/B
+as a conservative fixed post-CCM correction: red gain 1.65, blue 1.55,
+green 1.0 in the black-corrected linear domain, with a soft highlight
+shoulder. All channels retain zero at input <=16 and 255 at input 255.
+These gain values are initial estimates, not physical calibration values.
+Enable the hardware color block at the reference saturation 136/128,
+contrast 128/128, brightness 0 and hue 0. Both preview and native face
+ROI use the same corrected ISP frame; no new full-frame CPU processing.
+Do not change Bayer order, frame dimensions, exposure control, camera
+ownership, AI model, thresholds, stored profiles, or partitions.
+Host tests check endpoints, monotonicity, midtone gain and highlight
+headroom. Verify neutral gray/white, skin tones, red/blue objects and
+covered lens in daylight and warm artificial light. Adaptive AWB
+remains a follow-up if a fixed correction cannot cover both illuminants.
