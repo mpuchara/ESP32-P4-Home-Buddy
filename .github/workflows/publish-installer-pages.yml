@@ -1,0 +1,81 @@
+name: Publish Home Buddy installer
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-installer-pages.yml'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Published Camera ISP release tag'
+        required: true
+        default: camera-isp-test-61815d29d1cc
+  workflow_run:
+    workflows: ['Camera ISP web installer']
+    branches: [codex/camera-isp-web-upgrade]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: home-buddy-installer-pages
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.release.outputs.ready }}
+    steps:
+      - name: Select published, verified firmware release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.release_tag }}
+          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+          BUILD_RUN: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=camera-isp-test-61815d29d1cc
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            tag="$INPUT_TAG"
+          elif [[ "$EVENT_NAME" == workflow_run ]]; then
+            [[ "$BUILD_SHA" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+            # Only publish after the firmware build and release publication succeeded.
+            # The old branch workflow can still report failure for its separate Pages job.
+            jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN/jobs" --jq '.jobs')
+            if ! jq -e 'any(.[]; .name == "build" and .conclusion == "success") and any(.[]; .name == "publish" and .conclusion == "success")' <<< "$jobs" >/dev/null; then
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            tag="camera-isp-test-${BUILD_SHA:0:12}"
+          fi
+          [[ "$tag" =~ ^camera-isp-test-[0-9a-f]{12}$ ]]
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' | grep -qx false
+          mkdir -p web-dist
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir web-dist --pattern index.html --pattern home_buddy.bin --pattern SHA256SUMS
+          (cd web-dist && sha256sum --strict -c SHA256SUMS)
+          test -s web-dist/index.html
+          test -s web-dist/home_buddy.bin
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Upload verified installer
+        if: steps.release.outputs.ready == 'true'
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+        with:
+          path: web-dist
+  deploy:
+    needs: prepare
+    if: needs.prepare.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy installer to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
