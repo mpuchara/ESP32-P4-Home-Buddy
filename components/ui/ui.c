@@ -912,10 +912,10 @@ static void identity_update(void)
     if (guided_enrollment)
     {
         lv_label_set_text_fmt(
-            identity_info, "Spójne próbki twarzy: %u/%u\n%s\n%s", s->samples, HB_ID_MIN_SAMPLES,
+            identity_info, "Zapisane próbki twarzy: %u/%u\n%s\n%s", s->samples, HB_ID_MIN_SAMPLES,
             s->verified                       ? "Weryfikacja zakończona. Potwierdź zapis."
             : s->samples >= HB_ID_MIN_SAMPLES ? "Próbki zebrane. Potrzebna weryfikacja."
-                                              : "Patrz prosto. Utrzymaj podobną pozycję.",
+                                              : "Próbki zachowane. Postępuj według wskazówek.",
             s->verified ? "Nowe próbki czekają na zatwierdzenie." : s->message);
         lv_bar_set_value(enroll_progress, s->samples, LV_ANIM_OFF);
         if (s->verified || (s->mode != HB_ID_ENROLL && !s->storage_saved))

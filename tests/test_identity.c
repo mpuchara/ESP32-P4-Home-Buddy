@@ -339,6 +339,50 @@ static void coherent_enrollment(void)
     free(en);
     free(db);
 }
+static void stable_enrollment(void)
+{
+    hb_id_database *db = calloc(1, sizeof(*db));
+    hb_id_enrollment *en = calloc(1, sizeof(*en));
+    hb_id_enrollment *before = calloc(1, sizeof(*before));
+    assert(db && en && before);
+    hb_id_database_init(db, 33);
+    uint64_t id = hb_id_create(db, "Stable");
+    assert(hb_enroll_fresh(db, en, id));
+    for (unsigned i = 0; i < 6; ++i)
+    {
+        hb_id_embedding e = cohort(0, i + 1, i < 3 ? .95f : .65f);
+        assert(hb_enroll_sample_stable(en, &e, 1, i + 1, (i + 1) * 1000) ==
+               HB_ENROLL_ACCEPTED);
+        assert(en->count == i + 1);
+    }
+    *before = *en;
+    for (unsigned i = 7; i < 27; ++i)
+    {
+        hb_id_embedding stranger = cohort(30, 31, .95f);
+        assert(hb_enroll_sample_stable(en, &stranger, 1, i, i * 1000) ==
+               HB_ENROLL_MISMATCH);
+        assert(!memcmp(en, before, sizeof(*en)));
+    }
+    assert(hb_enroll_sample_stable(en, &en->samples[0], 1, 27, 27000) ==
+           HB_ENROLL_DUPLICATE);
+    assert(!memcmp(en, before, sizeof(*en)));
+    for (unsigned i = 6; i < 8; ++i)
+    {
+        hb_id_embedding e = cohort(0, i + 1, .65f);
+        assert(hb_enroll_sample_stable(en, &e, 1, i + 22, (i + 22) * 1000) ==
+               HB_ENROLL_ACCEPTED);
+    }
+    assert(en->count == 8 && !en->verified);
+    hb_id_embedding e = vector(0, 1);
+    assert(!hb_id_enroll_verify(en, &e, 29, 29000, &policy));
+    assert(en->count == 8);
+    assert(hb_id_enroll_verify(en, &e, 30, 30000, &policy));
+    assert(hb_id_enroll_commit(db, en));
+    assert(hb_id_find(db, id)->count == 8);
+    free(before);
+    free(en);
+    free(db);
+}
 int main(void)
 {
     hb_id_evaluation stats = {0};
@@ -368,6 +412,7 @@ int main(void)
     temporal();
     enrollment();
     coherent_enrollment();
+    stable_enrollment();
     puts("Identity: geometry, native ROI, embeddings, profiles, matching, temporal and enrollment "
          "passed");
     return 0;

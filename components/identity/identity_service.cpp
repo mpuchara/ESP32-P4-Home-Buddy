@@ -70,6 +70,7 @@ static bool voice_verifying;
 static const hb_id_policy policy{CONFIG_HB_IDENTITY_THRESHOLD_MILLI / 1000.0f,
                                  CONFIG_HB_IDENTITY_MARGIN_MILLI / 1000.0f,
                                  CONFIG_HB_IDENTITY_AGREEMENT_MILLI / 1000.0f, 3};
+static const hb_id_policy enrollment_policy{0.65f, 0.12f, 0.55f, 3};
 static hb_id_mode resting_mode(bool auto_enabled)
 {
     unsigned usable = 0;
@@ -965,7 +966,7 @@ static void worker(void *)
                 break;
             }
         }
-        state.samples = enrollment->count;
+        state.samples = guided && state.mode == HB_ID_ENROLL ? guided_samples : enrollment->count;
         state.verified = enrollment->verified;
         uint32_t current_session = epoch.load();
         if (state.session != current_session)
@@ -1103,28 +1104,27 @@ static void worker(void *)
                     if (capture)
                     {
                         bool accepted;
+                        hb_enroll_admission reason = HB_ENROLL_INVALID;
                         if (guided)
                         {
-                            int64_t started = esp_timer_get_time();
-                            unsigned pool = enrollment->count < HB_ID_TEMPLATES
-                                                ? enrollment->count + 1
-                                                : HB_ID_TEMPLATES;
-                            accepted = hb_enroll_sample_coherent(
-                                enrollment, &embedding, state.faces, true, state.sequence,
-                                state.frame_ms, &policy, &guided_samples, &guided_ready);
-                            if (accepted)
-                                ESP_LOGI(
-                                    "identity",
-                                    "ENROLL_COHESION pool=%u selected=%u ready=%d select_us=%u",
-                                    pool, guided_samples, guided_ready,
-                                    (unsigned)(esp_timer_get_time() - started));
+                            reason = hb_enroll_sample_stable(enrollment, &embedding, state.faces,
+                                                             state.sequence, state.frame_ms);
+                            accepted = reason == HB_ENROLL_ACCEPTED;
+                            guided_samples = enrollment->count;
+                            guided_ready = guided_samples >= HB_ID_MIN_SAMPLES;
+                            ESP_LOGI("identity", "ENROLL_STABLE accepted=%d count=%u reason=%u",
+                                     accepted, guided_samples, (unsigned)reason);
                         }
                         else
                             accepted = hb_id_enroll_sample(enrollment, &embedding, state.faces,
                                                            true, state.sequence, state.frame_ms);
                         const char *hint = "Spójrz prosto, zmień lekko odległość.";
-                        if (!accepted)
-                            hint = "Próbka podobna lub nieaktualna. Patrz prosto.";
+                        if (!accepted && reason == HB_ENROLL_DUPLICATE)
+                            hint = "Zmień lekko kąt głowy lub odległość.";
+                        else if (!accepted && reason == HB_ENROLL_MISMATCH)
+                            hint = "Inna reprezentacja twarzy. Wróć do pozycji na wprost.";
+                        else if (!accepted)
+                            hint = "Poczekaj na następną klatkę.";
                         else if (guided_ready)
                             hint = "Spójny zestaw gotowy. Poczekaj na weryfikację.";
                         else if (!guided || guided_samples < 3)
@@ -1138,7 +1138,7 @@ static void worker(void *)
                     if (verify && (!guided || guided_ready))
                     {
                         bool accepted = hb_id_enroll_verify(enrollment, &embedding, state.sequence,
-                                                            state.frame_ms, &policy);
+                                                            state.frame_ms, &enrollment_policy);
                         // Reject a new enrollment also matching a different registered person.
                         auto other = hb_id_match_embedding(database, &embedding, &policy);
                         bool conflict = other.state == HB_ID_AMBIGUOUS ||

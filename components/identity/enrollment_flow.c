@@ -97,6 +97,30 @@ bool hb_enroll_sample_coherent(hb_id_enrollment *en, const hb_id_embedding *e, u
     *ready = true;
     return true;
 }
+hb_enroll_admission hb_enroll_sample_stable(hb_id_enrollment *en, const hb_id_embedding *e,
+                                           unsigned faces, uint32_t sequence, uint64_t frame_ms)
+{
+    if (!en || !en->target_id || en->verified || en->count >= HB_ID_MIN_SAMPLES || faces != 1 ||
+        !hb_id_embedding_valid(e) || !sequence || sequence <= en->last_sequence || !frame_ms ||
+        frame_ms <= en->last_ms || (en->last_ms && frame_ms - en->last_ms < 1000))
+        return HB_ENROLL_INVALID;
+    unsigned anchors = en->count < 3 ? en->count : 3;
+    unsigned votes = 0;
+    for (unsigned i = 0; i < en->count; ++i)
+    {
+        float score = hb_id_similarity(e, &en->samples[i]);
+        if (!isfinite(score))
+            return HB_ENROLL_INVALID;
+        if (score > 0.995f)
+            return HB_ENROLL_DUPLICATE;
+        if (i < anchors && score >= (anchors < 3 ? 0.60f : 0.55f))
+            ++votes;
+    }
+    if (votes < (anchors < 3 ? anchors : 2))
+        return HB_ENROLL_MISMATCH;
+    return hb_id_enroll_sample(en, e, faces, true, sequence, frame_ms) ? HB_ENROLL_ACCEPTED
+                                                                     : HB_ENROLL_INVALID;
+}
 hb_enroll_step hb_enroll_next(const hb_id_enrollment *en, unsigned faces, bool valid,
                               uint32_t sequence, uint64_t frame_ms)
 {
