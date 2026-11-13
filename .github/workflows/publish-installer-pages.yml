@@ -9,10 +9,10 @@ on:
       release_tag:
         description: 'Published Camera ISP release tag'
         required: true
-        default: camera-isp-test-ec3bbf4ad756
+        default: camera-isp-test-b0dda0f741e1
   workflow_run:
     workflows: ['Camera ISP web installer']
-    branches: [codex/camera-isp-web-upgrade]
+    branches: [codex/camera-isp-web-upgrade, codex/enrollment-hotfix]
     types: [completed]
 permissions:
   contents: read
@@ -34,10 +34,11 @@ jobs:
           INPUT_TAG: ${{ inputs.release_tag }}
           BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
           BUILD_RUN: ${{ github.event.workflow_run.id }}
+          BUILD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         shell: bash
         run: |
           set -euo pipefail
-          tag=camera-isp-test-ec3bbf4ad756
+          tag=camera-isp-test-b0dda0f741e1
           if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
             tag="$INPUT_TAG"
           elif [[ "$EVENT_NAME" == workflow_run ]]; then
@@ -50,7 +51,8 @@ jobs:
               echo "ready=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/codex/camera-isp-web-upgrade" --jq '.object.sha')
+            [[ "$BUILD_BRANCH" == codex/camera-isp-web-upgrade || "$BUILD_BRANCH" == codex/enrollment-hotfix ]]
+            head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BUILD_BRANCH" --jq '.object.sha')
             if [[ "$head" != "$BUILD_SHA" ]]; then
               echo "Ignoring superseded build $BUILD_SHA"
               echo "ready=false" >> "$GITHUB_OUTPUT"
