@@ -439,14 +439,16 @@ hb_id_match hb_id_match_top1(const hb_id_database *db, const hb_id_embedding *e,
             r.second = best;
     }
     if (r.best >= policy->threshold && (!protected_match || support >= 2))
-        r.state = protected_match && r.best - r.second < policy->margin ? HB_ID_AMBIGUOUS
-                                                                        : HB_ID_KNOWN;
+    {
+        bool ambiguous = protected_match && r.best - r.second < policy->margin;
+        r.state = ambiguous ? HB_ID_AMBIGUOUS : HB_ID_KNOWN;
+    }
     if (r.state != HB_ID_KNOWN)
         r.person_id = 0;
     return r;
 }
-bool hb_id_blend(hb_id_embedding *out, const hb_id_embedding *a, const hb_id_embedding *b,
-                 float wa, float wb)
+bool hb_id_blend(hb_id_embedding *out, const hb_id_embedding *a, const hb_id_embedding *b, float wa,
+                 float wb)
 {
     if (!out || !hb_id_embedding_valid(a) || !hb_id_embedding_valid(b) || !isfinite(wa) ||
         !isfinite(wb) || wa <= 0 || wb <= 0 || hb_id_similarity(a, b) < 0.65f)

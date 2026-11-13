@@ -951,25 +951,22 @@ static void identity_update(void)
     }
     else if (aligned_view)
     {
-        lv_label_set_text_fmt(
-            identity_info,
-            "Wejście MBF 112x112 | det %u | PPA %d | fuzja %d\n"
-            "Progi: TA / FR / FA / mylne / brak\n"
-            "0.70: %u / %u / %u / %u / %u\n"
-            "0.65: %u / %u / %u / %u / %u\n"
-            "0.60: %u / %u / %u / %u / %u\n"
-            "0.50 ref: %u / %u / %u / %u / %u\n"
-            "Próby znane %u / gość %u | %s",
-            s->detector_size, s->ppa_used, s->fused,
-            s->calibration_ta[0], s->calibration_fr[0], s->calibration_fa[0],
-            s->calibration_confusion[0], s->calibration_unavailable[0],
-            s->calibration_ta[1], s->calibration_fr[1], s->calibration_fa[1],
-            s->calibration_confusion[1], s->calibration_unavailable[1],
-            s->calibration_ta[2], s->calibration_fr[2], s->calibration_fa[2],
-            s->calibration_confusion[2], s->calibration_unavailable[2],
-            s->calibration_ta[3], s->calibration_fr[3], s->calibration_fa[3],
-            s->calibration_confusion[3], s->calibration_unavailable[3],
-            s->evaluation.known_trials, s->evaluation.unknown_trials, s->message);
+        snprintf(text, sizeof(text), "Wejście MBF 112x112 | det %u | PPA %d | fuzja %d\n"
+                                     "Progi: TA / FR / FA / mylne / brak",
+                 s->detector_size, s->ppa_used, s->fused);
+        const char *thresholds[] = {"0.70", "0.65", "0.60", "0.50 ref"};
+        for (unsigned k = 0; k < 4; ++k)
+        {
+            size_t len = strlen(text);
+            snprintf(text + len, sizeof(text) - len, "\n%s: %u / %u / %u / %u / %u",
+                     thresholds[k], s->calibration_ta[k], s->calibration_fr[k],
+                     s->calibration_fa[k], s->calibration_confusion[k],
+                     s->calibration_unavailable[k]);
+        }
+        size_t len = strlen(text);
+        snprintf(text + len, sizeof(text) - len, "\nPróby znane %u / gość %u | %s",
+                 s->evaluation.known_trials, s->evaluation.unknown_trials, s->message);
+        lv_label_set_text(identity_info, text);
     }
     else
         lv_label_set_text(identity_info, text);

@@ -424,9 +424,8 @@ class Models
         }
         candidate =
             (uint8_t *)heap_caps_malloc(candidate_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        roi_pixels =
-            (uint8_t *)heap_caps_aligned_alloc(128, 640 * 640 * 3,
-                                                MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        uint32_t caps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+        roi_pixels = (uint8_t *)heap_caps_aligned_alloc(128, 640 * 640 * 3, caps);
         thumbnail =
             (uint16_t *)heap_caps_malloc(HB_FACE_INPUT_BYTES, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (!candidate || !roi_pixels || !thumbnail)
@@ -480,8 +479,10 @@ class Models
             cfg.oper_type = PPA_OPERATION_SRM;
             cfg.max_pending_trans_num = 1;
             if (ppa_register_client(&cfg, &ppa) == ESP_OK)
-                scaled = (uint8_t *)heap_caps_aligned_alloc(
-                    128, (scaled_bytes + 127) & ~127U, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+            {
+                size_t bytes = (scaled_bytes + 127) & ~127U;
+                scaled = (uint8_t *)heap_caps_aligned_alloc(128, bytes, caps);
+            }
         }
         s.model_load_us = esp_timer_get_time() - load_started;
         return true;
@@ -538,8 +539,9 @@ class Models
             return;
         // Same upstream preprocessor and normalization as the MBF wrapper. Capture before
         // inference, because ESP-DL may reuse input memory while executing the graph.
-        dl::image::FeatImagePreprocessor pre(mbf->get_raw_model(), {127.5f, 127.5f, 127.5f},
-                                            {127.5f, 127.5f, 127.5f}, true);
+        std::array<float, 3> normalization{127.5f, 127.5f, 127.5f};
+        dl::image::FeatImagePreprocessor pre(mbf->get_raw_model(), normalization, normalization,
+                                            true);
         pre.preprocess(crop, keypoints);
         auto *input = mbf->get_raw_model()->get_input();
         if (!input || !input->data || input->dtype != dl::DATA_TYPE_INT8 ||
@@ -678,9 +680,12 @@ class Models
                             copied = accelerate(f, roi.x, roi.y, roi.w, roi.h, roi_pixels,
                                                 640 * 640 * 3, false);
                         if (!copied)
-                            copied = hb_rgb888_crop_scaled(f.pixels, f.width, f.height, roi.x, roi.y,
+                        {
+                            const auto *src = f.pixels;
+                            copied = hb_rgb888_crop_scaled(src, f.width, f.height, roi.x, roi.y,
                                                            roi.w, roi.h, roi_pixels, cw, ch,
                                                            640 * 640 * 3);
+                        }
                     }
                     if (copied)
                     {
@@ -771,8 +776,11 @@ class Models
             return false;
         }
         for (unsigned j = 0; j < 5; ++j)
-            s.landmarks.p[j] = {local.p[j].x * roi.w / crop_w + roi.x,
-                                 local.p[j].y * roi.h / crop_h + roi.y};
+        {
+            float x = local.p[j].x * roi.w / crop_w + roi.x;
+            float y = local.p[j].y * roi.h / crop_h + roi.y;
+            s.landmarks.p[j] = {x, y};
+        }
         if (s.mode == HB_ID_TEST || s.mode == HB_ID_ENROLL)
             capture_aligned(s, crop, keypoints);
         stage = esp_timer_get_time();
@@ -1304,9 +1312,11 @@ static void worker(void *)
                             unsigned pool = enrollment->count < HB_ID_TEMPLATES
                                                 ? enrollment->count + 1
                                                 : HB_ID_TEMPLATES;
-                            accepted = hb_enroll_sample_diverse(
-                                enrollment, &embedding, state.faces, state.sequence, state.frame_ms,
-                                &guided_samples, &guided_ready);
+                            unsigned seq = state.sequence;
+                            uint64_t ms = state.frame_ms;
+                            accepted = hb_enroll_sample_diverse(enrollment, &embedding, state.faces,
+                                                                seq, ms, &guided_samples,
+                                                                &guided_ready);
                             if (accepted)
                                 ESP_LOGI(
                                     "identity",
@@ -1363,9 +1373,8 @@ static void worker(void *)
                     state.calibration[3] =
                         hb_id_match_top1(database, &embedding, &shadow_policies[3], false);
                     if (state.mode == HB_ID_TEST)
-                        ESP_LOGI("identity_calibration", "seq=%u expected=%llu top1=%.3f 70=%u 65=%u 60=%u 50=%u",
-                                 (unsigned)state.sequence, (unsigned long long)state.expected_id,
-                                 (double)state.calibration[3].best,
+                        ESP_LOGI("id_cal", "seq=%u top1=%.3f 70=%u 65=%u 60=%u 50=%u",
+                                 (unsigned)state.sequence, (double)state.calibration[3].best,
                                  (unsigned)state.calibration[0].state,
                                  (unsigned)state.calibration[1].state,
                                  (unsigned)state.calibration[2].state,
@@ -1379,17 +1388,19 @@ static void worker(void *)
                             state.frame_ms, state.completed_ms, now_ms(), &shadow_policies[k]);
                     }
                     auto direct = state.match;
-                    float weight = std::fmax(1.0f, state.quality.detail +
-                                                      0.15f * state.quality.contrast);
+                    float detail = state.quality.detail + 0.15f * state.quality.contrast;
+                    float weight = std::fmax(1.0f, detail);
                     // Blend only adjacent, overlapping, mutually similar unknown embeddings.
                     // Never merge known conflicting identities or ambiguous candidates.
                     bool continuous = previous_ticket == ticket && previous_ms &&
                                       state.frame_ms > previous_ms &&
                                       state.frame_ms - previous_ms <= 1800 &&
                                       hb_id_same_roi(previous_roi, state.roi);
-                    if (continuous && direct.state == HB_ID_UNKNOWN &&
-                        previous_result.state == HB_ID_UNKNOWN &&
-                        hb_id_blend(&blended, &previous_embedding, &embedding, previous_weight, weight))
+                    bool candidates_unknown = direct.state == HB_ID_UNKNOWN &&
+                                              previous_result.state == HB_ID_UNKNOWN;
+                    if (continuous && candidates_unknown &&
+                        hb_id_blend(&blended, &previous_embedding, &embedding, previous_weight,
+                                    weight))
                     {
                         auto combined = hb_id_match_top1(database, &blended, &policy, true);
                         if (combined.state == HB_ID_KNOWN)
