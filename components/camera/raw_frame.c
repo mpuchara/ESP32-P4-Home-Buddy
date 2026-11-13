@@ -66,7 +66,7 @@ bool hb_rgb_thumbnail_upright(const uint8_t *src, unsigned w, unsigned h, uint16
     const uint16_t *rgb = (const uint16_t *)src;
     for (unsigned y = 0; y < oh; ++y)
         for (unsigned x = 0; x < ow; ++x)
-            dst[(size_t)y * ow + x] = rgb[(size_t)(x * (h - 2) / ow) * w +
-                                         w - 2 - y * (w - 2) / oh];
+            dst[(size_t)y * ow + x] =
+                rgb[(size_t)(x * (h - 2) / ow) * w + w - 2 - y * (w - 2) / oh];
     return true;
 }

@@ -142,10 +142,9 @@ static uint32_t gamma_curve(uint32_t x)
 }
 static esp_err_t configure_isp(void)
 {
-    esp_isp_bf_config_t bf = {
-        .padding_mode = ISP_BF_EDGE_PADDING_MODE_SRND_DATA,
-        .bf_template = {{2, 4, 2}, {4, 5, 4}, {2, 4, 2}},
-        .denoising_level = 3};
+    esp_isp_bf_config_t bf = {.padding_mode = ISP_BF_EDGE_PADDING_MODE_SRND_DATA,
+                              .bf_template = {{2, 4, 2}, {4, 5, 4}, {2, 4, 2}},
+                              .denoising_level = 3};
     esp_err_t e = esp_isp_bf_configure(isp, &bf);
     if (e != ESP_OK)
         return e;
@@ -153,9 +152,8 @@ static esp_err_t configure_isp(void)
     if (e != ESP_OK)
         return e;
     bf_enabled = true;
-    esp_isp_demosaic_config_t dm = {
-        .grad_ratio = {.integer = 1, .decimal = 0},
-        .padding_mode = ISP_DEMOSAIC_EDGE_PADDING_MODE_SRND_DATA};
+    esp_isp_demosaic_config_t dm = {.grad_ratio = {.integer = 1, .decimal = 0},
+                                    .padding_mode = ISP_DEMOSAIC_EDGE_PADDING_MODE_SRND_DATA};
     e = esp_isp_demosaic_configure(isp, &dm);
     if (e != ESP_OK)
         return e;
@@ -163,10 +161,9 @@ static esp_err_t configure_isp(void)
     if (e != ESP_OK)
         return e;
     demosaic_enabled = true;
-    esp_isp_ccm_config_t ccm = {
-        .matrix = {{1.408f, -0.094f, -0.314f},
-                   {-0.13f, 1.28f, -0.15f},
-                   {-0.072f, -0.173f, 1.245f}}};
+    esp_isp_ccm_config_t ccm = {.matrix = {{1.408f, -0.094f, -0.314f},
+                                          {-0.13f, 1.28f, -0.15f},
+                                          {-0.072f, -0.173f, 1.245f}}};
     e = esp_isp_ccm_configure(isp, &ccm);
     if (e != ESP_OK)
         return e;
@@ -303,7 +300,8 @@ static esp_err_t initialize(void)
     status.width = WIDTH;
     status.height = HEIGHT;
     portEXIT_CRITICAL(&lock);
-    ESP_LOGI("camera", "CSI RAW10 1288x728 1 lane 400Mbps -> ISP RGB565 tuned; pool=%u + discard=%u",
+    ESP_LOGI("camera",
+             "CSI RAW10 1288x728 1 lane 400Mbps -> ISP RGB565 tuned; pool=%u + discard=%u",
              (unsigned)(HB_CAMERA_SLOTS * FRAME_BYTES), (unsigned)FRAME_BYTES);
     return ESP_OK;
 }
@@ -419,8 +417,8 @@ static void worker(void *arg)
                         dg = (((digital[0] & 15) << 16) | (digital[1] << 8) | (digital[2] & 0xc0)) /
                              65536.0f;
                     }
-                    hb_light_reading light =
-                        hb_light_measure((const uint16_t *)frame.pixels, WIDTH, HEIGHT, exp, ag, dg, meta);
+                    hb_light_reading light = hb_light_measure(
+                        (const uint16_t *)frame.pixels, WIDTH, HEIGHT, exp, ag, dg, meta);
                     unsigned measured_lines =
                         meta ? (unsigned)((exposure[0] << 8) | exposure[1]) : 0;
                     unsigned measured_vts = meta ? (unsigned)((timing[2] << 8) | timing[3]) : 0;

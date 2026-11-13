@@ -8,7 +8,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: espressif/idf:v5.5.1
+    container: espressif/idf:v5.5.1@sha256:dfa2d076c796769c07c155eba6c672b9f395aec943b2ba3701b73379b5f9e884
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Build recognition app
@@ -18,7 +18,8 @@ jobs:
           . /opt/esp/idf/export.sh
           idf.py -D 'SDKCONFIG_DEFAULTS=sdkconfig.defaults;config/sdkconfig.recognition' set-target esp32p4
           idf.py build
-          cmp dependencies.lock /tmp/hb-dependencies.lock
+          python tools/check_locked_components.py /tmp/hb-dependencies.lock dependencies.lock
+          cp /tmp/hb-dependencies.lock dependencies.lock
           python tools/check_effective_config.py build/config/sdkconfig.json recognition
           python tools/identity_flash_budget.py build --enforce
           python -m unittest discover -s tests -p 'test_*.py'
