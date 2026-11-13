@@ -822,10 +822,13 @@ class Models
 };
 #endif
 
-static bool sample_diverse(const hb_id_status &s, const hb_id_embedding &e, unsigned &n, bool &ready)
+#if CONFIG_HB_IDENTITY_EXPERIMENTAL
+static bool sample_diverse(const hb_id_status &s, const hb_id_embedding &e, unsigned &n,
+                           bool &ready)
 {
     return hb_enroll_sample_diverse(enrollment, &e, s.faces, s.sequence, s.frame_ms, &n, &ready);
 }
+#endif
 static void worker(void *)
 {
     hb_id_status state{};
@@ -1322,7 +1325,8 @@ static void worker(void *)
                             unsigned pool = enrollment->count < HB_ID_TEMPLATES
                                                 ? enrollment->count + 1
                                                 : HB_ID_TEMPLATES;
-                            accepted = sample_diverse(state, embedding, guided_samples, guided_ready);
+                            accepted =
+                                sample_diverse(state, embedding, guided_samples, guided_ready);
                             if (accepted)
                                 ESP_LOGI(
                                     "identity",

@@ -14,7 +14,7 @@ string(REPLACE "ctlr->trans.buffer), ctlr->trans.received_size, ESP_CACHE_MSYNC_
 # RGB888 payload ends 64 bytes into a 128-byte L2 cache line. Pad the backing
 # allocation and cache maintenance, not the DMA transfer or published length.
 string(REPLACE "heap_caps_aligned_alloc(alignment, ctlr->fb_size_in_bytes, MALLOC_CAP_SPIRAM)"
-               "heap_caps_aligned_alloc(128, (ctlr->fb_size_in_bytes + 127U) & ~127U, MALLOC_CAP_SPIRAM)" csi "${csi}")
+               "heap_caps_aligned_alloc(alignment, (ctlr->fb_size_in_bytes + 127U) & ~127U, MALLOC_CAP_SPIRAM)" csi "${csi}")
 string(REPLACE "ctlr->backup_buffer), ctlr->fb_size_in_bytes, ESP_CACHE_MSYNC_FLAG_DIR_C2M"
                "ctlr->backup_buffer), (ctlr->fb_size_in_bytes + 127U) & ~127U, ESP_CACHE_MSYNC_FLAG_DIR_C2M" csi "${csi}")
 string(REPLACE "ctlr->trans.buffer), ctlr->fb_size_in_bytes, ESP_CACHE_MSYNC_FLAG_DIR_M2C"
