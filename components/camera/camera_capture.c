@@ -418,7 +418,8 @@ static void worker(void *arg)
                              65536.0f;
                     }
                     const uint16_t *rgb = (const uint16_t *)frame.pixels;
-                    hb_light_reading light = hb_light_measure(rgb, WIDTH, HEIGHT, exp, ag, dg, meta);
+                    hb_light_reading light;
+                    light = hb_light_measure(rgb, WIDTH, HEIGHT, exp, ag, dg, meta);
                     unsigned measured_lines =
                         meta ? (unsigned)((exposure[0] << 8) | exposure[1]) : 0;
                     unsigned measured_vts = meta ? (unsigned)((timing[2] << 8) | timing[3]) : 0;

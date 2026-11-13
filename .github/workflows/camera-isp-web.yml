@@ -17,8 +17,8 @@ jobs:
           cp dependencies.lock /tmp/hb-dependencies.lock
           . /opt/esp/idf/export.sh
           idf.py -D 'SDKCONFIG_DEFAULTS=sdkconfig.defaults;config/sdkconfig.recognition' set-target esp32p4
-          idf.py build
           python tools/check_locked_components.py /tmp/hb-dependencies.lock dependencies.lock
+          idf.py build
           cp /tmp/hb-dependencies.lock dependencies.lock
           python tools/check_effective_config.py build/config/sdkconfig.json recognition
           python tools/identity_flash_budget.py build --enforce

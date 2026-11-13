@@ -54,9 +54,9 @@ jobs:
           defaults=sdkconfig.defaults
           if [ "$PROFILE" != diagnostics ]; then defaults="$defaults;config/sdkconfig.$PROFILE"; fi
           idf.py -D "SDKCONFIG_DEFAULTS=$defaults" set-target esp32p4
+          python tools/check_locked_components.py "$RUNNER_TEMP/dependencies-$PROFILE.lock" dependencies.lock
           idf.py build
           cd "$GITHUB_WORKSPACE"
-          python tools/check_locked_components.py "$RUNNER_TEMP/dependencies-$PROFILE.lock" dependencies.lock
           cp "$RUNNER_TEMP/dependencies-$PROFILE.lock" dependencies.lock
           python tools/check_effective_config.py build/config/sdkconfig.json "$PROFILE"
           python -m unittest discover -s tests -p 'test_*.py'
