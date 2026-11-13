@@ -938,8 +938,8 @@ static void identity_update(void)
             hb_camera_frame frame = {0};
             if (hb_camera_acquire(&frame))
             {
-                hb_rgb888_preview(frame.pixels, frame.width, frame.height, preview_pixels,
-                                         180, 318);
+                hb_rgb888_preview(frame.pixels, frame.width, frame.height, preview_pixels, 180,
+                                  318);
                 hb_camera_release(&frame);
             }
         }
@@ -1579,8 +1579,8 @@ static void camera_brightness_update(void)
                 if (frame.sequence != preview_sequence)
                 {
                     int64_t started = esp_timer_get_time();
-                    hb_rgb888_preview(frame.pixels, frame.width, frame.height,
-                                             preview_pixels, 180, 318);
+                    hb_rgb888_preview(frame.pixels, frame.width, frame.height, preview_pixels, 180,
+                                      318);
                     preview_sequence = frame.sequence;
                     preview_count++;
                     if (preview_count % 50 == 0)

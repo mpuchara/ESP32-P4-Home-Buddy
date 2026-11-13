@@ -101,7 +101,6 @@ uint32_t hb_isp_gamma_blue(uint32_t x)
     return hb_isp_gamma_gain(x, 1.55f);
 }
 
-
 static bool rgb_bounds(const uint8_t *src, unsigned w, unsigned h, unsigned x, unsigned y,
                        unsigned cw, unsigned ch)
 {
@@ -148,8 +147,8 @@ bool hb_rgb888_preview(const uint8_t *src, unsigned w, unsigned h, uint16_t *dst
         }
     return true;
 }
-bool hb_rgb888_crop(const uint8_t *src, unsigned w, unsigned h, unsigned x, unsigned y,
-                    unsigned cw, unsigned ch, uint8_t *dst, size_t capacity)
+bool hb_rgb888_crop(const uint8_t *src, unsigned w, unsigned h, unsigned x, unsigned y, unsigned cw,
+                    unsigned ch, uint8_t *dst, size_t capacity)
 {
     if (!dst || !rgb_bounds(src, w, h, x, y, cw, ch) || capacity < (size_t)cw * ch * 3)
         return false;
@@ -207,8 +206,8 @@ float hb_rgb888_rank(hb_rgb888_stats q)
         return -1;
     float size = fminf(q.width, q.height);
     float exposure = fmaxf(0, 45 - q.mean) + fmaxf(0, q.mean - 220);
-    return fminf(size, 240) * 0.04f + fminf(q.contrast, 45) * 0.15f +
-           fminf(q.detail, 20) - exposure * 0.3f - q.clipped * 25;
+    float detail = fminf(q.detail, 20) + fminf(q.contrast, 45) * 0.15f;
+    return fminf(size, 240) * 0.04f + detail - exposure * 0.3f - q.clipped * 25;
 }
 bool hb_rgb888_neutral(const uint8_t *src, unsigned w, unsigned h, float *red, float *blue)
 {
@@ -218,12 +217,13 @@ bool hb_rgb888_neutral(const uint8_t *src, unsigned w, unsigned h, float *red, f
     for (unsigned y = 0; y < 24; ++y)
         for (unsigned x = 0; x < 32; ++x)
         {
-            const uint8_t *p = src + ((size_t)(h / 8 + y * (h * 3 / 4 - 1) / 23) * w +
-                                      w / 8 + x * (w * 3 / 4 - 1) / 31) *
-                                         3;
+            unsigned px = w / 8 + x * (w * 3 / 4 - 1) / 31;
+            unsigned py = h / 8 + y * (h * 3 / 4 - 1) / 23;
+            const uint8_t *p = src + ((size_t)py * w + px) * 3;
             unsigned v = p[1];
-            if (v < 85 || v > 210 || p[2] * 5 < v * 4 || p[2] * 4 > v * 5 ||
-                p[0] * 5 < v * 4 || p[0] * 4 > v * 5)
+            bool red_neutral = p[2] * 5 >= v * 4 && p[2] * 4 <= v * 5;
+            bool blue_neutral = p[0] * 5 >= v * 4 && p[0] * 4 <= v * 5;
+            if (v < 85 || v > 210 || !red_neutral || !blue_neutral)
                 continue;
             r += p[2];
             g += v;

@@ -6,6 +6,19 @@ on:
 permissions:
   contents: read
 jobs:
+  host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Camera native regression and formatting
+        run: |
+          python -m pip install -r tools/requirements-dev.txt
+          python tools/check_format.py
+          cc -Wall -Wextra -Werror -Icomponents/core/include -Icomponents/camera/include \
+            tests/test_brightness.c components/core/brightness.c components/camera/frame_pool.c \
+            components/camera/light_meter.c components/camera/camera_preview.c \
+            components/camera/raw_frame.c -lm -o /tmp/hb-camera-tests
+          /tmp/hb-camera-tests
   build:
     runs-on: ubuntu-latest
     container: espressif/idf:v5.5.1@sha256:dfa2d076c796769c07c155eba6c672b9f395aec943b2ba3701b73379b5f9e884
@@ -31,7 +44,7 @@ jobs:
           path: web-dist
           if-no-files-found: error
   publish:
-    needs: build
+    needs: [build, host]
     runs-on: ubuntu-latest
     permissions:
       contents: write

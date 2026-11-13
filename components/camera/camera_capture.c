@@ -196,9 +196,9 @@ static esp_err_t tune_detail(unsigned band)
         return e;
     esp_isp_demosaic_config_t dm = {.grad_ratio = {.integer = 1},
                                     .padding_mode = ISP_DEMOSAIC_EDGE_PADDING_MODE_SRND_DATA};
-    dm.grad_ratio.decimal = band == 0 ? (1U << ISP_DEMOSAIC_GRAD_RATIO_DEC_BITS) / 2
-                                    : band == 1 ? (1U << ISP_DEMOSAIC_GRAD_RATIO_DEC_BITS) / 4
-                                                : 0;
+    unsigned fraction = 1U << ISP_DEMOSAIC_GRAD_RATIO_DEC_BITS;
+    if (band < 2)
+        dm.grad_ratio.decimal = fraction / (band ? 4 : 2);
     e = esp_isp_demosaic_configure(isp, &dm);
     if (e != ESP_OK)
         return e;
@@ -495,12 +495,10 @@ static void worker(void *arg)
                     // Numeric synthetic-pattern diagnostics only; never log a room frame.
                     for (unsigned bar = 0; bar < 8; bar++)
                     {
-                        const uint8_t *p = frame.pixels +
-                                           ((size_t)(HEIGHT / 2) * WIDTH +
-                                            (2 * bar + 1) * WIDTH / 16) *
-                                               3;
-                        ESP_LOGI("camera_pattern", "bar=%u R=%u G=%u B=%u", bar, p[2], p[1],
-                                 p[0]);
+                        size_t offset = (size_t)(HEIGHT / 2) * WIDTH;
+                        offset += (2 * bar + 1) * WIDTH / 16;
+                        const uint8_t *p = frame.pixels + offset * 3;
+                        ESP_LOGI("camera_pattern", "bar=%u R=%u G=%u B=%u", bar, p[2], p[1], p[0]);
                     }
                     pattern_reported = true;
                     startup_pattern = false;

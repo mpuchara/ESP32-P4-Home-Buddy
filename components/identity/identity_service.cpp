@@ -398,7 +398,8 @@ class Models
             message(s, "Za mało pamięci na bezpieczny start MBF");
             return false;
         }
-        candidate = (uint8_t *)heap_caps_malloc(candidate_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        candidate =
+            (uint8_t *)heap_caps_malloc(candidate_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         roi_pixels =
             (uint8_t *)heap_caps_malloc(640 * 640 * 3, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         thumbnail =
@@ -501,8 +502,8 @@ class Models
             {
                 const auto &b = detections.front().box;
                 hb_id_roi roi{};
-                if (hb_id_roi_map(b[0], b[1], b[2], b[3], HB_FACE_INPUT_WIDTH,
-                                  HB_FACE_INPUT_HEIGHT, f.width, f.height, &roi))
+                if (hb_id_roi_map(b[0], b[1], b[2], b[3], HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT,
+                                  f.width, f.height, &roi))
                 {
                     unsigned x = b[0] * (f.height - 2) / HB_FACE_INPUT_WIDTH;
                     unsigned y = b[1] * (f.width - 2) / HB_FACE_INPUT_HEIGHT;
@@ -1121,16 +1122,18 @@ static void worker(void *)
                         else
                             accepted = hb_id_enroll_sample(enrollment, &embedding, state.faces,
                                                            true, state.sequence, state.frame_ms);
-                        message(state, !accepted ? "Próbka podobna lub nieaktualna. Patrz prosto."
-                                       : guided_ready
-                                           ? "Spójny zestaw gotowy. Poczekaj na weryfikację."
-                                           : guided_samples < 3
-                                               ? "Patrz prosto; utrzymaj twarz w kadrze."
-                                           : guided_samples < 5
-                                               ? "Obróć głowę lekko w lewo, bez pośpiechu."
-                                           : guided_samples < 7
-                                               ? "Obróć głowę lekko w prawo."
-                                               : "Spójrz prosto, zmień lekko odległość.");
+                        const char *hint = "Spójrz prosto, zmień lekko odległość.";
+                        if (!accepted)
+                            hint = "Próbka podobna lub nieaktualna. Patrz prosto.";
+                        else if (guided_ready)
+                            hint = "Spójny zestaw gotowy. Poczekaj na weryfikację.";
+                        else if (!guided || guided_samples < 3)
+                            hint = "Patrz prosto; utrzymaj twarz w kadrze.";
+                        else if (guided_samples < 5)
+                            hint = "Obróć głowę lekko w lewo, bez pośpiechu.";
+                        else if (guided_samples < 7)
+                            hint = "Obróć głowę lekko w prawo.";
+                        message(state, hint);
                     }
                     if (verify && (!guided || guided_ready))
                     {

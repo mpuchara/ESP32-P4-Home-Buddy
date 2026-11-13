@@ -35,8 +35,8 @@ bool hb_rgb888_thumbnail(const uint8_t *src, unsigned w, unsigned h, uint8_t *ds
                          unsigned oh);
 bool hb_rgb888_preview(const uint8_t *src, unsigned w, unsigned h, uint16_t *dst, unsigned ow,
                        unsigned oh);
-bool hb_rgb888_crop(const uint8_t *src, unsigned w, unsigned h, unsigned x, unsigned y,
-                    unsigned cw, unsigned ch, uint8_t *dst, size_t capacity);
+bool hb_rgb888_crop(const uint8_t *src, unsigned w, unsigned h, unsigned x, unsigned y, unsigned cw,
+                    unsigned ch, uint8_t *dst, size_t capacity);
 hb_rgb888_stats hb_rgb888_quality(const uint8_t *src, unsigned w, unsigned h, unsigned x,
                                   unsigned y, unsigned cw, unsigned ch);
 float hb_rgb888_rank(hb_rgb888_stats q);

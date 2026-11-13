@@ -168,8 +168,8 @@ static void worker(void *)
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
-        hb_rgb888_preview(frame.pixels, frame.width, frame.height, pixels,
-                                 HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
+        hb_rgb888_preview(frame.pixels, frame.width, frame.height, pixels, HB_FACE_INPUT_WIDTH,
+                          HB_FACE_INPUT_HEIGHT);
         hb_camera_release(&frame); // Never hold sensor storage during model inference.
         dl::image::img_t image{.data = pixels,
                                .width = HB_FACE_INPUT_WIDTH,
