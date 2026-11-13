@@ -1,0 +1,70 @@
+name: Camera ISP web installer
+on:
+  push:
+    branches: [codex/camera-isp-web-upgrade]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5.1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build recognition app
+        shell: bash
+        run: |
+          cp dependencies.lock /tmp/hb-dependencies.lock
+          . /opt/esp/idf/export.sh
+          idf.py -D 'SDKCONFIG_DEFAULTS=sdkconfig.defaults;config/sdkconfig.recognition' set-target esp32p4
+          idf.py build
+          cmp dependencies.lock /tmp/hb-dependencies.lock
+          python tools/check_effective_config.py build/config/sdkconfig.json recognition
+          python tools/identity_flash_budget.py build --enforce
+          python -m unittest discover -s tests -p 'test_*.py'
+          python tools/package_firmware.py build dist/recognition
+          python tools/build_web_installer.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: camera-isp-web
+          path: web-dist
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: camera-isp-web
+          path: web-dist
+      - name: Publish tested-build prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="camera-isp-test-${GITHUB_SHA:0:12}"
+          gh release create "$tag" web-dist/index.html web-dist/home_buddy.bin web-dist/SHA256SUMS --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --latest=false --title "Camera ISP test $tag" --notes "Experimental application-only update. Build checks passed; hardware acceptance pending. Download index.html and open in desktop Chrome or Edge. Existing single-factory-v1 layout required; no full erase."
+  pages:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: camera-isp-web
+          path: web-dist
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web-dist
+      - uses: actions/deploy-pages@v4
+        id: deployment

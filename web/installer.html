@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Home Buddy — Camera ISP test</title>
+<style>body{font:16px system-ui;background:#101722;color:#e5edf7;max-width:720px;margin:48px auto;padding:24px}h1{font-size:30px}p{line-height:1.6}button{background:#49c8b3;color:#09251f;font-weight:bold;padding:14px 22px;border:0;border-radius:10px;cursor:pointer}button:disabled{opacity:.5}pre{white-space:pre-wrap;background:#1b293b;padding:16px;border-radius:10px}progress{width:100%}a{color:#8ddbd2}</style>
+<h1>Home Buddy · Camera ISP</h1><p>Wersja testowa 0.12.0. Tylko GUITION ESP32-P4 z istniejącym układem single-factory-v1. Aktualizuje wyłącznie aplikację pod adresem 0x20000; nie kasuje profili, modeli ani Wi-Fi.</p>
+<p>Podłącz płytkę kablem USB do komputera. Otwórz w Chrome lub Edge, zamknij monitor portu szeregowego. W przypadku problemów z połączeniem użyj przycisków BOOT/RESET zgodnie z instrukcją płytki. Podczas zapisu nie odłączaj kabla.</p>
+<p>Eksperymentalny ISP: sprawdź kolory, rozpoznawanie twarzy i stabilność. Automatyczny pomiar oświetlenia jest wyłączony; ustaw jasność ręcznie. Nie instaluj na innym układzie partycji.</p>
+<label><input type="checkbox" id="ack"> Potwierdzam, że to mój Home Buddy z dotychczasowym układem single-factory-v1 i chcę zainstalować wersję testową.</label><p><button id="go" disabled>Połącz i zainstaluj</button></p>
+<progress id="progress" max="100" value="0"></progress><pre id="log">Sprawdzanie dostępności instalatora…</pre>
+<script type="module">
+const log=document.getElementById('log'), go=document.getElementById('go'), ack=document.getElementById('ack'), progress=document.getElementById('progress');
+const payload="__APP_BASE64__", expected="__APP_SHA256__", table="__TABLE_BASE64__";
+const append=s=>{log.textContent+=s+"\n";};
+const decode=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const sha=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
+let module, firmware, running=false;
+try{
+ if(!navigator.serial||!window.isSecureContext)throw Error('Wymagany Chrome/Edge na komputerze i bezpieczny kontekst HTTPS.');
+ if(payload.startsWith('__'))throw Error('Ten plik nie zawiera zbudowanego firmware. Użyj opublikowanego instalatora z wydania GitHub.');
+ firmware=decode(payload);
+ if(firmware.length>0x700000||firmware[0]!==0xe9||await sha(firmware)!==expected)throw Error('Nieprawidłowy obraz aplikacji.');
+ module=await import('https://unpkg.com/esptool-js@0.7.1/bundle.js');
+ log.textContent='Firmware zweryfikowany. Gotowy do podłączenia.\n';
+ ack.onchange=()=>go.disabled=!ack.checked||running;
+ go.disabled=!ack.checked;
+}catch(e){log.textContent='Nie można uruchomić instalatora: '+e.message;}
+go.onclick=async()=>{
+ if(running||!ack.checked||!module)return;running=true;go.disabled=true;let transport;
+ try{
+  const port=await navigator.serial.requestPort();
+  transport=new module.Transport(port,false);
+  const loader=new module.ESPLoader({transport,baudrate:460800,terminal:{clean(){},writeLine:append,write:append},debugLogging:false});
+  const chip=await loader.main();
+  if(!String(chip).includes('ESP32-P4'))throw Error('Nie jest to ESP32-P4: '+chip);
+  append('Weryfikacja istniejącej tablicy partycji…');
+  const wanted=decode(table);
+  const actual=await loader.readFlash(0x10000,wanted.length);
+  if(await sha(actual)!==await sha(wanted))throw Error('Inny układ partycji; przerwano przed zapisem.');
+  append('Układ zgodny. Zapis wyłącznie aplikacji 0x20000.');
+  await loader.writeFlash({fileArray:[{data:firmware,address:0x20000}],flashMode:'keep',flashFreq:'keep',flashSize:'keep',eraseAll:false,compress:true,reportProgress:(_,w,t)=>{progress.value=100*w/t;}});
+  append('Weryfikacja zapisu przez odczyt…');
+  const written=await loader.readFlash(0x20000,firmware.length,(_,w,t)=>{progress.value=100*w/t;});
+  if(await sha(written)!==expected)throw Error('Weryfikacja odczytu niezgodna.');
+  progress.value=100;await loader.after('hard_reset');append('Instalacja i weryfikacja zakończone. Płytka uruchamia się ponownie.');
+ }catch(e){append('Błąd: '+e.message+' — nie odłączaj urządzenia podczas zapisu; po przerwaniu można ponowić instalację.');}
+ finally{if(transport)try{await transport.disconnect();}catch{}running=false;go.disabled=!ack.checked;}
+};
+</script></html>

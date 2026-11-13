@@ -17,11 +17,11 @@
 #include <stdatomic.h>
 #include <string.h>
 #ifndef HB_CAMERA_DMA_OUTPUT_BITS
-#error "Local RAW8 capture requires the audited project CSI DMA output-length adapter"
+#error "Local RGB565 capture requires the audited project CSI DMA output-length adapter"
 #endif
 #define WIDTH 1288
 #define HEIGHT 728
-#define FRAME_BYTES (WIDTH * HEIGHT)
+#define FRAME_BYTES (WIDTH * HEIGHT * 2U)
 static portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;
 static hb_frame_pool pool;
 static uint8_t *storage[HB_CAMERA_SLOTS];
@@ -33,6 +33,7 @@ static isp_proc_handle_t isp;
 static i2c_master_dev_handle_t sensor;
 static bool controller_enabled, controller_started, isp_enabled;
 static bool isp_quarantined;
+static bool bf_enabled, demosaic_enabled, ccm_enabled, gamma_enabled;
 static atomic_uint sample_seconds = 5;
 static atomic_bool started;
 static atomic_bool requested_pattern;
@@ -133,6 +134,73 @@ void hb_camera_set_sample_seconds(uint32_t seconds)
     if (seconds >= 1 && seconds <= 60)
         atomic_store(&sample_seconds, seconds);
 }
+// OV02C10 SDK-inspired conservative fixed tuning. Keep the sensor/CSI owner
+// and audited DMA adapter; no second capture owner or competing AE controller.
+static uint32_t gamma_curve(uint32_t x)
+{
+    return x == 256 ? 256 : (uint32_t)fminf(255, 256 * powf(x / 256.0f, 0.518f));
+}
+static esp_err_t configure_isp(void)
+{
+    esp_isp_bf_config_t bf = {
+        .padding_mode = ISP_BF_EDGE_PADDING_MODE_SRND_DATA,
+        .bf_template = {{2, 4, 2}, {4, 5, 4}, {2, 4, 2}},
+        .denoising_level = 3};
+    esp_err_t e = esp_isp_bf_configure(isp, &bf);
+    if (e != ESP_OK)
+        return e;
+    e = esp_isp_bf_enable(isp);
+    if (e != ESP_OK)
+        return e;
+    bf_enabled = true;
+    esp_isp_demosaic_config_t dm = {
+        .grad_ratio = {.integer = 1, .decimal = 0},
+        .padding_mode = ISP_DEMOSAIC_EDGE_PADDING_MODE_SRND_DATA};
+    e = esp_isp_demosaic_configure(isp, &dm);
+    if (e != ESP_OK)
+        return e;
+    e = esp_isp_demosaic_enable(isp);
+    if (e != ESP_OK)
+        return e;
+    demosaic_enabled = true;
+    esp_isp_ccm_config_t ccm = {
+        .matrix = {{1.408f, -0.094f, -0.314f},
+                   {-0.13f, 1.28f, -0.15f},
+                   {-0.072f, -0.173f, 1.245f}}};
+    e = esp_isp_ccm_configure(isp, &ccm);
+    if (e != ESP_OK)
+        return e;
+    e = esp_isp_ccm_enable(isp);
+    if (e != ESP_OK)
+        return e;
+    ccm_enabled = true;
+    isp_gamma_curve_points_t points;
+    e = esp_isp_gamma_fill_curve_points(gamma_curve, &points);
+    for (int c = COLOR_COMPONENT_R; e == ESP_OK && c <= COLOR_COMPONENT_B; ++c)
+        e = esp_isp_gamma_configure(isp, (color_component_t)c, &points);
+    if (e != ESP_OK)
+        return e;
+    e = esp_isp_gamma_enable(isp);
+    gamma_enabled = e == ESP_OK;
+    return e;
+}
+static esp_err_t disable_isp_modules(void)
+{
+    esp_err_t e = ESP_OK;
+    if (gamma_enabled && (e = esp_isp_gamma_disable(isp)) != ESP_OK)
+        return e;
+    gamma_enabled = false;
+    if (ccm_enabled && (e = esp_isp_ccm_disable(isp)) != ESP_OK)
+        return e;
+    ccm_enabled = false;
+    if (demosaic_enabled && (e = esp_isp_demosaic_disable(isp)) != ESP_OK)
+        return e;
+    demosaic_enabled = false;
+    if (bf_enabled && (e = esp_isp_bf_disable(isp)) != ESP_OK)
+        return e;
+    bf_enabled = false;
+    return e;
+}
 static esp_err_t initialize(void)
 {
     uint16_t id;
@@ -177,7 +245,7 @@ static esp_err_t initialize(void)
                                            .data_lane_num = 1,
                                            .lane_bit_rate_mbps = 400,
                                            .input_data_color_type = CAM_CTLR_COLOR_RAW10,
-                                           .output_data_color_type = CAM_CTLR_COLOR_RAW8,
+                                           .output_data_color_type = CAM_CTLR_COLOR_RGB565,
                                            .queue_items = 1};
     e = esp_cam_new_csi_ctlr(&csi, &controller);
     if (e != ESP_OK)
@@ -203,7 +271,7 @@ static esp_err_t initialize(void)
                                       .clk_hz = 160000000,
                                       .input_data_source = ISP_INPUT_DATA_SOURCE_CSI,
                                       .input_data_color_type = ISP_COLOR_RAW10,
-                                      .output_data_color_type = ISP_COLOR_RAW8,
+                                      .output_data_color_type = ISP_COLOR_RGB565,
                                       .h_res = WIDTH,
                                       .v_res = HEIGHT,
                                       .bayer_order = COLOR_RAW_ELEMENT_ORDER_GBRG};
@@ -220,6 +288,9 @@ static esp_err_t initialize(void)
     if (e != ESP_OK)
         return e;
     isp_enabled = true;
+    e = configure_isp();
+    if (e != ESP_OK)
+        return e;
     e = esp_cam_ctlr_start(controller);
     if (e != ESP_OK)
         return e;
@@ -232,7 +303,7 @@ static esp_err_t initialize(void)
     status.width = WIDTH;
     status.height = HEIGHT;
     portEXIT_CRITICAL(&lock);
-    ESP_LOGI("camera", "CSI RAW10 1288x728 1 lane 400Mbps -> ISP RAW8 GBRG; pool=%u + discard=%u",
+    ESP_LOGI("camera", "CSI RAW10 1288x728 1 lane 400Mbps -> ISP RGB565 tuned; pool=%u + discard=%u",
              (unsigned)(HB_CAMERA_SLOTS * FRAME_BYTES), (unsigned)FRAME_BYTES);
     return ESP_OK;
 }
@@ -248,6 +319,7 @@ static void stop_driver(void)
         write_reg(0x0100, 0);
     if ((controller_started && esp_cam_ctlr_stop(controller) != ESP_OK) ||
         (controller_enabled && esp_cam_ctlr_disable(controller) != ESP_OK) ||
+        (isp_enabled && disable_isp_modules() != ESP_OK) ||
         (isp_enabled && esp_isp_disable(isp) != ESP_OK) ||
         (isp && esp_isp_del_processor(isp) != ESP_OK) ||
         (controller && esp_cam_ctlr_del(controller) != ESP_OK) ||
@@ -320,11 +392,8 @@ static void worker(void *arg)
                     // Numeric synthetic-pattern diagnostics only; never log a room frame.
                     for (unsigned bar = 0; bar < 8; bar++)
                     {
-                        const uint8_t *raw = frame.pixels + (HEIGHT / 2) * WIDTH +
-                                             (((2 * bar + 1) * WIDTH / 16) & ~1U);
-                        uint16_t p = (uint16_t)(((raw[WIDTH] >> 3) << 11) |
-                                                ((((unsigned)raw[0] + raw[WIDTH + 1]) / 8) << 5) |
-                                                (raw[1] >> 3));
+                        const uint16_t *rgb = (const uint16_t *)frame.pixels;
+                        uint16_t p = rgb[(HEIGHT / 2) * WIDTH + (2 * bar + 1) * WIDTH / 16];
                         ESP_LOGI("camera_pattern",
                                  "bar=%u R=%u G=%u B=%u swapR=%u swapG=%u swapB=%u", bar,
                                  (p >> 11) & 31, (p >> 5) & 63, p & 31,
@@ -351,7 +420,7 @@ static void worker(void *arg)
                              65536.0f;
                     }
                     hb_light_reading light =
-                        hb_raw_light(frame.pixels, WIDTH, HEIGHT, exp, ag, dg, meta);
+                        hb_light_measure((const uint16_t *)frame.pixels, WIDTH, HEIGHT, exp, ag, dg, meta);
                     unsigned measured_lines =
                         meta ? (unsigned)((exposure[0] << 8) | exposure[1]) : 0;
                     unsigned measured_vts = meta ? (unsigned)((timing[2] << 8) | timing[3]) : 0;
@@ -363,7 +432,8 @@ static void worker(void *arg)
                     portENTER_CRITICAL(&lock);
                     if (publish)
                     {
-                        status.light = light;
+                        // RGB565 is gamma/CCM corrected: never reuse RAW light calibration.
+                        status.light = (hb_light_reading){0};
                         status.light_ms = frame.timestamp_ms;
                     }
                     status.exposure_us = exp;
@@ -393,12 +463,12 @@ static void worker(void *arg)
                     // Local host auto exposure: no cloud, no permanent fixed exposure.
                     // Read actual gain/exposure each time; discard settling frames after writes.
                     if (meta && ag >= 1 && ag <= 8 && light.luminance >= 0 &&
-                        (light.luminance < 64 || light.luminance > 112))
+                        (light.luminance < 100 || light.luminance > 155))
                     {
                         unsigned old_lines = (exposure[0] << 8) | exposure[1];
                         unsigned vts = (timing[2] << 8) | timing[3];
                         unsigned max_lines = vts > 19 ? vts - 15 : 4;
-                        float ratio = fminf(1.5f, fmaxf(0.67f, 80 / (light.luminance + 1)));
+                        float ratio = fminf(1.5f, fmaxf(0.67f, 125 / (light.luminance + 1)));
                         unsigned lines = (unsigned)fminf(max_lines, fmaxf(4, old_lines * ratio));
                         unsigned gain_raw = (gain[0] << 8) | gain[1];
                         unsigned next_gain = gain_raw;

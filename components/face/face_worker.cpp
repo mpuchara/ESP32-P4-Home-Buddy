@@ -168,11 +168,9 @@ static void worker(void *)
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
-        hb_raw_thumbnail_upright(frame.pixels, frame.width, frame.height, pixels,
+        hb_rgb_thumbnail_upright(frame.pixels, frame.width, frame.height, pixels,
                                  HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
         hb_camera_release(&frame); // Never hold sensor storage during model inference.
-        hb_camera_make_preview(pixels, HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT, pixels,
-                               HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
         dl::image::img_t image{.data = pixels,
                                .width = HB_FACE_INPUT_WIDTH,
                                .height = HB_FACE_INPUT_HEIGHT,

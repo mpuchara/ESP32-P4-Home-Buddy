@@ -9,7 +9,7 @@
 esp_err_t hb_camera_probe(uint16_t *sensor_id);
 typedef struct
 {
-    // RAW8 Bayer GBRG, tightly packed; immutable while leased.
+    // ISP RGB565 native little-endian, tightly packed; immutable while leased.
     const uint8_t *pixels;
     unsigned width, height;
     unsigned rotation_ccw; // 90 degrees: canonical upright dimensions are height x width.

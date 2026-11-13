@@ -56,3 +56,17 @@ hb_light_reading hb_raw_light(const uint8_t *src, unsigned w, unsigned h, float 
         }
     return hb_light_histogram(hist, exposure, ag, dg, meta);
 }
+
+bool hb_rgb_thumbnail_upright(const uint8_t *src, unsigned w, unsigned h, uint16_t *dst,
+                              unsigned ow, unsigned oh)
+{
+    if (!src || !dst || w < 32 || h < 32 || w > 4096 || h > 4096 || !ow || !oh || ow > 800 ||
+        oh > 800)
+        return false;
+    const uint16_t *rgb = (const uint16_t *)src;
+    for (unsigned y = 0; y < oh; ++y)
+        for (unsigned x = 0; x < ow; ++x)
+            dst[(size_t)y * ow + x] = rgb[(size_t)(x * (h - 2) / ow) * w +
+                                         w - 2 - y * (w - 2) / oh];
+    return true;
+}

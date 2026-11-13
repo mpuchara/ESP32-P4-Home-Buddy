@@ -329,7 +329,7 @@ class Models
     HumanFaceFeat *mbf = nullptr;
     uint8_t *raw = nullptr, *roi_pixels = nullptr;
     uint16_t *thumbnail = nullptr;
-    static constexpr size_t raw_capacity = 1288 * 728;
+    static constexpr size_t raw_capacity = 1288 * 728 * 2;
     void unload()
     {
         if (!mbf && !official && !mnp && !detector && !raw && !roi_pixels && !thumbnail)
@@ -456,12 +456,12 @@ class Models
         unsigned rw = f.width, rh = f.height;
         uint64_t begin = esp_timer_get_time();
         bool valid = f.rotation_ccw == 90 && rw >= 32 && rh >= 32 && !(rw & 1) && !(rh & 1) &&
-                     (size_t)rw * rh <= raw_capacity && f.sequence > s.sequence && f.timestamp_ms &&
+                     (size_t)rw * rh * 2 <= raw_capacity && f.sequence > s.sequence && f.timestamp_ms &&
                      f.timestamp_ms <= now_ms() && now_ms() - f.timestamp_ms <= 500;
         if (valid)
         {
-            // One reusable RAW8 snapshot preserves exact-frame ROI pixels after releasing DMA.
-            memcpy(raw, f.pixels, (size_t)rw * rh);
+            // One reusable RGB565 snapshot preserves exact-frame ROI pixels after releasing DMA.
+            memcpy(raw, f.pixels, (size_t)rw * rh * 2);
             s.sequence = f.sequence;
             s.frame_ms = f.timestamp_ms;
         }
@@ -471,9 +471,7 @@ class Models
             message(s, "Nieaktualna lub nieobsługiwana klatka");
             return false;
         }
-        hb_raw_thumbnail_upright(raw, rw, rh, thumbnail, HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
-        hb_camera_make_preview(thumbnail, HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT, thumbnail,
-                               HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
+        hb_rgb_thumbnail_upright(raw, rw, rh, thumbnail, HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
         dl::image::img_t small{.data = thumbnail,
                                .width = HB_FACE_INPUT_WIDTH,
                                .height = HB_FACE_INPUT_HEIGHT,
@@ -498,8 +496,21 @@ class Models
             return false;
         }
         const auto &roi = s.roi;
-        if (!hb_id_raw_roi(raw, (size_t)rw * rh, rw, rh, roi, roi_pixels, 640 * 640 * 3))
-            return false;
+        // Crop the SAME native ISP frame, in upright coordinates; do not apply
+        // the legacy Bayer demosaic or gamma a second time.
+        const uint16_t *rgb = reinterpret_cast<const uint16_t *>(raw);
+        for (unsigned y = 0; y < roi.h; ++y)
+            for (unsigned x = 0; x < roi.w; ++x)
+            {
+                unsigned sx, sy;
+                if (!hb_id_to_sensor(roi.x + x, roi.y + y, rw, rh, &sx, &sy))
+                    return false;
+                uint16_t p = rgb[(size_t)sy * rw + sx];
+                uint8_t *d = roi_pixels + ((size_t)y * roi.w + x) * 3;
+                d[0] = ((p >> 11) & 31) * 255 / 31;
+                d[1] = ((p >> 5) & 63) * 255 / 63;
+                d[2] = (p & 31) * 255 / 31;
+            }
         dl::image::img_t crop{.data = roi_pixels,
                               .width = (uint16_t)roi.w,
                               .height = (uint16_t)roi.h,

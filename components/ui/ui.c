@@ -938,9 +938,8 @@ static void identity_update(void)
             hb_camera_frame frame = {0};
             if (hb_camera_acquire(&frame))
             {
-                hb_raw_thumbnail_upright(frame.pixels, frame.width, frame.height, preview_pixels,
+                hb_rgb_thumbnail_upright(frame.pixels, frame.width, frame.height, preview_pixels,
                                          180, 318);
-                hb_camera_make_preview(preview_pixels, 180, 318, preview_pixels, 180, 318);
                 hb_camera_release(&frame);
             }
         }
@@ -1532,7 +1531,7 @@ static void camera_brightness_update(void)
 {
     if (!camera_info && !brightness_info && !monitor_info && !quality_info)
         return;
-    if ((uint32_t)(lv_tick_get() - preview_tick) < 100)
+    if ((uint32_t)(lv_tick_get() - preview_tick) < 33)
         return;
     preview_tick = lv_tick_get();
     hb_camera_status camera;
@@ -1556,7 +1555,7 @@ static void camera_brightness_update(void)
             camera_info_tick = lv_tick_get();
             char text[640];
             snprintf(text, sizeof(text),
-                     "ID: 0x%04x  %s\n%u x %u RAW8 | %.1f FPS\nKlatki: %u  Błędy: %u\nPominięte: "
+                     "ID: 0x%04x  %s\n%u x %u RGB565 | %.1f FPS\nKlatki: %u  Błędy: %u\nPominięte: "
                      "%u\nExp: %.0f us G: %.1f/%.1f\nŚwiatło: %s\nPodgląd: %.1f "
                      "FPS RAM: %u MB\n%s",
                      camera.sensor_id,
@@ -1580,10 +1579,8 @@ static void camera_brightness_update(void)
                 if (frame.sequence != preview_sequence)
                 {
                     int64_t started = esp_timer_get_time();
-                    hb_raw_thumbnail_upright(frame.pixels, frame.width, frame.height,
+                    hb_rgb_thumbnail_upright(frame.pixels, frame.width, frame.height,
                                              preview_pixels, 180, 318);
-                    if (!camera.test_pattern)
-                        hb_camera_make_preview(preview_pixels, 180, 318, preview_pixels, 180, 318);
                     preview_sequence = frame.sequence;
                     preview_count++;
                     if (preview_count % 50 == 0)
