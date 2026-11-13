@@ -62,6 +62,8 @@ extern "C"
         hb_id_mode mode;
         hb_id_match match;
         hb_id_match calibration[4];
+        unsigned calibration_ta[4], calibration_fr[4], calibration_fa[4];
+        unsigned calibration_confusion[4], calibration_unavailable[4];
         unsigned detector_size;
         bool fused, ppa_used, aligned_valid;
         bool ready, confirmed, verified, official_landmarks, detection_valid;

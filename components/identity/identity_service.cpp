@@ -344,6 +344,7 @@ class Models
     static constexpr size_t scaled_bytes = 364 * 644 * 3;
     unsigned detection_round = 0;
     uint64_t last_roi_ms = 0;
+    hb_id_roi last_roi{};
     static constexpr size_t candidate_bytes = HB_FACE_INPUT_WIDTH * HB_FACE_INPUT_HEIGHT * 3;
     void unload()
     {
@@ -615,8 +616,14 @@ class Models
                 if (!retry)
                 {
                     const auto &b = results->front().box;
+                    hb_id_roi tracked{};
                     retry = b.size() != 4 || b[2] - b[0] < 40 || b[3] - b[1] < 40 ||
                             results->front().score < 0.70f;
+                    if (!retry)
+                        retry = !hb_id_roi_map_large(b[0], b[1], b[2], b[3], HB_FACE_INPUT_WIDTH,
+                                                     HB_FACE_INPUT_HEIGHT, f.width, f.height,
+                                                     &tracked) ||
+                                !hb_id_same_roi(last_roi, tracked);
                 }
                 if (retry)
                 {
@@ -703,6 +710,7 @@ class Models
         s.detection_us = detection_us;
         if (multiple || best_rank == -1000)
         {
+            last_roi_ms = 0;
             s.faces = multiple ? 2 : s.faces;
             message(s, multiple ? "Wykryto więcej niż jedną twarz" : "Spójrz w kamerę");
             return false;
@@ -718,6 +726,7 @@ class Models
             return false;
         }
         last_roi_ms = s.frame_ms;
+        last_roi = s.roi;
         const auto &roi = s.roi;
         dl::image::img_t crop{.data = roi_pixels,
                               .width = (uint16_t)crop_w,
@@ -830,6 +839,10 @@ static void worker(void *)
     uint64_t previous_ms = 0;
     uint32_t previous_ticket = 0;
     hb_id_match previous_result{};
+    float previous_weight = 1;
+    hb_id_tracker shadow_trackers[4]{};
+    bool shadow_confirmed[4]{};
+    hb_id_evaluation shadow_evaluations[4]{};
 #endif
     for (;;)
     {
@@ -899,6 +912,11 @@ static void worker(void *)
                     evaluation_expected = state.expected_id;
                     evaluation_sequence = state.sequence;
                     hb_id_tracker_reset(&tracker, epoch.load());
+#if CONFIG_HB_IDENTITY_EXPERIMENTAL
+                    for (auto &t : shadow_trackers)
+                        hb_id_tracker_reset(&t, epoch.load());
+                    previous_ms = 0;
+#endif
                     message(state, "Nowa próba: trzy nowe obserwacje; bez zapisu zdjęć");
                 }
                 else
@@ -1352,7 +1370,17 @@ static void worker(void *)
                                  (unsigned)state.calibration[1].state,
                                  (unsigned)state.calibration[2].state,
                                  (unsigned)state.calibration[3].state);
+                    for (unsigned k = 0; k < 4; ++k)
+                    {
+                        if (shadow_trackers[k].session != ticket)
+                            hb_id_tracker_reset(&shadow_trackers[k], ticket);
+                        shadow_confirmed[k] = hb_id_confirm(
+                            &shadow_trackers[k], state.calibration[k], ticket, state.sequence,
+                            state.frame_ms, state.completed_ms, now_ms(), &shadow_policies[k]);
+                    }
                     auto direct = state.match;
+                    float weight = std::fmax(1.0f, state.quality.detail +
+                                                      0.15f * state.quality.contrast);
                     // Blend only adjacent, overlapping, mutually similar unknown embeddings.
                     // Never merge known conflicting identities or ambiguous candidates.
                     bool continuous = previous_ticket == ticket && previous_ms &&
@@ -1361,7 +1389,7 @@ static void worker(void *)
                                       hb_id_same_roi(previous_roi, state.roi);
                     if (continuous && direct.state == HB_ID_UNKNOWN &&
                         previous_result.state == HB_ID_UNKNOWN &&
-                        hb_id_blend(&blended, &previous_embedding, &embedding, 1, 1))
+                        hb_id_blend(&blended, &previous_embedding, &embedding, previous_weight, weight))
                     {
                         auto combined = hb_id_match_top1(database, &blended, &policy, true);
                         if (combined.state == HB_ID_KNOWN)
@@ -1372,7 +1400,8 @@ static void worker(void *)
                     }
                     previous_embedding = embedding;
                     previous_roi = state.roi;
-                    previous_ms = state.frame_ms;
+                    previous_ms = state.fused ? 0 : state.frame_ms;
+                    previous_weight = weight;
                     previous_ticket = ticket;
                     previous_result = direct;
                     state.confirmed =
@@ -1414,6 +1443,12 @@ static void worker(void *)
                     state.match.state = hb_id_detection_failure(state.detection_valid, state.faces);
                     hb_id_tracker_reset(&tracker, ticket);
                     previous_ms = 0;
+                    for (unsigned k = 0; k < 4; ++k)
+                    {
+                        hb_id_tracker_reset(&shadow_trackers[k], ticket);
+                        shadow_confirmed[k] = false;
+                        state.calibration[k] = state.match;
+                    }
                 }
             }
             else
@@ -1438,6 +1473,20 @@ static void worker(void *)
                         if (state.total_us > state.evaluation.latency_max_us)
                             state.evaluation.latency_max_us = state.total_us;
                     }
+                }
+                for (unsigned k = 0; k < 4; ++k)
+                {
+                    auto &v = shadow_evaluations[k];
+                    if (state.sequence <= evaluation_sequence || !state.detection_valid)
+                        hb_id_evaluation_unavailable(&v, evaluation_expected);
+                    else
+                        hb_id_evaluate(&v, evaluation_expected, state.calibration[k],
+                                       shadow_confirmed[k], state.sequence, state.frame_ms);
+                    state.calibration_ta[k] = v.true_accept;
+                    state.calibration_fr[k] = v.false_reject;
+                    state.calibration_fa[k] = v.unknown_accept;
+                    state.calibration_confusion[k] = v.confusion;
+                    state.calibration_unavailable[k] = v.unavailable;
                 }
                 evaluate = false;
                 message(state, "Próba oceniona; zmień warunek przed kolejną próbą");

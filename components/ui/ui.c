@@ -76,7 +76,8 @@ static void update(lv_timer_t *timer);
 static lv_obj_t *camera_info, *camera_photo, *brightness_info, *pwm_info;
 static lv_obj_t *monitor_info, *quality_info;
 static lv_obj_t *face_label, *presence_label, *face_boxes[HB_FACE_MAX];
-static lv_img_dsc_t camera_image;
+static lv_img_dsc_t camera_image, aligned_image;
+static bool aligned_view;
 static uint16_t *preview_pixels;
 static bool preview_enabled;
 static uint32_t preview_tick, preview_sequence;
@@ -229,6 +230,7 @@ static void close_page(void)
         }
     }
     identity_screen = false;
+    aligned_view = false;
     voice_screen = false;
     resume_auto = false;
     recognition_settings = false;
@@ -258,12 +260,14 @@ static void close_page(void)
     if (preview_pixels)
     {
         lv_img_cache_invalidate_src(&camera_image);
+        lv_img_cache_invalidate_src(&aligned_image);
         // Delete the image widget before releasing its descriptor storage.
         if (camera_photo)
             lv_obj_del(camera_photo);
         free(preview_pixels);
         preview_pixels = NULL;
         memset(&camera_image, 0, sizeof(camera_image));
+        memset(&aligned_image, 0, sizeof(aligned_image));
     }
     camera_photo = NULL;
     diagnostic = false;
@@ -661,6 +665,20 @@ static void voice_enrollment_page(lv_event_t *e)
     lv_obj_set_width(identity_info, 745);
     lv_scr_load(page);
 }
+static void identity_aligned_toggle(lv_event_t *e)
+{
+    (void)e;
+    if (!camera_photo || !preview_pixels)
+        return;
+    aligned_view = !aligned_view;
+    lv_img_cache_invalidate_src(&camera_image);
+    lv_img_cache_invalidate_src(&aligned_image);
+    lv_img_set_src(camera_photo, aligned_view ? &aligned_image : &camera_image);
+    lv_obj_set_pos(camera_photo, aligned_view ? 46 : 12, aligned_view ? 125 : 70);
+    for (unsigned i = 0; i < 5; ++i)
+        lv_obj_add_flag(identity_marks[i], LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(identity_box, LV_OBJ_FLAG_HIDDEN);
+}
 static void identity_page(lv_event_t *e)
 {
     bool enroll = e && (uintptr_t)lv_event_get_user_data(e) == 1;
@@ -704,9 +722,13 @@ static void identity_page(lv_event_t *e)
                (void *)(uintptr_t)HB_ID_CMD_LANDMARK_METHOD);
         button(page, "Stop", 590, 125, 190, identity_send, (void *)(uintptr_t)HB_ID_CMD_STOP);
     }
+    button(page, "112x112 / kamera", 205, 125, 180, identity_aligned_toggle, NULL);
     preview_pixels = heap_caps_calloc(180 * 318, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (preview_pixels)
     {
+        aligned_image = (lv_img_dsc_t){.header = {.cf = LV_IMG_CF_TRUE_COLOR, .w = 112, .h = 112},
+                                       .data_size = 112 * 112 * 2,
+                                       .data = (const uint8_t *)preview_pixels};
         camera_image = (lv_img_dsc_t){.header = {.cf = LV_IMG_CF_TRUE_COLOR, .w = 180, .h = 318},
                                       .data_size = 180 * 318 * 2,
                                       .data = (const uint8_t *)preview_pixels};
@@ -927,12 +949,45 @@ static void identity_update(void)
                           s->mode != HB_ID_ENROLL && !s->storage_saved ? "Ponów zapis"
                                                                        : "Potwierdź zapis profilu");
     }
+    else if (aligned_view)
+    {
+        lv_label_set_text_fmt(
+            identity_info,
+            "Wejście MBF 112x112 | det %u | PPA %d | fuzja %d\n"
+            "Progi: TA / FR / FA / mylne / brak\n"
+            "0.70: %u / %u / %u / %u / %u\n"
+            "0.65: %u / %u / %u / %u / %u\n"
+            "0.60: %u / %u / %u / %u / %u\n"
+            "0.50 ref: %u / %u / %u / %u / %u\n"
+            "Próby znane %u / gość %u | %s",
+            s->detector_size, s->ppa_used, s->fused,
+            s->calibration_ta[0], s->calibration_fr[0], s->calibration_fa[0],
+            s->calibration_confusion[0], s->calibration_unavailable[0],
+            s->calibration_ta[1], s->calibration_fr[1], s->calibration_fa[1],
+            s->calibration_confusion[1], s->calibration_unavailable[1],
+            s->calibration_ta[2], s->calibration_fr[2], s->calibration_fa[2],
+            s->calibration_confusion[2], s->calibration_unavailable[2],
+            s->calibration_ta[3], s->calibration_fr[3], s->calibration_fa[3],
+            s->calibration_confusion[3], s->calibration_unavailable[3],
+            s->evaluation.known_trials, s->evaluation.unknown_trials, s->message);
+    }
     else
         lv_label_set_text(identity_info, text);
     if (preview_pixels)
     {
         hb_id_status *preview = &identity_workspace.preview;
         bool same = hb_identity_preview(preview_pixels, 180 * 318, preview);
+        if (aligned_view)
+        {
+            if (!same || !hb_identity_aligned(preview_pixels, 180 * 318, preview->sequence))
+                memset(preview_pixels, 0, 112 * 112 * 2);
+            lv_img_cache_invalidate_src(&aligned_image);
+            lv_obj_invalidate(camera_photo);
+            for (unsigned i = 0; i < 5; ++i)
+                lv_obj_add_flag(identity_marks[i], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(identity_box, LV_OBJ_FLAG_HIDDEN);
+            return;
+        }
         if (!same)
         {
             hb_camera_frame frame = {0};
@@ -2090,7 +2145,7 @@ esp_err_t hb_ui_start(void)
     jobs = xQueueCreate(2, sizeof(config_job));
     if (!commands || !jobs)
         return ESP_ERR_NO_MEM;
-    pixels = heap_caps_aligned_alloc(64, 800 * 480 * sizeof(lv_color_t),
+    pixels = heap_caps_aligned_alloc(128, 800 * 480 * sizeof(lv_color_t),
                                      MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!pixels)
         return ESP_ERR_NO_MEM;
@@ -2118,7 +2173,7 @@ esp_err_t hb_ui_start(void)
         return err;
     if (xTaskCreate(config_worker, "config", 8192, NULL, 1, NULL) != pdPASS)
         return ESP_ERR_NO_MEM;
-    if (xTaskCreate(task, "lvgl", 8192, NULL, 3, NULL) != pdPASS)
+    if (xTaskCreatePinnedToCore(task, "lvgl", 8192, NULL, 3, NULL, 0) != pdPASS)
         return ESP_ERR_NO_MEM;
     ESP_LOGI("ui", "LVGL 800x480 ready; queued image/config commands");
     return ESP_OK;
