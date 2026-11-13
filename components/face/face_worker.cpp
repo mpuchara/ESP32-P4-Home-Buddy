@@ -168,7 +168,7 @@ static void worker(void *)
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
-        hb_rgb_thumbnail_upright(frame.pixels, frame.width, frame.height, pixels,
+        hb_rgb888_preview(frame.pixels, frame.width, frame.height, pixels,
                                  HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
         hb_camera_release(&frame); // Never hold sensor storage during model inference.
         dl::image::img_t image{.data = pixels,
@@ -199,6 +199,15 @@ static void worker(void *)
                     pixels, HB_FACE_INPUT_BYTES, HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT,
                     r.box[0], r.box[1], r.box[2], r.box[3]);
             }
+        }
+        if (result.count == 1)
+        {
+            const auto &b = result.boxes[0];
+            unsigned x = b.x1 * frame.height / HB_FACE_WIDTH;
+            unsigned y = b.y1 * frame.width / HB_FACE_HEIGHT;
+            unsigned w = (b.x2 - b.x1) * frame.height / HB_FACE_WIDTH;
+            unsigned h = (b.y2 - b.y1) * frame.width / HB_FACE_HEIGHT;
+            hb_camera_face_hint(x, y, w, h, stamp);
         }
         result.quality_us = (uint32_t)(esp_timer_get_time() - quality_begin);
         result.completed_ms = now_ms();

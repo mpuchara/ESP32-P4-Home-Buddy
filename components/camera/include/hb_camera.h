@@ -9,12 +9,13 @@
 esp_err_t hb_camera_probe(uint16_t *sensor_id);
 typedef struct
 {
-    // ISP RGB565 native little-endian, tightly packed; immutable while leased.
+    // ISP RGB888 native packed B,G,R; immutable while leased.
     const uint8_t *pixels;
     unsigned width, height;
     unsigned rotation_ccw; // 90 degrees: canonical upright dimensions are height x width.
     uint32_t sequence;
     uint64_t timestamp_ms;
+    bool settled;
     hb_frame_lease lease;
 } hb_camera_frame;
 typedef struct
@@ -36,3 +37,6 @@ bool hb_camera_acquire(hb_camera_frame *frame);
 void hb_camera_release(hb_camera_frame *frame);
 void hb_camera_set_sample_seconds(uint32_t seconds);
 void hb_camera_test_pattern(bool enabled);
+
+// Upright native face rectangle; expires automatically, never holds a camera lease.
+void hb_camera_face_hint(unsigned x, unsigned y, unsigned w, unsigned h, uint64_t frame_ms);

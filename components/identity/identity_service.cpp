@@ -327,12 +327,12 @@ class Models
     HumanFaceDetect *detector = nullptr, *official = nullptr;
     human_face_detect::MNP *mnp = nullptr;
     HumanFaceFeat *mbf = nullptr;
-    uint8_t *raw = nullptr, *roi_pixels = nullptr;
+    uint8_t *candidate = nullptr, *roi_pixels = nullptr;
     uint16_t *thumbnail = nullptr;
-    static constexpr size_t raw_capacity = 1288 * 728 * 2;
+    static constexpr size_t candidate_bytes = HB_FACE_INPUT_WIDTH * HB_FACE_INPUT_HEIGHT * 3;
     void unload()
     {
-        if (!mbf && !official && !mnp && !detector && !raw && !roi_pixels && !thumbnail)
+        if (!mbf && !official && !mnp && !detector && !candidate && !roi_pixels && !thumbnail)
             return;
         ESP_LOGI("identity", "MODEL_RELEASE begin heap_ok=%d stack_min=%u",
                  heap_caps_check_integrity_all(true),
@@ -346,8 +346,8 @@ class Models
         mnp = nullptr;
         delete detector;
         detector = nullptr;
-        free(raw);
-        raw = nullptr;
+        free(candidate);
+        candidate = nullptr;
         free(roi_pixels);
         roi_pixels = nullptr;
         free(thumbnail);
@@ -392,18 +392,18 @@ class Models
         ESP_LOGI("identity",
                  "MODEL_ADMISSION internal=%u largest_internal=%u psram=%u largest_psram=%u",
                  (unsigned)i, (unsigned)largest_i, (unsigned)p, (unsigned)largest_p);
-        if (p < 20 * 1024 * 1024 || largest_p < 12 * 1024 * 1024 || i < 180 * 1024 ||
+        if (p < 16 * 1024 * 1024 || largest_p < 8 * 1024 * 1024 || i < 180 * 1024 ||
             largest_i < 64 * 1024)
         {
             message(s, "Za mało pamięci na bezpieczny start MBF");
             return false;
         }
-        raw = (uint8_t *)heap_caps_malloc(raw_capacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        candidate = (uint8_t *)heap_caps_malloc(candidate_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         roi_pixels =
             (uint8_t *)heap_caps_malloc(640 * 640 * 3, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         thumbnail =
             (uint16_t *)heap_caps_malloc(HB_FACE_INPUT_BYTES, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        if (!raw || !roi_pixels || !thumbnail)
+        if (!candidate || !roi_pixels || !thumbnail)
         {
             unload();
             return false;
@@ -447,71 +447,116 @@ class Models
     {
         hb_camera_status cs{};
         hb_camera_get_status(&cs);
-        hb_camera_frame f{};
-        if (!cs.running || cs.test_pattern || !hb_camera_acquire(&f))
+        if (!cs.running || cs.test_pattern)
         {
             message(s, "Brak aktualnej klatki kamery");
             return false;
         }
-        unsigned rw = f.width, rh = f.height;
         uint64_t begin = esp_timer_get_time();
-        bool valid = f.rotation_ccw == 90 && rw >= 32 && rh >= 32 && !(rw & 1) && !(rh & 1) &&
-                     (size_t)rw * rh * 2 <= raw_capacity && f.sequence > s.sequence;
-        uint64_t now = now_ms();
-        valid = valid && f.timestamp_ms && f.timestamp_ms <= now && now - f.timestamp_ms <= 500;
-        if (valid)
+        uint32_t seen = s.sequence;
+        float best_rank = -1000, best_score = 0;
+        int box[4] = {};
+        unsigned rw = 0, rh = 0;
+        hb_rgb888_stats best_quality{};
+        unsigned attempts = s.mode == HB_ID_ENROLL ? 3 : 2;
+        bool multiple = false;
+        uint32_t detection_us = 0;
+        for (unsigned attempt = 0; attempt < attempts; ++attempt)
         {
-            // One reusable RGB565 snapshot preserves exact-frame ROI pixels after releasing DMA.
-            memcpy(raw, f.pixels, (size_t)rw * rh * 2);
-            s.sequence = f.sequence;
-            s.frame_ms = f.timestamp_ms;
+            hb_camera_frame f{};
+            if (!hb_camera_acquire(&f))
+                break;
+            uint64_t now = now_ms();
+            bool valid = f.rotation_ccw == 90 && f.width >= 32 && f.height >= 32 &&
+                         f.sequence > seen && f.timestamp_ms && f.timestamp_ms <= now &&
+                         now - f.timestamp_ms <= 500;
+            if (!valid)
+            {
+                hb_camera_release(&f);
+                vTaskDelay(pdMS_TO_TICKS(40));
+                continue;
+            }
+            seen = f.sequence;
+            hb_rgb888_thumbnail(f.pixels, f.width, f.height, candidate, HB_FACE_INPUT_WIDTH,
+                                HB_FACE_INPUT_HEIGHT);
+            dl::image::img_t small{.data = candidate,
+                                   .width = HB_FACE_INPUT_WIDTH,
+                                   .height = HB_FACE_INPUT_HEIGHT,
+                                   .pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB888};
+            int64_t detect_begin = esp_timer_get_time();
+            auto &detections = detector->run(small);
+            detection_us += esp_timer_get_time() - detect_begin;
+            s.detection_valid = true;
+            if (best_rank == -1000)
+            {
+                s.sequence = f.sequence;
+                s.frame_ms = f.timestamp_ms;
+                s.faces = detections.size();
+                hb_rgb888_preview(f.pixels, f.width, f.height, thumbnail, HB_FACE_INPUT_WIDTH,
+                                  HB_FACE_INPUT_HEIGHT);
+            }
+            if (detections.size() > 1)
+                multiple = true;
+            if (detections.size() == 1 && detections.front().box.size() == 4)
+            {
+                const auto &b = detections.front().box;
+                hb_id_roi roi{};
+                if (hb_id_roi_map(b[0], b[1], b[2], b[3], HB_FACE_INPUT_WIDTH,
+                                  HB_FACE_INPUT_HEIGHT, f.width, f.height, &roi))
+                {
+                    unsigned x = b[0] * (f.height - 2) / HB_FACE_INPUT_WIDTH;
+                    unsigned y = b[1] * (f.width - 2) / HB_FACE_INPUT_HEIGHT;
+                    unsigned w = (b[2] + 1) * (f.height - 2) / HB_FACE_INPUT_WIDTH - x;
+                    unsigned h = (b[3] + 1) * (f.width - 2) / HB_FACE_INPUT_HEIGHT - y;
+                    hb_camera_face_hint(x, y, w, h, f.timestamp_ms);
+                    auto q = hb_rgb888_quality(f.pixels, f.width, f.height, x, y, w, h);
+                    float rank = hb_rgb888_rank(q) + detections.front().score * 2;
+                    // Prefer stable ISP/exposure; don't indefinitely refuse dark scenes.
+                    if (!f.settled)
+                        rank -= 8;
+                    if (q.valid && rank > best_rank &&
+                        hb_rgb888_crop(f.pixels, f.width, f.height, roi.x, roi.y, roi.w, roi.h,
+                                       roi_pixels, 640 * 640 * 3))
+                    {
+                        best_rank = rank;
+                        best_score = detections.front().score;
+                        best_quality = q;
+                        for (unsigned i = 0; i < 4; ++i)
+                            box[i] = b[i];
+                        rw = f.width;
+                        rh = f.height;
+                        s.roi = roi;
+                        s.sequence = f.sequence;
+                        s.frame_ms = f.timestamp_ms;
+                        s.faces = 1;
+                        hb_rgb888_preview(f.pixels, rw, rh, thumbnail, HB_FACE_INPUT_WIDTH,
+                                          HB_FACE_INPUT_HEIGHT);
+                    }
+                }
+            }
+            // A single lease spans detection only; no full frame copy and no lease during MBF.
+            hb_camera_release(&f);
+            if (attempt + 1 < attempts)
+                vTaskDelay(pdMS_TO_TICKS(40));
         }
-        hb_camera_release(&f);
-        if (!valid)
+        s.detection_us = detection_us;
+        if (multiple || best_rank == -1000)
         {
-            message(s, "Nieaktualna lub nieobsługiwana klatka");
+            s.faces = multiple ? 2 : s.faces;
+            message(s, multiple ? "Wykryto więcej niż jedną twarz" : "Spójrz w kamerę");
             return false;
         }
-        hb_rgb_thumbnail_upright(raw, rw, rh, thumbnail, HB_FACE_INPUT_WIDTH, HB_FACE_INPUT_HEIGHT);
-        dl::image::img_t small{.data = thumbnail,
-                               .width = HB_FACE_INPUT_WIDTH,
-                               .height = HB_FACE_INPUT_HEIGHT,
-                               .pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB565LE};
-        int64_t stage = esp_timer_get_time();
-        auto &detections = detector->run(small);
-        s.detection_valid = true;
-        s.detection_us = esp_timer_get_time() - stage;
-        s.faces = detections.size();
-        if (s.faces != 1 || detections.front().box.size() != 4)
-        {
-            message(s, s.faces > 1 ? "Wykryto więcej niż jedną twarz" : "Spójrz w kamerę");
-            return false;
-        }
-        const auto &box = detections.front().box;
         s.quality = hb_face_quality_measure(thumbnail, HB_FACE_INPUT_BYTES, HB_FACE_INPUT_WIDTH,
                                             HB_FACE_INPUT_HEIGHT, box[0], box[1], box[2], box[3]);
-        if (!hb_id_roi_map(box[0], box[1], box[2], box[3], HB_FACE_INPUT_WIDTH,
-                           HB_FACE_INPUT_HEIGHT, rw, rh, &s.roi))
+        // Enrollment refuses only clearly unusable native crops. Other thresholds stay diagnostic.
+        if (s.mode == HB_ID_ENROLL &&
+            (best_quality.width < 80 || best_quality.height < 80 || best_quality.clipped > 0.65f ||
+             best_quality.mean < 25 || best_quality.mean > 240 || best_quality.contrast < 5))
         {
-            message(s, "Powtórz zdjęcie: twarz poza zakresem ROI");
+            message(s, "Popraw światło lub podejdź bliżej: słaba jakość twarzy");
             return false;
         }
         const auto &roi = s.roi;
-        // Crop the SAME native ISP frame, in upright coordinates; do not apply
-        // the legacy Bayer demosaic or gamma a second time.
-        const uint16_t *rgb = reinterpret_cast<const uint16_t *>(raw);
-        for (unsigned y = 0; y < roi.h; ++y)
-            for (unsigned x = 0; x < roi.w; ++x)
-            {
-                unsigned sx, sy;
-                if (!hb_id_to_sensor(roi.x + x, roi.y + y, rw, rh, &sx, &sy))
-                    return false;
-                uint16_t p = rgb[(size_t)sy * rw + sx];
-                uint8_t *d = roi_pixels + ((size_t)y * roi.w + x) * 3;
-                d[0] = ((p >> 11) & 31) * 255 / 31;
-                d[1] = ((p >> 5) & 63) * 255 / 63;
-                d[2] = (p & 31) * 255 / 31;
-            }
         dl::image::img_t crop{.data = roi_pixels,
                               .width = (uint16_t)roi.w,
                               .height = (uint16_t)roi.h,
@@ -521,8 +566,8 @@ class Models
         int top = box[1] * (rw - 2) / HB_FACE_INPUT_HEIGHT - roi.y;
         int right = (box[2] + 1) * (rh - 2) / HB_FACE_INPUT_WIDTH - roi.x;
         int bottom = (box[3] + 1) * (rw - 2) / HB_FACE_INPUT_HEIGHT - roi.y;
-        candidates.push_back({0, detections.front().score, {left, top, right, bottom}, {}});
-        stage = esp_timer_get_time();
+        candidates.push_back({0, best_score, {left, top, right, bottom}, {}});
+        int64_t stage = esp_timer_get_time();
         if (s.official_landmarks && !official &&
             (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) < 8 * 1024 * 1024 ||
              heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) < 128 * 1024))
@@ -1079,7 +1124,13 @@ static void worker(void *)
                         message(state, !accepted ? "Próbka podobna lub nieaktualna. Patrz prosto."
                                        : guided_ready
                                            ? "Spójny zestaw gotowy. Poczekaj na weryfikację."
-                                           : "Zbieram zgodne próbki. Utrzymaj podobną pozycję.");
+                                           : guided_samples < 3
+                                               ? "Patrz prosto; utrzymaj twarz w kadrze."
+                                           : guided_samples < 5
+                                               ? "Obróć głowę lekko w lewo, bez pośpiechu."
+                                           : guided_samples < 7
+                                               ? "Obróć głowę lekko w prawo."
+                                               : "Spójrz prosto, zmień lekko odległość.");
                     }
                     if (verify && (!guided || guided_ready))
                     {

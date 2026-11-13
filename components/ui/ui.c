@@ -938,7 +938,7 @@ static void identity_update(void)
             hb_camera_frame frame = {0};
             if (hb_camera_acquire(&frame))
             {
-                hb_rgb_thumbnail_upright(frame.pixels, frame.width, frame.height, preview_pixels,
+                hb_rgb888_preview(frame.pixels, frame.width, frame.height, preview_pixels,
                                          180, 318);
                 hb_camera_release(&frame);
             }
@@ -1555,7 +1555,7 @@ static void camera_brightness_update(void)
             camera_info_tick = lv_tick_get();
             char text[640];
             snprintf(text, sizeof(text),
-                     "ID: 0x%04x  %s\n%u x %u RGB565 | %.1f FPS\nKlatki: %u  Błędy: %u\nPominięte: "
+                     "ID: 0x%04x  %s\n%u x %u RGB888 | %.1f FPS\nKlatki: %u  Błędy: %u\nPominięte: "
                      "%u\nExp: %.0f us G: %.1f/%.1f\nŚwiatło: %s\nPodgląd: %.1f "
                      "FPS RAM: %u MB\n%s",
                      camera.sensor_id,
@@ -1579,7 +1579,7 @@ static void camera_brightness_update(void)
                 if (frame.sequence != preview_sequence)
                 {
                     int64_t started = esp_timer_get_time();
-                    hb_rgb_thumbnail_upright(frame.pixels, frame.width, frame.height,
+                    hb_rgb888_preview(frame.pixels, frame.width, frame.height,
                                              preview_pixels, 180, 318);
                     preview_sequence = frame.sequence;
                     preview_count++;

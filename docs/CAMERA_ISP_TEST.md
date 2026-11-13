@@ -65,3 +65,40 @@ Host tests check endpoints, monotonicity, midtone gain and highlight
 headroom. Verify neutral gray/white, skin tones, red/blue objects and
 covered lens in daylight and warm artificial light. Adaptive AWB
 remains a follow-up if a fixed correction cannot cover both illuminants.
+
+## 0.13.0 RGB888 and face-oriented capture
+
+Native packed BGR888 per IDF color_pixel_rgb888_data_t; RGB888 detector
+and native RGB888 face ROI (explicit channel reorder). LVGL and the
+lightweight presence diagnostic retain RGB565 thumbnails. 2x2 sampling
+reduces aliasing, matching existing upright ROI geometry approximately
+within one native pixel. One lease during each detection, released before
+landmarks and MBF. No full-resolution inference snapshot: the best
+bounded ROI and its exact preview are copied while leased. Two candidates
+for recognition, three for enrollment, with fresh sequence and timestamp
+checks, conservative multiple-person rejection, native sampled contrast,
+detail, size, clipping and exposure ranking; settled frames preferred.
+Enrollment rejects clearly unusable crops and prompts for moderate pose
+variation; the coherent-eight selection and independent verification
+remain unchanged. Pose diversity is guided, not a hard quota.
+
+Face rectangle expires after 2 s; AE prioritizes its luminance with
+scene fallback, favors 10 ms with a face / 20 ms otherwise and quantizes
+longer exposures to 10 ms for 50 Hz lighting. Gain limited to 1..8x.
+Exposure/gain changes mark frames settling for 200 ms. Adaptive BF and
+demosaic bands plus conservative ISP sharpening use gain; scene-only
+bounded neutral-patch WB nudges the previously accepted fixed curves
+and holds during face capture. This is not the complete vendor IPA;
+physical tuning, color byte order, FPS and recognition must be verified.
+
+32 MiB PSRAM: four 1288x728 RGB888 DMA buffers = 11,251,968 bytes.
+No full-frame snapshot; bounded 640x640 RGB888 ROI + detector RGB888
+thumbnail + RGB565 display thumbnail. Model admission preflight reduced
+to 16 MiB free / 8 MiB largest to account for removed full-frame copy;
+post-load 6 MiB and internal-memory guards unchanged. Full HD RGB888
+would require 24,883,200 bytes for four DMA buffers alone and cannot
+safely coexist with the current model admission budget. Keep 1288x728;
+1080p needs an independently validated reduced-buffer design first.
+No partition, profile schema, model or recognition-threshold changes.
+Existing 0.12.2 release is the rollback reference. Automatic ambient
+light calibration remains unavailable; no raw photometry claim.
