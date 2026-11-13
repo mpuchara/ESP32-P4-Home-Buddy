@@ -9,7 +9,7 @@ on:
       release_tag:
         description: 'Published Camera ISP release tag'
         required: true
-        default: camera-isp-test-61815d29d1cc
+        default: camera-isp-test-ec3bbf4ad756
   workflow_run:
     workflows: ['Camera ISP web installer']
     branches: [codex/camera-isp-web-upgrade]
@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tag=camera-isp-test-61815d29d1cc
+          tag=camera-isp-test-ec3bbf4ad756
           if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
             tag="$INPUT_TAG"
           elif [[ "$EVENT_NAME" == workflow_run ]]; then
@@ -47,6 +47,17 @@ jobs:
             # The old branch workflow can still report failure for its separate Pages job.
             jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN/jobs" --jq '.jobs')
             if ! jq -e 'any(.[]; .name == "build" and .conclusion == "success") and any(.[]; .name == "publish" and .conclusion == "success")' <<< "$jobs" >/dev/null; then
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/codex/camera-isp-web-upgrade" --jq '.object.sha')
+            if [[ "$head" != "$BUILD_SHA" ]]; then
+              echo "Ignoring superseded build $BUILD_SHA"
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if ! jq -e 'any(.[]; .name == "host" and .conclusion == "success")' <<< "$jobs" >/dev/null; then
+              echo "Ignoring release without successful native camera test and format gate"
               echo "ready=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
