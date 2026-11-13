@@ -162,8 +162,8 @@ static esp_err_t configure_isp(void)
         return e;
     demosaic_enabled = true;
     esp_isp_ccm_config_t ccm = {.matrix = {{1.408f, -0.094f, -0.314f},
-                                          {-0.13f, 1.28f, -0.15f},
-                                          {-0.072f, -0.173f, 1.245f}}};
+                                           {-0.13f, 1.28f, -0.15f},
+                                           {-0.072f, -0.173f, 1.245f}}};
     e = esp_isp_ccm_configure(isp, &ccm);
     if (e != ESP_OK)
         return e;
@@ -417,8 +417,8 @@ static void worker(void *arg)
                         dg = (((digital[0] & 15) << 16) | (digital[1] << 8) | (digital[2] & 0xc0)) /
                              65536.0f;
                     }
-                    hb_light_reading light = hb_light_measure(
-                        (const uint16_t *)frame.pixels, WIDTH, HEIGHT, exp, ag, dg, meta);
+                    const uint16_t *rgb = (const uint16_t *)frame.pixels;
+                    hb_light_reading light = hb_light_measure(rgb, WIDTH, HEIGHT, exp, ag, dg, meta);
                     unsigned measured_lines =
                         meta ? (unsigned)((exposure[0] << 8) | exposure[1]) : 0;
                     unsigned measured_vts = meta ? (unsigned)((timing[2] << 8) | timing[3]) : 0;

@@ -456,8 +456,9 @@ class Models
         unsigned rw = f.width, rh = f.height;
         uint64_t begin = esp_timer_get_time();
         bool valid = f.rotation_ccw == 90 && rw >= 32 && rh >= 32 && !(rw & 1) && !(rh & 1) &&
-                     (size_t)rw * rh * 2 <= raw_capacity && f.sequence > s.sequence &&
-                     f.timestamp_ms && f.timestamp_ms <= now_ms() && now_ms() - f.timestamp_ms <= 500;
+                     (size_t)rw * rh * 2 <= raw_capacity && f.sequence > s.sequence;
+        uint64_t now = now_ms();
+        valid = valid && f.timestamp_ms && f.timestamp_ms <= now && now - f.timestamp_ms <= 500;
         if (valid)
         {
             // One reusable RGB565 snapshot preserves exact-frame ROI pixels after releasing DMA.
