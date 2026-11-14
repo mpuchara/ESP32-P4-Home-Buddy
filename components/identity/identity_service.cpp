@@ -587,8 +587,8 @@ class Models
         const auto &roi = s.roi;
         if (trace)
         {
-            ESP_LOGI("enroll", "SELECT seq=%u roi=%d,%d,%d,%d score=%.3f",
-                     (unsigned)s.sequence, roi.x, roi.y, roi.w, roi.h, (double)best_score);
+            ESP_LOGI("enroll", "SELECT seq=%u roi=%d,%d,%d,%d score=%.3f", (unsigned)s.sequence,
+                     roi.x, roi.y, roi.w, roi.h, (double)best_score);
             ESP_LOGI("enroll", "CAM exp_us=%.0f ag=%.2f dg=%.2f fps=%.1f drops=%u",
                      (double)cs.exposure_us, (double)cs.analogue_gain, (double)cs.digital_gain,
                      (double)cs.fps, (unsigned)cs.dropped);
@@ -604,9 +604,8 @@ class Models
         int bottom = (box[3] + 1) * (rw - 2) / HB_FACE_INPUT_HEIGHT - roi.y;
         candidates.push_back({0, best_score, {left, top, right, bottom}, {}});
         if (trace)
-            ESP_LOGI("enroll", "MNP_INPUT seq=%u box=%d,%d,%d,%d method=%s",
-                     (unsigned)s.sequence, left, top, right, bottom,
-                     s.official_landmarks ? "MSR_MNP" : "ESPDET_MNP");
+            ESP_LOGI("enroll", "MNP_INPUT seq=%u box=%d,%d,%d,%d method=%s", (unsigned)s.sequence,
+                     left, top, right, bottom, s.official_landmarks ? "MSR_MNP" : "ESPDET_MNP");
         int64_t stage = esp_timer_get_time();
         if (s.official_landmarks && !official &&
             (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) < 8 * 1024 * 1024 ||
@@ -655,9 +654,8 @@ class Models
             ESP_LOGI("enroll", "GEOMETRY seq=%u dx=%.1f dy=%.1f eye2=%.1f nose=%.3f mouth=%.3f",
                      (unsigned)s.sequence, (double)dx, (double)dy, (double)eye2,
                      (double)(nc / (eye2 > 0 ? eye2 : 1)), (double)(mc / (eye2 > 0 ? eye2 : 1)));
-            ESP_LOGI("enroll", "ALIGNMENT seq=%u valid=%d geometry=%d",
-                     (unsigned)s.sequence, hb_id_alignment_valid(&local),
-                     hb_id_landmarks_valid(&local, roi.w, roi.h));
+            ESP_LOGI("enroll", "ALIGNMENT seq=%u valid=%d geometry=%d", (unsigned)s.sequence,
+                     hb_id_alignment_valid(&local), hb_id_landmarks_valid(&local, roi.w, roi.h));
         }
         if (!hb_id_landmarks_valid(&local, roi.w, roi.h))
         {
@@ -1135,7 +1133,8 @@ static void worker(void *)
             bool ok = state.ready && models.infer(state, embedding);
             if (state.mode == HB_ID_ENROLL)
                 ESP_LOGI("enroll", "INFER seq=%u ok=%d count=%u faces=%u reason=%s",
-                         (unsigned)state.sequence, ok, enrollment->count, state.faces, state.message);
+                         (unsigned)state.sequence, ok, enrollment->count, state.faces,
+                         state.message);
             static uint64_t last_inference_log;
             if (!ok && (!last_inference_log || now_ms() - last_inference_log >= 10000))
             {
