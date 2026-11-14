@@ -173,7 +173,7 @@ hb_rgb888_stats hb_rgb888_quality(const uint8_t *src, unsigned w, unsigned h, un
     hb_rgb888_stats q = {0};
     if (!rgb_bounds(src, w, h, x, y, cw, ch) || cw < 8 || ch < 8)
         return q;
-    unsigned sum = 0, sq = 0, edges = 0, clipped = 0;
+    unsigned sum = 0, sq = 0, edges = 0, dark = 0, bright = 0;
     for (unsigned j = 0; j < 24; ++j)
         for (unsigned i = 0; i < 32; ++i)
         {
@@ -185,7 +185,8 @@ hb_rgb888_stats hb_rgb888_quality(const uint8_t *src, unsigned w, unsigned h, un
             unsigned v = (a + b + c + d + 2) / 4;
             sum += v;
             sq += v * v;
-            clipped += v <= 8 || v >= 247;
+            dark += v <= 8;
+            bright += v >= 247;
             // Two-pixel averaged gradients suppress isolated noise spikes.
             int dx = (int)(a + c) - (int)(b + d);
             int dy = (int)(a + b) - (int)(c + d);
@@ -194,7 +195,9 @@ hb_rgb888_stats hb_rgb888_quality(const uint8_t *src, unsigned w, unsigned h, un
     q.mean = sum / 768.0f;
     q.contrast = sqrtf(fmaxf(0, sq / 768.0f - q.mean * q.mean));
     q.detail = edges / 3072.0f;
-    q.clipped = clipped / 768.0f;
+    q.dark = dark / 768.0f;
+    q.bright = bright / 768.0f;
+    q.clipped = q.dark + q.bright;
     q.width = cw;
     q.height = ch;
     q.valid = true;
@@ -208,6 +211,14 @@ float hb_rgb888_rank(hb_rgb888_stats q)
     float exposure = fmaxf(0, 45 - q.mean) + fmaxf(0, q.mean - 220);
     float detail = fminf(q.detail, 20) + fminf(q.contrast, 45) * 0.15f;
     return fminf(size, 240) * 0.04f + detail - exposure * 0.3f - q.clipped * 25;
+}
+float hb_rgb888_exposure_luma(hb_rgb888_stats q, bool face)
+{
+    // Do not darken an underlit face or compensate dark clipping by lowering exposure.
+    // Use a modest highlight bias only when the face meter has enough usable light.
+    if (face && q.valid && q.mean >= 110 && q.bright > 0.15f && q.dark < 0.15f)
+        return fmaxf(q.mean, 165);
+    return q.mean;
 }
 bool hb_rgb888_neutral(const uint8_t *src, unsigned w, unsigned h, float *red, float *blue)
 {

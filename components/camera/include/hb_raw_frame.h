@@ -27,7 +27,7 @@ uint32_t hb_isp_gamma_blue(uint32_t x);
 // ESP-IDF RGB888 native packed bytes are B,G,R. Convert only at consumer boundaries.
 typedef struct
 {
-    float mean, contrast, detail, clipped;
+    float mean, contrast, detail, clipped, dark, bright;
     unsigned width, height;
     bool valid;
 } hb_rgb888_stats;
@@ -40,6 +40,7 @@ bool hb_rgb888_crop(const uint8_t *src, unsigned w, unsigned h, unsigned x, unsi
 hb_rgb888_stats hb_rgb888_quality(const uint8_t *src, unsigned w, unsigned h, unsigned x,
                                   unsigned y, unsigned cw, unsigned ch);
 float hb_rgb888_rank(hb_rgb888_stats q);
+float hb_rgb888_exposure_luma(hb_rgb888_stats q, bool face);
 bool hb_rgb888_neutral(const uint8_t *src, unsigned w, unsigned h, float *red, float *blue);
 uint32_t hb_isp_gamma_gain(uint32_t x, float gain);
 void hb_camera_exposure_plan(float line_us, unsigned max_lines, unsigned old_lines,

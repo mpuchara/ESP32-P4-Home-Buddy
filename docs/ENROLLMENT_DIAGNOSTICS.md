@@ -55,4 +55,9 @@ change. Enrollment-only completion deadline 8 s, fresh acquisition still
 Do not infer once verified while awaiting save. UBox pauses new snapshot
 requests and defers JPEG decode during enrollment, without changing ETag or
 failure counters; already running decode may finish. Guided UI refresh 1 Hz.
-No model/flash/ISP changes, no hardware validation yet.
+No model/flash/gamma/color changes, no hardware validation yet.
+AE meters inner face ROI (60% of bounding box) with a 3.5 s hint TTL,
+reports dark and bright clipping separately and adds a bounded highlight
+bias only for well-lit faces with >15% bright and <15% dark clipping.
+The 112x112 aligned-tensor view and PPA remain on the separate 0.14 branch;
+not included in this targeted release.

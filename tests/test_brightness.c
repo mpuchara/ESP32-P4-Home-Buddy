@@ -310,6 +310,17 @@ static void rgb888(void)
     memset(src, 0, sizeof(src));
     q = hb_rgb888_quality(src, 32, 32, 0, 0, 32, 32);
     CHECK(q.valid && q.clipped == 1 && q.mean == 0);
+    CHECK(q.dark == 1 && q.bright == 0);
+    CHECK(hb_rgb888_exposure_luma(q, true) == 0);
+    memset(src, 255, sizeof(src));
+    q = hb_rgb888_quality(src, 32, 32, 0, 0, 32, 32);
+    CHECK(q.bright == 1 && q.dark == 0);
+    q.mean = 140;
+    q.bright = 0.2f;
+    CHECK(hb_rgb888_exposure_luma(q, true) == 165);
+    CHECK(hb_rgb888_exposure_luma(q, false) == 140);
+    q.dark = 0.2f;
+    CHECK(hb_rgb888_exposure_luma(q, true) == 140);
     unsigned lines = 1000, gain = 256;
     hb_camera_exposure_plan(25, 1100, 1000, 256, 125, true, &lines, &gain);
     CHECK(lines == 400 && gain == 640);

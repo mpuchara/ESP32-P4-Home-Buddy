@@ -456,6 +456,8 @@ class Models
         ESP_LOGI("enroll", "QUALITY seq=%u mean=%.1f contrast=%.1f detail=%.2f clipped=%.3f",
                  (unsigned)f.sequence, (double)q.mean, (double)q.contrast, (double)q.detail,
                  (double)q.clipped);
+        ESP_LOGI("enroll", "CLIPPING seq=%u dark=%.3f bright=%.3f", (unsigned)f.sequence,
+                 (double)q.dark, (double)q.bright);
     }
     bool infer(hb_id_status &s, hb_id_embedding &embedding)
     {
@@ -1200,7 +1202,8 @@ static void worker(void *)
                 xSemaphoreGive(guard);
             }
             if (ticket == epoch.load() && !hb_id_expired(state.mode, until, now_ms()) &&
-                state.completed_ms >= state.frame_ms && state.completed_ms - state.frame_ms <= age_limit)
+                state.completed_ms >= state.frame_ms &&
+                state.completed_ms - state.frame_ms <= age_limit)
             {
                 if (ok && state.mode == HB_ID_ENROLL)
                 {

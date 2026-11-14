@@ -522,7 +522,7 @@ static void worker(void *arg)
                     unsigned x = HEIGHT / 8, y = WIDTH / 8;
                     unsigned w = HEIGHT * 3 / 4, h = WIDTH * 3 / 4;
                     portENTER_CRITICAL(&lock);
-                    bool face = face_ms && face_ms <= now && now - face_ms < 2000;
+                    bool face = face_ms && face_ms <= now && now - face_ms < 3500;
                     if (face)
                     {
                         x = face_x;
@@ -531,6 +531,14 @@ static void worker(void *arg)
                         h = face_h;
                     }
                     portEXIT_CRITICAL(&lock);
+                    if (face && w >= 80 && h >= 80)
+                    {
+                        // Meter inside the face box, avoiding much of the background/hair.
+                        x += w / 5;
+                        y += h / 5;
+                        w -= 2 * (w / 5);
+                        h -= 2 * (h / 5);
+                    }
                     hb_rgb888_stats q = hb_rgb888_quality(frame.pixels, WIDTH, HEIGHT, x, y, w, h);
                     hb_light_reading light = {.luminance = q.mean, .rejected_fraction = q.clipped};
                     // Scene-only, bounded neutral-patch adaptation. Hold during face acquisition.
@@ -607,8 +615,9 @@ static void worker(void *arg)
                         unsigned gain_raw = (gain[0] << 8) | gain[1];
                         unsigned lines = old_lines, next_gain = gain_raw;
                         float line_us = ((timing[0] << 8) | timing[1]) / 81.6667f;
-                        hb_camera_exposure_plan(line_us, max_lines, old_lines, gain_raw, q.mean,
-                                                face, &lines, &next_gain);
+                        float luma = hb_rgb888_exposure_luma(q, face);
+                        hb_camera_exposure_plan(line_us, max_lines, old_lines, gain_raw, luma, face,
+                                                &lines, &next_gain);
                         esp_err_t control = ESP_OK;
                         if (lines != old_lines)
                         {
