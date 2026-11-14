@@ -445,6 +445,17 @@ class Models
         s.model_load_us = esp_timer_get_time() - load_started;
         return true;
     }
+    static void enrollment_frame_log(const hb_id_status &s, const hb_camera_frame &f,
+                                     const hb_rgb888_stats &q, float score, float rank)
+    {
+        if (s.mode != HB_ID_ENROLL)
+            return;
+        ESP_LOGI("enroll", "FRAME seq=%u settled=%d score=%.3f rank=%.2f face=%ux%u",
+                 (unsigned)f.sequence, f.settled, (double)score, (double)rank, q.width, q.height);
+        ESP_LOGI("enroll", "QUALITY seq=%u mean=%.1f contrast=%.1f detail=%.2f clipped=%.3f",
+                 (unsigned)f.sequence, (double)q.mean, (double)q.contrast, (double)q.detail,
+                 (double)q.clipped);
+    }
     bool infer(hb_id_status &s, hb_id_embedding &embedding)
     {
         hb_camera_status cs{};
@@ -455,6 +466,7 @@ class Models
             return false;
         }
         uint64_t begin = esp_timer_get_time();
+        bool trace = s.mode == HB_ID_ENROLL;
         uint32_t seen = s.sequence;
         float best_rank = -1000, best_score = 0;
         int box[4] = {};
@@ -467,13 +479,20 @@ class Models
         {
             hb_camera_frame f{};
             if (!hb_camera_acquire(&f))
+            {
+                if (trace)
+                    ESP_LOGI("enroll", "ACQUIRE no_frame attempt=%u", attempt);
                 break;
+            }
             uint64_t now = now_ms();
             bool valid = f.rotation_ccw == 90 && f.width >= 32 && f.height >= 32 &&
                          f.sequence > seen && f.timestamp_ms && f.timestamp_ms <= now &&
                          now - f.timestamp_ms <= 500;
             if (!valid)
             {
+                if (trace)
+                    ESP_LOGI("enroll", "ACQUIRE stale_or_invalid seq=%u previous=%u",
+                             (unsigned)f.sequence, (unsigned)seen);
                 hb_camera_release(&f);
                 vTaskDelay(pdMS_TO_TICKS(40));
                 continue;
@@ -489,6 +508,9 @@ class Models
             auto &detections = detector->run(small);
             detection_us += esp_timer_get_time() - detect_begin;
             s.detection_valid = true;
+            if (trace)
+                ESP_LOGI("enroll", "DETECT seq=%u attempt=%u faces=%u", (unsigned)f.sequence,
+                         attempt, (unsigned)detections.size());
             if (best_rank == -1000)
             {
                 s.sequence = f.sequence;
@@ -516,6 +538,7 @@ class Models
                     // Prefer stable ISP/exposure; don't indefinitely refuse dark scenes.
                     if (!f.settled)
                         rank -= 8;
+                    enrollment_frame_log(s, f, q, detections.front().score, rank);
                     if (q.valid && rank > best_rank &&
                         hb_rgb888_crop(f.pixels, f.width, f.height, roi.x, roi.y, roi.w, roi.h,
                                        roi_pixels, 640 * 640 * 3))
@@ -535,6 +558,9 @@ class Models
                                           HB_FACE_INPUT_HEIGHT);
                     }
                 }
+                else if (trace)
+                    ESP_LOGI("enroll", "ROI_MAP reject seq=%u box=%d,%d,%d,%d",
+                             (unsigned)f.sequence, b[0], b[1], b[2], b[3]);
             }
             // A single lease spans detection only; no full frame copy and no lease during MBF.
             hb_camera_release(&f);
@@ -559,6 +585,14 @@ class Models
             return false;
         }
         const auto &roi = s.roi;
+        if (trace)
+        {
+            ESP_LOGI("enroll", "SELECT seq=%u roi=%d,%d,%d,%d score=%.3f",
+                     (unsigned)s.sequence, roi.x, roi.y, roi.w, roi.h, (double)best_score);
+            ESP_LOGI("enroll", "CAM exp_us=%.0f ag=%.2f dg=%.2f fps=%.1f drops=%u",
+                     (double)cs.exposure_us, (double)cs.analogue_gain, (double)cs.digital_gain,
+                     (double)cs.fps, (unsigned)cs.dropped);
+        }
         dl::image::img_t crop{.data = roi_pixels,
                               .width = (uint16_t)roi.w,
                               .height = (uint16_t)roi.h,
@@ -569,6 +603,10 @@ class Models
         int right = (box[2] + 1) * (rh - 2) / HB_FACE_INPUT_WIDTH - roi.x;
         int bottom = (box[3] + 1) * (rw - 2) / HB_FACE_INPUT_HEIGHT - roi.y;
         candidates.push_back({0, best_score, {left, top, right, bottom}, {}});
+        if (trace)
+            ESP_LOGI("enroll", "MNP_INPUT seq=%u box=%d,%d,%d,%d method=%s",
+                     (unsigned)s.sequence, left, top, right, bottom,
+                     s.official_landmarks ? "MSR_MNP" : "ESPDET_MNP");
         int64_t stage = esp_timer_get_time();
         if (s.official_landmarks && !official &&
             (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) < 8 * 1024 * 1024 ||
@@ -583,6 +621,14 @@ class Models
             return false;
         auto &landmarks = s.official_landmarks ? official->run(crop) : mnp->run(crop, candidates);
         s.landmarks_us = esp_timer_get_time() - stage;
+        if (trace)
+        {
+            unsigned points = landmarks.empty() ? 0 : landmarks.front().keypoint.size();
+            double score = landmarks.empty() ? -1 : landmarks.front().score;
+            ESP_LOGI("enroll", "MNP_RESULT seq=%u faces=%u coords=%u score=%.3f us=%u",
+                     (unsigned)s.sequence, (unsigned)landmarks.size(), points, score,
+                     (unsigned)s.landmarks_us);
+        }
         if (landmarks.size() != 1 || landmarks.front().keypoint.size() != 10)
         {
             message(s, "Brak pięciu poprawnych punktów twarzy");
@@ -592,6 +638,27 @@ class Models
         hb_id_landmarks local{};
         for (unsigned j = 0; j < 5; ++j)
             local.p[j] = {(float)keypoints[2 * j], (float)keypoints[2 * j + 1]};
+        if (trace)
+        {
+            for (unsigned j = 0; j < 5; ++j)
+                ESP_LOGI("enroll", "POINT seq=%u index=%u xy=%.1f,%.1f", (unsigned)s.sequence, j,
+                         (double)local.p[j].x, (double)local.p[j].y);
+            const auto &le = local.p[0];
+            const auto &lm = local.p[1];
+            const auto &n = local.p[2];
+            const auto &re = local.p[3];
+            const auto &rm = local.p[4];
+            float dx = re.x - le.x, dy = re.y - le.y;
+            float eye2 = dx * dx + dy * dy;
+            float nc = dx * (n.y - le.y) - dy * (n.x - le.x);
+            float mc = dx * ((lm.y + rm.y) / 2 - le.y) - dy * ((lm.x + rm.x) / 2 - le.x);
+            ESP_LOGI("enroll", "GEOMETRY seq=%u dx=%.1f dy=%.1f eye2=%.1f nose=%.3f mouth=%.3f",
+                     (unsigned)s.sequence, (double)dx, (double)dy, (double)eye2,
+                     (double)(nc / (eye2 > 0 ? eye2 : 1)), (double)(mc / (eye2 > 0 ? eye2 : 1)));
+            ESP_LOGI("enroll", "ALIGNMENT seq=%u valid=%d geometry=%d",
+                     (unsigned)s.sequence, hb_id_alignment_valid(&local),
+                     hb_id_landmarks_valid(&local, roi.w, roi.h));
+        }
         if (!hb_id_landmarks_valid(&local, roi.w, roi.h))
         {
             message(s, "Spójrz w kamerę: nieprawidłowa geometria twarzy");
@@ -894,6 +961,8 @@ static void worker(void *)
                 {
                     state.mode = HB_ID_ENROLL;
                     until = now_ms() + 600000;
+                    ESP_LOGI("enroll", "BEGIN session=%u guided=%d samples=%u",
+                             (unsigned)epoch.load(), guided, enrollment->count);
                     message(state, "Rejestracja w RAM: pobierz 8-15 różnych próbek");
                 }
                 break;
@@ -911,11 +980,15 @@ static void worker(void *)
                 {
                     state.mode = resting_mode(state.auto_enabled);
                     pending_saved_id = c.person_id;
+                    ESP_LOGI("enroll", "COMMIT samples verified; persisting");
                     if (persistence_commit(state, false))
                     {
                         state.saved_id = c.person_id;
                         pending_saved_id = 0;
+                        ESP_LOGI("enroll", "COMMIT durable=1");
                     }
+                    else
+                        ESP_LOGI("enroll", "COMMIT durable=0");
                 }
                 else
                     message(state, "Najpierw 8 spójnych próbek i weryfikacja nową klatką");
@@ -1060,6 +1133,9 @@ static void worker(void *)
             if (!state.ready)
                 snprintf(state.last_error, sizeof(state.last_error), "%s", state.message);
             bool ok = state.ready && models.infer(state, embedding);
+            if (state.mode == HB_ID_ENROLL)
+                ESP_LOGI("enroll", "INFER seq=%u ok=%d count=%u faces=%u reason=%s",
+                         (unsigned)state.sequence, ok, enrollment->count, state.faces, state.message);
             static uint64_t last_inference_log;
             if (!ok && (!last_inference_log || now_ms() - last_inference_log >= 10000))
             {
@@ -1107,6 +1183,12 @@ static void worker(void *)
                         hb_enroll_admission reason = HB_ENROLL_INVALID;
                         if (guided)
                         {
+                            for (unsigned j = 0; j < enrollment->count; ++j)
+                            {
+                                float score = hb_id_similarity(&embedding, &enrollment->samples[j]);
+                                ESP_LOGI("enroll", "SIM seq=%u sample=%u cosine=%.4f",
+                                         (unsigned)state.sequence, j, (double)score);
+                            }
                             reason = hb_enroll_sample_stable(enrollment, &embedding, state.faces,
                                                              state.sequence, state.frame_ms);
                             accepted = reason == HB_ENROLL_ACCEPTED;
@@ -1137,6 +1219,12 @@ static void worker(void *)
                     }
                     if (verify && (!guided || guided_ready))
                     {
+                        for (unsigned j = 0; j < enrollment->count; ++j)
+                        {
+                            float score = hb_id_similarity(&embedding, &enrollment->samples[j]);
+                            ESP_LOGI("enroll", "VERIFY_SIM seq=%u sample=%u cosine=%.4f",
+                                     (unsigned)state.sequence, j, (double)score);
+                        }
                         bool accepted = hb_id_enroll_verify(enrollment, &embedding, state.sequence,
                                                             state.frame_ms, &enrollment_policy);
                         // Reject a new enrollment also matching a different registered person.
@@ -1150,6 +1238,8 @@ static void worker(void *)
                                        : conflict ? "Weryfikacja: konflikt z innym profilem"
                                                   : "Wróć do pozy z próbek i spójrz w kamerę");
                         static uint64_t last_verify_log;
+                        ESP_LOGI("enroll", "VERIFY seq=%u accepted=%d conflict=%d count=%u",
+                                 (unsigned)state.sequence, accepted, conflict, enrollment->count);
                         if (accepted || !last_verify_log || now_ms() - last_verify_log >= 10000)
                         {
                             last_verify_log = now_ms();

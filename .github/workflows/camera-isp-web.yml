@@ -21,6 +21,7 @@ jobs:
           /tmp/hb-camera-tests
           cc -Wall -Wextra -Werror -Icomponents/identity/include tests/test_identity.c components/identity/identity_core.c components/identity/enrollment_flow.c -lm -o /tmp/hb-identity-tests
           /tmp/hb-identity-tests
+          node tests/test_web_monitor.mjs
   build:
     runs-on: ubuntu-latest
     container: espressif/idf:v5.5.1@sha256:dfa2d076c796769c07c155eba6c672b9f395aec943b2ba3701b73379b5f9e884

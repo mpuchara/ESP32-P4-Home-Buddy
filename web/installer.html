@@ -2,18 +2,115 @@
 <html lang="pl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Home Buddy — Camera ISP test</title>
 <style>body{font:16px system-ui;background:#101722;color:#e5edf7;max-width:720px;margin:48px auto;padding:24px}h1{font-size:30px}p{line-height:1.6}button{background:#49c8b3;color:#09251f;font-weight:bold;padding:14px 22px;border:0;border-radius:10px;cursor:pointer}button:disabled{opacity:.5}pre{white-space:pre-wrap;background:#1b293b;padding:16px;border-radius:10px}progress{width:100%}a{color:#8ddbd2}</style>
-<h1>Home Buddy · Camera ISP</h1><p>Wersja testowa 0.13.1 — RGB888 i poprawiona rejestracja twarzy. Tylko GUITION ESP32-P4 z istniejącym układem single-factory-v1. Aktualizuje wyłącznie aplikację pod adresem 0x20000; nie kasuje profili, modeli ani Wi-Fi.</p>
+<h1>Home Buddy · Camera ISP</h1><p>Wersja testowa 0.13.2 — RGB888 i szczegółowa diagnostyka rejestracji. Tylko GUITION ESP32-P4 z istniejącym układem single-factory-v1. Aktualizuje wyłącznie aplikację pod adresem 0x20000; nie kasuje profili, modeli ani Wi-Fi.</p>
 <p>Podłącz płytkę kablem USB do komputera. Otwórz w Chrome lub Edge, zamknij monitor portu szeregowego. W przypadku problemów z połączeniem użyj przycisków BOOT/RESET zgodnie z instrukcją płytki. Podczas zapisu nie odłączaj kabla.</p>
 <p>Eksperymentalny ISP: sprawdź kolory, rozpoznawanie twarzy i stabilność. Automatyczny pomiar oświetlenia jest wyłączony; ustaw jasność ręcznie. Nie instaluj na innym układzie partycji.</p>
 <label><input type="checkbox" id="ack"> Potwierdzam, że to mój Home Buddy z dotychczasowym układem single-factory-v1 i chcę zainstalować wersję testową.</label><p><button id="go" disabled>Połącz i zainstaluj</button></p>
 <progress id="progress" max="100" value="0"></progress><pre id="log">Sprawdzanie dostępności instalatora…</pre>
+<hr><h2>Monitor logów USB</h2>
+<p>Połącz z uruchomionym Home Buddy (nie w trybie BOOT), rozpocznij rejestrację na ekranie urządzenia i odtwórz problem. Monitor tylko odczytuje port; nie wgrywa ani nie resetuje urządzenia. Po zakończeniu pobierz plik TXT i załącz go do rozmowy.</p>
+<p><button id="monitorStart">Rozpocznij zbieranie logów</button> <button id="monitorStop" disabled>Zatrzymaj</button> <button id="monitorDownload" disabled>Pobierz log TXT</button> <button id="monitorClear" disabled>Wyczyść</button> <button id="monitorMark" disabled>Dodaj znacznik</button></p>
+<p id="monitorStatus" role="status">Monitor rozłączony. USB Serial JTAG / 115200.</p>
+<p><label><input type="checkbox" id="monitorFollow" checked> Przewijaj automatycznie</label></p>
+<pre id="monitorOutput" style="height:360px;overflow:auto;overflow-wrap:anywhere" aria-label="Logi urządzenia"></pre>
+<p>Logi są przechowywane tylko w pamięci przeglądarki (ostatnie 4 MiB znaków, bez wysyłania na serwer). Mogą zawierać dane diagnostyczne, adresy sieciowe lub informacje o domownikach z istniejącego firmware. Przejrzyj plik przed udostępnieniem. Nie zapisujemy zdjęć ani wektorów twarzy.</p>
 <script type="module">
 const log=document.getElementById('log'), go=document.getElementById('go'), ack=document.getElementById('ack'), progress=document.getElementById('progress');
 const payload="__APP_BASE64__", expected="__APP_SHA256__", table="__TABLE_BASE64__";
 const append=s=>{log.textContent+=s+"\n";};
 const decode=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const sha=async b=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b)),x=>x.toString(16).padStart(2,'0')).join('');
-let module, firmware, running=false;
+let module, firmware, running=false, firmwareReady=false;
+const byId=id=>document.getElementById(id);
+const startLog=byId('monitorStart'), stopLog=byId('monitorStop'), saveLog=byId('monitorDownload');
+const clearLog=byId('monitorClear'), markLog=byId('monitorMark'), logStatus=byId('monitorStatus');
+const logOutput=byId('monitorOutput'), follow=byId('monitorFollow');
+const LOG_LIMIT=4*1024*1024, DISPLAY_LIMIT=48000;
+let chunks=[], logSize=0, discarded=0, dirty=false, renderTimer=null;
+let monitorState='idle', monitorPort=null, monitorReader=null, stopRequested=false;
+const stamp=()=>new Date().toISOString();
+function buttons(){
+ const idle=monitorState==='idle';
+ go.disabled=!firmwareReady||!ack.checked||running||!idle;
+ startLog.disabled=!navigator.serial||!window.isSecureContext||running||!idle;
+ stopLog.disabled=monitorState!=='reading';
+ saveLog.disabled=!logSize;clearLog.disabled=!idle||!logSize;
+ markLog.disabled=monitorState!=='reading';
+}
+function renderLog(){
+ renderTimer=null;
+ if(!dirty)return;dirty=false;
+ let tail='', remaining=DISPLAY_LIMIT;
+ for(let i=chunks.length-1;i>=0&&remaining>0;i--){
+  const piece=chunks[i].slice(-remaining);tail=piece+tail;remaining-=piece.length;
+ }
+ logOutput.textContent=(discarded?'[Najstarsze dane usunięte z bufora]\n':'')+
+  (logSize>DISPLAY_LIMIT?'[Podgląd końca; pobierz pełny zachowany log]\n':'')+tail;
+ if(follow.checked)logOutput.scrollTop=logOutput.scrollHeight;
+ saveLog.disabled=!logSize;
+}
+function record(s){
+ if(!s)return;
+ // Preserve CR/LF and UTF-8 across USB read boundaries via streaming TextDecoder.
+ chunks.push(s);logSize+=s.length;
+ while(logSize>LOG_LIMIT&&chunks.length){
+  const extra=logSize-LOG_LIMIT,first=chunks[0];
+  if(first.length<=extra){chunks.shift();logSize-=first.length;discarded+=first.length;}
+  else{chunks[0]=first.slice(extra);logSize-=extra;discarded+=extra;}
+ }
+ dirty=true;
+ if(renderTimer===null)renderTimer=setTimeout(renderLog,150);
+}
+function marker(s){record('\n--- '+stamp()+' '+s+' ---\n');}
+startLog.onclick=async()=>{
+ if(running||monitorState!=='idle')return;
+ monitorState='opening';stopRequested=false;buttons();logStatus.textContent='Wybierz port USB.';
+ try{
+  monitorPort=await navigator.serial.requestPort();
+  await monitorPort.open({baudRate:115200,bufferSize:65536});
+  if(!monitorPort.readable)throw Error('Port nie udostępnia strumienia odczytu.');
+  // No writes, no DTR/RTS changes, no bootloader handshake.
+  monitorReader=monitorPort.readable.getReader();
+  monitorState='reading';buttons();logStatus.textContent='Nagrywanie aktywne. Rozpocznij rejestrację twarzy na urządzeniu.';
+  marker('START USB 115200; installer 0.13.2');
+  const decoder=new TextDecoder();
+  while(!stopRequested){
+   const {value,done}=await monitorReader.read();
+   if(done)break;
+   if(value)record(decoder.decode(value,{stream:true}));
+  }
+  record(decoder.decode());
+  marker(stopRequested?'STOP użytkownika':'Koniec strumienia USB');
+  logStatus.textContent='Nagrywanie zakończone. Pobierz log TXT.';
+ }catch(e){
+  marker('Błąd monitora: '+e.message);
+  logStatus.textContent='Monitor: '+e.message+' — sprawdź kabel i zamknij inne monitory portu.';
+ }finally{
+  if(monitorReader){try{monitorReader.releaseLock();}catch{}monitorReader=null;}
+  if(monitorPort){try{await monitorPort.close();}catch{}monitorPort=null;}
+  monitorState='idle';buttons();
+ }
+};
+stopLog.onclick=async()=>{
+ if(monitorState!=='reading')return;
+ stopRequested=true;monitorState='stopping';buttons();
+ try{await monitorReader.cancel();}catch(e){marker('Błąd zatrzymania: '+e.message);}
+};
+markLog.onclick=()=>marker('ZNACZNIK: zdarzenie na ekranie / odrzucona próbka');
+clearLog.onclick=()=>{
+ if(monitorState!=='idle')return;
+ chunks=[];logSize=discarded=0;dirty=true;renderLog();buttons();
+};
+saveLog.onclick=()=>{
+ if(!logSize)return;
+ const header='Home Buddy USB diagnostics | exported '+stamp()+'\n'+
+  (discarded?'Dropped oldest '+discarded+' characters (bounded buffer)\n':'');
+ const blob=new Blob([header,...chunks],{type:'text/plain;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='home-buddy-log-'+stamp().replace(/[:.]/g,'-')+'.txt';
+ a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+buttons();
 try{
  if(!navigator.serial||!window.isSecureContext)throw Error('Wymagany Chrome/Edge na komputerze i bezpieczny kontekst HTTPS.');
  if(payload.startsWith('__'))throw Error('Ten plik nie zawiera zbudowanego firmware. Użyj opublikowanego instalatora z wydania GitHub.');
@@ -21,11 +118,10 @@ try{
  if(firmware.length>0x700000||firmware[0]!==0xe9||await sha(firmware)!==expected)throw Error('Nieprawidłowy obraz aplikacji.');
  module=await import('https://unpkg.com/esptool-js@0.7.1/bundle.js');
  log.textContent='Firmware zweryfikowany. Gotowy do podłączenia.\n';
- ack.onchange=()=>go.disabled=!ack.checked||running;
- go.disabled=!ack.checked;
+ firmwareReady=true;ack.onchange=buttons;buttons();
 }catch(e){log.textContent='Nie można uruchomić instalatora: '+e.message;}
 go.onclick=async()=>{
- if(running||!ack.checked||!module)return;running=true;go.disabled=true;let transport;
+ if(running||monitorState!=='idle'||!ack.checked||!firmwareReady)return;running=true;buttons();let transport;
  try{
   const port=await navigator.serial.requestPort();
   transport=new module.Transport(port,false);
@@ -43,6 +139,6 @@ go.onclick=async()=>{
   if(await sha(written)!==expected)throw Error('Weryfikacja odczytu niezgodna.');
   progress.value=100;await loader.after('hard_reset');append('Instalacja i weryfikacja zakończone. Płytka uruchamia się ponownie.');
  }catch(e){append('Błąd: '+e.message+' — nie odłączaj urządzenia podczas zapisu; po przerwaniu można ponowić instalację.');}
- finally{if(transport)try{await transport.disconnect();}catch{}running=false;go.disabled=!ack.checked;}
+ finally{if(transport)try{await transport.disconnect();}catch{}running=false;buttons();}
 };
 </script></html>
