@@ -77,6 +77,9 @@ extern "C"
         uint32_t last_sequence;
         unsigned count;
         bool verified;
+        unsigned verify_hits;
+        uint32_t verify_sequence;
+        uint64_t verify_ms;
         hb_id_embedding samples[HB_ID_TEMPLATES];
     } hb_id_enrollment;
     typedef struct

@@ -40,6 +40,7 @@ static SemaphoreHandle_t guard;
 static hb_id_status published{};
 static std::atomic<uint32_t> epoch{1};
 static std::atomic<bool> stop_requested{false};
+static std::atomic<bool> enrollment_active{false};
 static std::atomic<bool> disable_requested{false};
 static std::atomic<uint32_t> command_rejections{0};
 static std::atomic<uint64_t> session_deadline{0};
@@ -634,7 +635,8 @@ class Models
             int dx = (right - left) / 20;
             int dy = (bottom - top) / 20;
             candidates.clear();
-            candidates.push_back({0, best_score, {left + dx, top + dy, right - dx, bottom - dy}, {}});
+            candidates.push_back(
+                {0, best_score, {left + dx, top + dy, right - dx, bottom - dy}, {}});
             result = &mnp->run(crop, candidates);
             ESP_LOGI("enroll", "MNP_RETRY seq=%u faces=%u", (unsigned)s.sequence,
                      (unsigned)result->size());
@@ -986,11 +988,11 @@ static void worker(void *)
                 }
                 break;
             case HB_ID_CMD_SAMPLE:
-                enrollment->verified = false;
+                hb_enroll_verify_reset(enrollment);
                 capture = state.mode == HB_ID_ENROLL;
                 break;
             case HB_ID_CMD_VERIFY:
-                enrollment->verified = false;
+                hb_enroll_verify_reset(enrollment);
                 verify = state.mode == HB_ID_ENROLL;
                 break;
             case HB_ID_CMD_SAVE:
@@ -1058,6 +1060,7 @@ static void worker(void *)
                 break;
             }
         }
+        enrollment_active.store(state.mode == HB_ID_ENROLL);
         state.samples = guided && state.mode == HB_ID_ENROLL ? guided_samples : enrollment->count;
         state.verified = enrollment->verified;
         uint32_t current_session = epoch.load();
@@ -1077,6 +1080,7 @@ static void worker(void *)
                      (unsigned)state.session, (unsigned long long)now_ms(),
                      (unsigned long long)until);
             state.mode = HB_ID_STOP;
+            enrollment_active.store(false);
             state.confirmed = false;
             memset(enrollment, 0, sizeof(*enrollment));
             capture = verify = false;
@@ -1113,6 +1117,11 @@ static void worker(void *)
                 state.ready = false;
                 hb_compute_leave();
             }
+        }
+        else if (state.mode == HB_ID_ENROLL && enrollment->verified && !capture && !verify)
+        {
+            // Keep the verified staging set unchanged while the user confirms saving.
+            message(state, "Weryfikacja OK. Potwierdź zapis próbek");
         }
         else if (hb_compute_enter(0))
         {
@@ -1169,8 +1178,11 @@ static void worker(void *)
             if (!ok)
                 snprintf(state.last_error, sizeof(state.last_error), "%s", state.message);
             state.completed_ms = now_ms();
+            // Enrollment is an explicitly initiated local session; a fresh acquired frame
+            // can finish slowly. Do not extend the five-second live identity event window.
+            uint64_t age_limit = state.mode == HB_ID_ENROLL ? 8000 : 5000;
             if (state.mode == HB_ID_ENROLL && ok && state.completed_ms >= state.frame_ms &&
-                state.completed_ms - state.frame_ms > 5000)
+                state.completed_ms - state.frame_ms > age_limit)
                 ESP_LOGI("enroll", "SKIP_STALE seq=%u age_ms=%u", (unsigned)state.sequence,
                          (unsigned)(state.completed_ms - state.frame_ms));
             if (state.ready && state.detection_valid && state.sequence && ticket == epoch.load())
@@ -1188,7 +1200,7 @@ static void worker(void *)
                 xSemaphoreGive(guard);
             }
             if (ticket == epoch.load() && !hb_id_expired(state.mode, until, now_ms()) &&
-                state.completed_ms >= state.frame_ms && state.completed_ms - state.frame_ms <= 5000)
+                state.completed_ms >= state.frame_ms && state.completed_ms - state.frame_ms <= age_limit)
             {
                 if (ok && state.mode == HB_ID_ENROLL)
                 {
@@ -1262,10 +1274,19 @@ static void worker(void *)
                                         (other.state == HB_ID_KNOWN &&
                                          other.person_id != enrollment->target_id);
                         if (conflict)
-                            accepted = enrollment->verified = false;
-                        message(state, accepted   ? "Weryfikacja OK. Potwierdź zapis próbek"
-                                       : conflict ? "Weryfikacja: konflikt z innym profilem"
-                                                  : "Wróć do pozy z próbek i spójrz w kamerę");
+                        {
+                            hb_enroll_verify_reset(enrollment);
+                            accepted = false;
+                        }
+                        const char *hint = "Wróć do pozy z próbek i spójrz w kamerę";
+                        if (accepted)
+                            hint = "Weryfikacja OK. Potwierdź zapis próbek";
+                        else if (conflict)
+                            hint = "Weryfikacja: konflikt z innym profilem";
+                        else if (enrollment->verify_hits == 1)
+                            hint = "Weryfikacja 1/2. Patrz w kamerę.";
+                        message(state, hint);
+                        ESP_LOGI("enroll", "VERIFY_PROGRESS hits=%u/2", enrollment->verify_hits);
                         static uint64_t last_verify_log;
                         ESP_LOGI("enroll", "VERIFY seq=%u accepted=%d conflict=%d count=%u",
                                  (unsigned)state.sequence, accepted, conflict, enrollment->count);
@@ -1317,6 +1338,8 @@ static void worker(void *)
                 }
                 else
                 {
+                    if (state.mode == HB_ID_ENROLL && !enrollment->verified && guided_ready)
+                        hb_enroll_verify_reset(enrollment);
                     state.match.state = hb_id_detection_failure(state.detection_valid, state.faces);
                     hb_id_tracker_reset(&tracker, ticket);
                 }
@@ -1369,6 +1392,7 @@ static void worker(void *)
             state.match = {HB_ID_UNAVAILABLE, 0, -1, -1};
             epoch.fetch_add(1);
         }
+        enrollment_active.store(state.mode == HB_ID_ENROLL);
         publish(state);
         identity_events(state);
         static uint64_t health_at;
@@ -1470,6 +1494,7 @@ esp_err_t hb_identity_command(const hb_id_command *c)
         if (c->type == HB_ID_CMD_STOP)
             disable_requested.store(true);
         stop_requested.store(true);
+        enrollment_active.store(false);
         portEXIT_CRITICAL(&event_lock);
         return ESP_OK;
     }
@@ -1481,6 +1506,10 @@ esp_err_t hb_identity_command(const hb_id_command *c)
         return ESP_OK;
     command_rejections.fetch_add(1);
     return ESP_ERR_TIMEOUT;
+}
+bool hb_identity_enrolling(void)
+{
+    return enrollment_active.load();
 }
 void hb_identity_get(hb_id_status *out)
 {

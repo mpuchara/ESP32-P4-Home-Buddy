@@ -467,6 +467,9 @@ static void sample_append(hb_id_enrollment *en, const hb_id_embedding *e, uint32
     en->last_sequence = seq;
     en->last_ms = ms;
     en->verified = false;
+    en->verify_hits = 0;
+    en->verify_sequence = 0;
+    en->verify_ms = 0;
 }
 bool hb_id_enroll_sample(hb_id_enrollment *en, const hb_id_embedding *e, unsigned faces,
                          bool alignment, uint32_t seq, uint64_t ms)

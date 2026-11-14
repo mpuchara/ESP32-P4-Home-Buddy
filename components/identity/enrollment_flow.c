@@ -105,7 +105,7 @@ hb_enroll_admission hb_enroll_sample_stable(hb_id_enrollment *en, const hb_id_em
         frame_ms <= en->last_ms || (en->last_ms && frame_ms - en->last_ms < 1000))
         return HB_ENROLL_INVALID;
     unsigned anchors = en->count < 3 ? en->count : 3;
-    unsigned votes = 0, anchor_support = 0;
+    unsigned votes = 0, anchor_support = 0, all_support = 0;
     float best = -1;
     for (unsigned i = 0; i < en->count; ++i)
     {
@@ -115,6 +115,7 @@ hb_enroll_admission hb_enroll_sample_stable(hb_id_enrollment *en, const hb_id_em
         if (score > 0.995f)
             return HB_ENROLL_DUPLICATE;
         best = fmaxf(best, score);
+        all_support += score >= 0.55f;
         if (i < anchors)
         {
             votes += score >= (anchors < 3 ? 0.60f : 0.50f);
@@ -126,31 +127,59 @@ hb_enroll_admission hb_enroll_sample_stable(hb_id_enrollment *en, const hb_id_em
     bool supported = votes >= (anchors < 3 ? anchors : 2);
     if (anchors == 3 && best >= 0.65f && anchor_support >= 2)
         supported = true;
+    // Multiple good templates can represent a different pose, with at least one anchor link.
+    if (anchors == 3 && best >= 0.65f && all_support >= 2 && anchor_support >= 1)
+        supported = true;
     if (!supported)
         return HB_ENROLL_MISMATCH;
     bool accepted = hb_id_enroll_sample(en, e, faces, true, sequence, frame_ms);
     return accepted ? HB_ENROLL_ACCEPTED : HB_ENROLL_INVALID;
 }
+void hb_enroll_verify_reset(hb_id_enrollment *en)
+{
+    if (!en)
+        return;
+    en->verified = false;
+    en->verify_hits = 0;
+    en->verify_sequence = 0;
+    en->verify_ms = 0;
+}
 bool hb_enroll_verify_diverse(hb_id_enrollment *en, const hb_id_embedding *e, uint32_t seq,
                               uint64_t ms)
 {
-    if (en)
-        en->verified = false;
     if (!en || !en->target_id || en->count < HB_ID_MIN_SAMPLES || en->count > HB_ID_TEMPLATES ||
         !hb_id_embedding_valid(e) || seq <= en->last_sequence || ms <= en->last_ms ||
         ms - en->last_ms < 1000)
         return false;
+    // Duplicate/replayed frames cannot count as a second observation.
+    if (seq <= en->verify_sequence || ms <= en->verify_ms ||
+        (en->verify_ms && ms - en->verify_ms < 1000))
+        return false;
+    if (en->verify_ms && ms - en->verify_ms > 15000)
+        hb_enroll_verify_reset(en);
     float best = -1;
     unsigned support = 0;
     for (unsigned i = 0; i < en->count; ++i)
     {
         float score = hb_id_similarity(e, &en->samples[i]);
         if (!isfinite(score))
+        {
+            hb_enroll_verify_reset(en);
             return false;
+        }
         best = fmaxf(best, score);
-        support += score >= 0.55f;
+        support += score >= 0.50f;
     }
-    en->verified = best >= 0.65f && support >= 3;
+    if (best < 0.60f || support < 2)
+    {
+        hb_enroll_verify_reset(en);
+        return false;
+    }
+    en->verify_sequence = seq;
+    en->verify_ms = ms;
+    if (en->verify_hits < 2)
+        ++en->verify_hits;
+    en->verified = en->verify_hits >= 2;
     return en->verified;
 }
 hb_enroll_step hb_enroll_next(const hb_id_enrollment *en, unsigned faces, bool valid,

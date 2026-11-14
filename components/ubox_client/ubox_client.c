@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include "hb_config.h"
 #include "hb_dashboard.h"
+#include "hb_identity.h"
 #include "hb_image.h"
 #include "hb_ubox.h"
 #include "hb_ui.h"
@@ -25,8 +26,20 @@ static void worker(void *arg)
     (void)arg;
     unsigned failures = 0;
     char previous[512] = "";
+    bool paused = false;
     for (;;)
     {
+        if (hb_identity_enrolling())
+        {
+            if (!paused)
+                ESP_LOGI("ubox", "Pause snapshot during face enrollment");
+            paused = true;
+            vTaskDelay(pdMS_TO_TICKS(500));
+            continue;
+        }
+        if (paused)
+            ESP_LOGI("ubox", "Resume snapshot after face enrollment");
+        paused = false;
         hb_config_t c;
         hb_config_get(&c);
         if (!c.ubox_host[0] || !c.ubox_token[0])
@@ -57,7 +70,7 @@ static void worker(void *arg)
                                         .event_handler = event,
                                         .buffer_size = 2048};
         esp_http_client_handle_t client = esp_http_client_init(&cfg);
-        bool accepted = false;
+        bool accepted = false, deferred = false;
         int status = 0;
         uint8_t *body = NULL;
         uint16_t *frame = NULL;
@@ -120,6 +133,11 @@ static void worker(void *arg)
         phase = "partial";
         if (!complete || !hb_transfer_complete(&transfer))
             goto cleanup;
+        if (hb_identity_enrolling())
+        {
+            deferred = true;
+            goto cleanup;
+        }
         phase = "decode";
         decode_error = hb_image_decode(body, transfer.received, &frame);
         if (decode_error != ESP_OK)
@@ -137,6 +155,12 @@ static void worker(void *arg)
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
     finish:
+        if (deferred)
+        {
+            ESP_LOGI("ubox", "Defer JPEG decode during face enrollment");
+            vTaskDelay(pdMS_TO_TICKS(500));
+            continue;
+        }
         failures = accepted ? 0 : failures + 1;
         hb_ui_diagnostic("UBox", accepted ? "OK"
                                           : (status == 401   ? "Błędny token"

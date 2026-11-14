@@ -41,3 +41,18 @@ manual verification, conflict checking and ordinary recognition unchanged.
 This is an experimental household greeting policy, not a calibrated
 biometric access policy. Test with other people before judging accuracy.
 No camera ISP, model, storage schema, partition or display changes.
+
+## 0.13.3 follow-up
+The physical trace shows good landmark geometry but varying cosine scores,
+long multi-frame cycles and LCD underruns. Early exit after one good settled
+frame, max two candidates; MNP retry on a slightly tighter box, same ROI.
+Preserve eight accepted templates; allow strong alternate matches with anchor
+support. Final verification: two distinct fresh frames, top score >=0.60,
+two templates >=0.50 each; reset on mismatch, conflict or invalid detection,
+15 s maximum gap, 1 s minimum separation. No live recognition threshold
+change. Enrollment-only completion deadline 8 s, fresh acquisition still
+<=500 ms, session/sequence checks unchanged; identity events retain 5 s.
+Do not infer once verified while awaiting save. UBox pauses new snapshot
+requests and defers JPEG decode during enrollment, without changing ETag or
+failure counters; already running decode may finish. Guided UI refresh 1 Hz.
+No model/flash/ISP changes, no hardware validation yet.

@@ -744,7 +744,8 @@ static void identity_page(lv_event_t *e)
 }
 static void identity_update(void)
 {
-    if ((uint32_t)(lv_tick_get() - identity_tick) < 500)
+    unsigned interval = guided_enrollment ? 1000 : 500;
+    if ((uint32_t)(lv_tick_get() - identity_tick) < interval)
         return;
     identity_tick = lv_tick_get();
     hb_id_status *s = &identity_workspace.refresh;

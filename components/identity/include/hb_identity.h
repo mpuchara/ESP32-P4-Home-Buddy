@@ -96,6 +96,8 @@ extern "C"
     // Before UI startup, or from the sole UI command producer. Does not load AI models.
     esp_err_t hb_identity_start(void);
     void hb_identity_get(hb_id_status *out);
+    // Lightweight resource hint; no model or profile data is exposed.
+    bool hb_identity_enrolling(void);
     bool hb_identity_preview(uint16_t *rgb565, size_t pixels, hb_id_status *status);
     // Called from UI thread. Revalidates session/freshness/profile and per-person cooldown.
     bool hb_identity_greeting(uint64_t now_ms, char name[HB_ID_NAME]);

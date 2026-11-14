@@ -393,15 +393,20 @@ static void diverse_verification(void)
         en->samples[i] = cohort(0, i + 1, scores[i]);
     hb_id_embedding e = vector(0, 1);
     assert(!hb_enroll_verify_diverse(en, &e, 8, 8000));
-    assert(hb_enroll_verify_diverse(en, &e, 9, 9000));
+    assert(!hb_enroll_verify_diverse(en, &e, 9, 9000));
+    assert(en->verify_hits == 1 && !en->verified);
+    assert(!hb_enroll_verify_diverse(en, &e, 9, 9000));
+    assert(en->verify_hits == 1);
+    assert(hb_enroll_verify_diverse(en, &e, 10, 10000));
     hb_id_embedding stranger = vector(30, 1);
-    assert(!hb_enroll_verify_diverse(en, &stranger, 10, 10000));
+    assert(!hb_enroll_verify_diverse(en, &stranger, 11, 11000));
     assert(!en->verified);
     // One strong matching template alone cannot verify a profile.
     for (unsigned i = 1; i < 8; ++i)
         en->samples[i] = cohort(0, i + 1, .40f);
     en->samples[0] = cohort(0, 1, .85f);
-    assert(!hb_enroll_verify_diverse(en, &e, 11, 11000));
+    assert(!hb_enroll_verify_diverse(en, &e, 12, 12000));
+    assert(en->verify_hits == 0);
     // Accepted alternate pose helps, but original anchors must still support it.
     en->count = 4;
     en->samples[0] = cohort(0, 1, .4618f);
