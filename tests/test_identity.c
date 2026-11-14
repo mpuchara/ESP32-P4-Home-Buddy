@@ -379,6 +379,40 @@ static void stable_enrollment(void)
     free(en);
     free(db);
 }
+static void diverse_verification(void)
+{
+    hb_id_enrollment *en = calloc(1, sizeof(*en));
+    assert(en);
+    en->target_id = 1;
+    en->count = 8;
+    en->last_sequence = 8;
+    en->last_ms = 8000;
+    // Reproduce the logged held-out frame 4960: two above .65, all eight above .55.
+    const float scores[] = {.6398f, .5990f, .6249f, .6933f, .5671f, .5650f, .5602f, .6598f};
+    for (unsigned i = 0; i < 8; ++i)
+        en->samples[i] = cohort(0, i + 1, scores[i]);
+    hb_id_embedding e = vector(0, 1);
+    assert(!hb_enroll_verify_diverse(en, &e, 8, 8000));
+    assert(hb_enroll_verify_diverse(en, &e, 9, 9000));
+    hb_id_embedding stranger = vector(30, 1);
+    assert(!hb_enroll_verify_diverse(en, &stranger, 10, 10000));
+    assert(!en->verified);
+    // One strong matching template alone cannot verify a profile.
+    for (unsigned i = 1; i < 8; ++i)
+        en->samples[i] = cohort(0, i + 1, .40f);
+    en->samples[0] = cohort(0, 1, .85f);
+    assert(!hb_enroll_verify_diverse(en, &e, 11, 11000));
+    // Accepted alternate pose helps, but original anchors must still support it.
+    en->count = 4;
+    en->samples[0] = cohort(0, 1, .4618f);
+    en->samples[1] = cohort(0, 2, .3710f);
+    en->samples[2] = cohort(0, 3, .4384f);
+    en->samples[3] = cohort(0, 4, .6585f);
+    assert(hb_enroll_sample_stable(en, &e, 1, 12, 12000) == HB_ENROLL_ACCEPTED);
+    assert(en->count == 5);
+    assert(hb_enroll_sample_stable(en, &stranger, 1, 13, 13000) == HB_ENROLL_MISMATCH);
+    free(en);
+}
 int main(void)
 {
     hb_id_evaluation stats = {0};
@@ -409,6 +443,7 @@ int main(void)
     enrollment();
     coherent_enrollment();
     stable_enrollment();
+    diverse_verification();
     puts("Identity: geometry, native ROI, embeddings, profiles, matching, temporal and enrollment "
          "passed");
     return 0;

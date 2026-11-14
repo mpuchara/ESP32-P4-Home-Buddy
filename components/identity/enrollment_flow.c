@@ -105,7 +105,8 @@ hb_enroll_admission hb_enroll_sample_stable(hb_id_enrollment *en, const hb_id_em
         frame_ms <= en->last_ms || (en->last_ms && frame_ms - en->last_ms < 1000))
         return HB_ENROLL_INVALID;
     unsigned anchors = en->count < 3 ? en->count : 3;
-    unsigned votes = 0;
+    unsigned votes = 0, anchor_support = 0;
+    float best = -1;
     for (unsigned i = 0; i < en->count; ++i)
     {
         float score = hb_id_similarity(e, &en->samples[i]);
@@ -113,13 +114,44 @@ hb_enroll_admission hb_enroll_sample_stable(hb_id_enrollment *en, const hb_id_em
             return HB_ENROLL_INVALID;
         if (score > 0.995f)
             return HB_ENROLL_DUPLICATE;
-        if (i < anchors && score >= (anchors < 3 ? 0.60f : 0.55f))
-            ++votes;
+        best = fmaxf(best, score);
+        if (i < anchors)
+        {
+            votes += score >= (anchors < 3 ? 0.60f : 0.50f);
+            anchor_support += score >= 0.43f;
+        }
     }
-    if (votes < (anchors < 3 ? anchors : 2))
+    // A strong match to an accepted pose can support a different pose, but
+    // never accept a chain of samples detached from the original three anchors.
+    bool supported = votes >= (anchors < 3 ? anchors : 2);
+    if (anchors == 3 && best >= 0.65f && anchor_support >= 2)
+        supported = true;
+    if (!supported)
         return HB_ENROLL_MISMATCH;
     bool accepted = hb_id_enroll_sample(en, e, faces, true, sequence, frame_ms);
     return accepted ? HB_ENROLL_ACCEPTED : HB_ENROLL_INVALID;
+}
+bool hb_enroll_verify_diverse(hb_id_enrollment *en, const hb_id_embedding *e, uint32_t seq,
+                              uint64_t ms)
+{
+    if (en)
+        en->verified = false;
+    if (!en || !en->target_id || en->count < HB_ID_MIN_SAMPLES || en->count > HB_ID_TEMPLATES ||
+        !hb_id_embedding_valid(e) || seq <= en->last_sequence || ms <= en->last_ms ||
+        ms - en->last_ms < 1000)
+        return false;
+    float best = -1;
+    unsigned support = 0;
+    for (unsigned i = 0; i < en->count; ++i)
+    {
+        float score = hb_id_similarity(e, &en->samples[i]);
+        if (!isfinite(score))
+            return false;
+        best = fmaxf(best, score);
+        support += score >= 0.55f;
+    }
+    en->verified = best >= 0.65f && support >= 3;
+    return en->verified;
 }
 hb_enroll_step hb_enroll_next(const hb_id_enrollment *en, unsigned faces, bool valid,
                               uint32_t sequence, uint64_t frame_ms)

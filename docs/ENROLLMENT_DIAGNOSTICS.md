@@ -22,3 +22,22 @@ embedding, names or persistent biometric files are written by diagnostics.
 Point coordinates and similarity values are biometric-related diagnostic
 data: share only voluntarily. No changes to quality gates, models, exposure,
 sample acceptance, profile schema, flash layout or recognition thresholds.
+
+## 0.13.3: changes based on hardware log
+
+One 298-second USB recording: 114 detections (113 single faces), 38 final
+candidates, 35 valid MNP/geometry passes, 3 MNP empty results, 8 accepted
+samples, 9 explicit similarity rejections. 10 final verification attempts,
+only the last accepted; log ends during commit, not a durable-save receipt.
+First verification seq 4960 has best .6933, 2 above .65 and all 8 above .55.
+
+Use first good settled enrollment frame, otherwise a second candidate.
+Preserve 5s frame freshness gate and log stale outcomes. Retry empty MNP
+once with slightly tighter candidate, still require five genuine landmarks
+and unchanged geometry. Keep frontal anchor admission .60. Later require
+2 anchors >=.50 or best accepted template >=.65 and 2 anchors >=.43.
+Guided held-out verification requires best >=.65 and at least 3 >=.55;
+manual verification, conflict checking and ordinary recognition unchanged.
+This is an experimental household greeting policy, not a calibrated
+biometric access policy. Test with other people before judging accuracy.
+No camera ISP, model, storage schema, partition or display changes.

@@ -30,6 +30,9 @@ extern "C"
     hb_enroll_admission hb_enroll_sample_stable(hb_id_enrollment *en, const hb_id_embedding *e,
                                                 unsigned faces, uint32_t sequence,
                                                 uint64_t frame_ms);
+    // Independent fresh verification: one strong match plus three supporting templates.
+    bool hb_enroll_verify_diverse(hb_id_enrollment *en, const hb_id_embedding *e, uint32_t seq,
+                                  uint64_t ms);
     hb_enroll_step hb_enroll_next(const hb_id_enrollment *en, unsigned faces, bool valid,
                                   uint32_t sequence, uint64_t frame_ms);
 #ifdef __cplusplus

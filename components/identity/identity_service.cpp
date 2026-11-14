@@ -472,11 +472,12 @@ class Models
         int box[4] = {};
         unsigned rw = 0, rh = 0;
         hb_rgb888_stats best_quality{};
-        unsigned attempts = s.mode == HB_ID_ENROLL ? 3 : 2;
+        unsigned attempts = 2;
         bool multiple = false;
         uint32_t detection_us = 0;
         for (unsigned attempt = 0; attempt < attempts; ++attempt)
         {
+            bool enough = false;
             hb_camera_frame f{};
             if (!hb_camera_acquire(&f))
             {
@@ -546,6 +547,11 @@ class Models
                         best_rank = rank;
                         best_score = detections.front().score;
                         best_quality = q;
+                        // A good settled enrollment frame is preferable to an older
+                        // marginally better frame after another expensive full detection.
+                        enough = trace && f.settled && best_score >= 0.70f && rank >= 12 &&
+                                 q.width >= 80 && q.height >= 80 && q.clipped <= 0.35f &&
+                                 q.mean >= 45 && q.mean <= 210 && q.contrast >= 5;
                         for (unsigned i = 0; i < 4; ++i)
                             box[i] = b[i];
                         rw = f.width;
@@ -564,6 +570,8 @@ class Models
             }
             // A single lease spans detection only; no full frame copy and no lease during MBF.
             hb_camera_release(&f);
+            if (enough || multiple)
+                break;
             if (attempt + 1 < attempts)
                 vTaskDelay(pdMS_TO_TICKS(40));
         }
@@ -618,7 +626,20 @@ class Models
             official = new (std::nothrow) HumanFaceDetect(HumanFaceDetect::MSRMNP_S8_V1, false);
         if (s.official_landmarks && !official)
             return false;
-        auto &landmarks = s.official_landmarks ? official->run(crop) : mnp->run(crop, candidates);
+        auto *result = s.official_landmarks ? &official->run(crop) : &mnp->run(crop, candidates);
+        // MNP occasionally rejects a perfectly detected face. Retry a slightly
+        // tighter candidate on the identical native crop, without bypassing MNP.
+        if (trace && !s.official_landmarks && result->empty())
+        {
+            int dx = (right - left) / 20;
+            int dy = (bottom - top) / 20;
+            std::list<dl::detect::result_t> retry;
+            retry.push_back({0, best_score, {left + dx, top + dy, right - dx, bottom - dy}, {}});
+            result = &mnp->run(crop, retry);
+            ESP_LOGI("enroll", "MNP_RETRY seq=%u faces=%u", (unsigned)s.sequence,
+                     (unsigned)result->size());
+        }
+        auto &landmarks = *result;
         s.landmarks_us = esp_timer_get_time() - stage;
         if (trace)
         {
@@ -1148,6 +1169,10 @@ static void worker(void *)
             if (!ok)
                 snprintf(state.last_error, sizeof(state.last_error), "%s", state.message);
             state.completed_ms = now_ms();
+            if (state.mode == HB_ID_ENROLL && ok && state.completed_ms >= state.frame_ms &&
+                state.completed_ms - state.frame_ms > 5000)
+                ESP_LOGI("enroll", "SKIP_STALE seq=%u age_ms=%u", (unsigned)state.sequence,
+                         (unsigned)(state.completed_ms - state.frame_ms));
             if (state.ready && state.detection_valid && state.sequence && ticket == epoch.load())
             {
                 // Inference thumbnail is already display-corrected. Retain the exact frame for
@@ -1211,9 +1236,9 @@ static void worker(void *)
                         else if (!guided || guided_samples < 3)
                             hint = "Patrz prosto; utrzymaj twarz w kadrze.";
                         else if (guided_samples < 5)
-                            hint = "Obróć głowę lekko w lewo, bez pośpiechu.";
+                            hint = "Lekko obróć głowę w lewo, nadal patrz na kamerę.";
                         else if (guided_samples < 7)
-                            hint = "Obróć głowę lekko w prawo.";
+                            hint = "Lekko obróć głowę w prawo, nadal patrz na kamerę.";
                         message(state, hint);
                     }
                     if (verify && (!guided || guided_ready))
@@ -1224,8 +1249,13 @@ static void worker(void *)
                             ESP_LOGI("enroll", "VERIFY_SIM seq=%u sample=%u cosine=%.4f",
                                      (unsigned)state.sequence, j, (double)score);
                         }
-                        bool accepted = hb_id_enroll_verify(enrollment, &embedding, state.sequence,
-                                                            state.frame_ms, &enrollment_policy);
+                        bool accepted;
+                        if (guided)
+                            accepted = hb_enroll_verify_diverse(enrollment, &embedding,
+                                                                state.sequence, state.frame_ms);
+                        else
+                            accepted = hb_id_enroll_verify(enrollment, &embedding, state.sequence,
+                                                           state.frame_ms, &enrollment_policy);
                         // Reject a new enrollment also matching a different registered person.
                         auto other = hb_id_match_embedding(database, &embedding, &policy);
                         bool conflict = other.state == HB_ID_AMBIGUOUS ||
