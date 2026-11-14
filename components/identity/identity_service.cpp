@@ -633,9 +633,9 @@ class Models
         {
             int dx = (right - left) / 20;
             int dy = (bottom - top) / 20;
-            std::list<dl::detect::result_t> retry;
-            retry.push_back({0, best_score, {left + dx, top + dy, right - dx, bottom - dy}, {}});
-            result = &mnp->run(crop, retry);
+            candidates.clear();
+            candidates.push_back({0, best_score, {left + dx, top + dy, right - dx, bottom - dy}, {}});
+            result = &mnp->run(crop, candidates);
             ESP_LOGI("enroll", "MNP_RETRY seq=%u faces=%u", (unsigned)s.sequence,
                      (unsigned)result->size());
         }
