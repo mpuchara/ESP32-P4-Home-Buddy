@@ -1,0 +1,17 @@
+menu "Home Buddy"
+    config HB_BOARD_PROFILE_CONFIRMED
+        bool "Enable experimental JC4880P443C board profile"
+        default n
+        help
+            Enable only after checking the actual board, LCD and pin mapping.
+            This profile derives from the upstream I_W BSP, not tested on our I_W_Y.
+            With this off, firmware provides serial diagnostics only.
+    config HB_WIFI_DIAGNOSTICS
+        bool "Enable C6 SDIO Wi-Fi diagnostics"
+        depends on HB_BOARD_PROFILE_CONFIRMED
+        select ESP_HOSTED_ENABLED
+        default n
+        help
+            Opt in after checking the installed C6 firmware against esp_hosted.
+            Does not flash the C6. Scan runs in its own worker task.
+endmenu
