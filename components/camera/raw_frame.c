@@ -271,3 +271,13 @@ void hb_camera_exposure_plan(float line_us, unsigned max_lines, unsigned old_lin
     *lines = n;
     *gain = (unsigned)fminf(2048, fmaxf(256, lroundf(total * 256 / n))) & ~1U;
 }
+
+bool hb_camera_exposure_at_limit(float line_us, unsigned max_lines, unsigned lines, float gain)
+{
+    if (!isfinite(line_us) || line_us <= 0 || max_lines < 4 || gain != 8.0f)
+        return false;
+    unsigned period = (unsigned)fmaxf(1, lroundf(10000 / line_us));
+    if (max_lines >= period && period >= 4)
+        max_lines = max_lines / period * period;
+    return lines == max_lines;
+}

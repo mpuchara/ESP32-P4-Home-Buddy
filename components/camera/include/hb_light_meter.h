@@ -25,3 +25,13 @@ hb_light_reading hb_light_apply_dark_limit(hb_light_reading reading, float expos
 hb_light_reading hb_light_measure_isp(const uint8_t *bgr, unsigned width, unsigned height,
                                       float exposure_us, float analogue_gain, float digital_gain,
                                       bool metadata_valid);
+
+// A measurement window publishes only after three distinct, consistent frames.
+typedef struct
+{
+    float candidate;
+    uint64_t last_ms;
+    unsigned count;
+} hb_light_confirmation;
+bool hb_light_confirm(hb_light_confirmation *state, hb_light_reading reading, uint64_t frame_ms);
+#define HB_LIGHT_WINDOW_MS 20000U

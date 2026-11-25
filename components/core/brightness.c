@@ -12,7 +12,7 @@ hb_brightness_config hb_brightness_defaults(void)
                                   .mode = HB_BRIGHT_AUTO,
                                   .manual_pwm = 128,
                                   .fallback_pwm = 128,
-                                  .sample_seconds = 5,
+                                  .sample_seconds = 300,
                                   .transition_seconds = 30,
                                   .override_seconds = 300};
 }
@@ -25,7 +25,7 @@ bool hb_brightness_valid(const hb_brightness_config *c)
 {
     return c && c->schema == 2 && c->mode <= HB_BRIGHT_OVERRIDE && c->manual_pwm >= 26 &&
            c->manual_pwm <= 255 && c->fallback_pwm >= 26 && c->fallback_pwm <= 255 &&
-           c->sample_seconds >= 1 && c->sample_seconds <= 60 && c->transition_seconds >= 20 &&
+           c->sample_seconds >= 1 && c->sample_seconds <= 300 && c->transition_seconds >= 20 &&
            c->transition_seconds <= 60 && c->override_seconds >= 10 &&
            c->override_seconds <= 3600 && valid_anchor(&c->day) && valid_anchor(&c->night);
 }
@@ -80,8 +80,8 @@ uint8_t hb_brightness_step(hb_brightness_state *s, const hb_brightness_config *c
         {
             float elapsed = (float)(sample - s->sample_ms) / 1000;
             s->sample_ms = sample;
-            // Abrupt changes >2 stops need three mutually consistent samples.
-            if (fabsf(metric - s->filtered) > 2)
+            // Sparse production readings already contain three confirmed camera frames.
+            if (c->sample_seconds < 300 && fabsf(metric - s->filtered) > 2)
             {
                 if (!s->confirmations || fabsf(metric - s->candidate) > 0.5f)
                 {
@@ -95,6 +95,8 @@ uint8_t hb_brightness_step(hb_brightness_state *s, const hb_brightness_config *c
             }
             s->confirmations = 0;
             float alpha = elapsed / (c->transition_seconds + elapsed);
+            if (c->sample_seconds >= 300)
+                alpha = 1.0f;
             s->filtered += alpha * (metric - s->filtered);
         }
         float target = hb_brightness_target(c, s->filtered);

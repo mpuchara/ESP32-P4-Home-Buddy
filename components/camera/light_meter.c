@@ -103,3 +103,23 @@ hb_light_reading hb_light_measure_isp(const uint8_t *bgr, unsigned w, unsigned h
         }
     return hb_light_histogram(hist, exposure, again, dgain, metadata);
 }
+
+bool hb_light_confirm(hb_light_confirmation *s, hb_light_reading r, uint64_t frame_ms)
+{
+    if (!s || !frame_ms || frame_ms <= s->last_ms)
+        return false;
+    s->last_ms = frame_ms;
+    if (!r.valid || !isfinite(r.metric))
+    {
+        s->count = 0;
+        return false;
+    }
+    if (!s->count || fabsf(r.metric - s->candidate) > 0.75f)
+    {
+        s->candidate = r.metric;
+        s->count = 1;
+    }
+    else
+        s->count++;
+    return s->count >= 3;
+}

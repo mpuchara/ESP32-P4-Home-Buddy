@@ -40,7 +40,8 @@ static bool bf_enabled, demosaic_enabled, ccm_enabled, gamma_enabled, color_enab
 static bool sharpen_enabled;
 static float wb_red = 1.65f, wb_blue = 1.55f;
 static unsigned tuning_band;
-static atomic_uint sample_seconds = 5;
+static atomic_uint sample_seconds = 300;
+static uint64_t calibration_started, calibration_deadline;
 static atomic_bool started;
 static atomic_bool requested_pattern;
 void hb_camera_test_pattern(bool enabled)
@@ -159,8 +160,40 @@ static void settling(uint64_t now)
 }
 void hb_camera_set_sample_seconds(uint32_t seconds)
 {
-    if (seconds >= 1 && seconds <= 60)
+    if (seconds >= 1 && seconds <= 300)
         atomic_store(&sample_seconds, seconds);
+}
+uint32_t hb_camera_request_light(void)
+{
+    uint64_t now = (uint64_t)esp_timer_get_time() / 1000;
+    portENTER_CRITICAL(&lock);
+    if (++status.calibration_id == 0)
+        ++status.calibration_id;
+    uint32_t id = status.calibration_id;
+    status.calibration_pending = true;
+    status.calibration_light = (hb_light_reading){0};
+    calibration_started = now;
+    calibration_deadline = now + HB_LIGHT_WINDOW_MS;
+    portEXIT_CRITICAL(&lock);
+    return id;
+}
+void hb_camera_cancel_light(uint32_t id)
+{
+    portENTER_CRITICAL(&lock);
+    if (id && status.calibration_id == id)
+    {
+        status.calibration_pending = false;
+        status.calibration_light = (hb_light_reading){0};
+    }
+    portEXIT_CRITICAL(&lock);
+}
+bool hb_camera_light_priority(void)
+{
+    uint64_t now = (uint64_t)esp_timer_get_time() / 1000;
+    portENTER_CRITICAL(&lock);
+    bool priority = status.calibration_pending && now < calibration_deadline;
+    portEXIT_CRITICAL(&lock);
+    return priority;
 }
 // OV02C10 SDK-inspired conservative fixed tuning. Keep the sensor/CSI owner
 // and audited DMA adapter; no second capture owner or competing AE controller.
@@ -452,8 +485,10 @@ static void worker(void *arg)
     for (;;)
     {
         esp_err_t e = initialize();
-        uint64_t started = (uint64_t)esp_timer_get_time() / 1000, last_light = 0;
-        uint64_t last_control = 0, changed = started, last_wb = 0;
+        uint64_t started = (uint64_t)esp_timer_get_time() / 1000;
+        uint64_t next_light = started, last_control = 0, changed = started, last_wb = 0;
+        hb_light_confirmation periodic = {0}, calibration = {0};
+        uint32_t last_calibration_id = 0;
         bool pattern = false;
         bool pattern_reported = false;
         uint32_t base_sequence;
@@ -467,7 +502,25 @@ static void worker(void *arg)
         while (e == ESP_OK)
         {
             uint64_t now = (uint64_t)esp_timer_get_time() / 1000;
-            bool request = startup_pattern || atomic_load(&requested_pattern);
+            portENTER_CRITICAL(&lock);
+            if (status.calibration_pending && now >= calibration_deadline)
+                status.calibration_pending = false;
+            bool priority = status.calibration_pending;
+            uint32_t calibration_id = status.calibration_id;
+            uint64_t requested_ms = calibration_started;
+            portEXIT_CRITICAL(&lock);
+            if (calibration_id != last_calibration_id)
+            {
+                calibration = (hb_light_confirmation){0};
+                last_calibration_id = calibration_id;
+            }
+            if (now >= next_light && now - next_light >= HB_LIGHT_WINDOW_MS)
+            {
+                next_light = now + (uint64_t)atomic_load(&sample_seconds) * 1000;
+                periodic = (hb_light_confirmation){0};
+            }
+            bool periodic_due = now >= next_light;
+            bool request = !priority && (startup_pattern || atomic_load(&requested_pattern));
             if (request != pattern)
             {
                 uint8_t original;
@@ -522,7 +575,8 @@ static void worker(void *arg)
                     unsigned x = HEIGHT / 8, y = WIDTH / 8;
                     unsigned w = HEIGHT * 3 / 4, h = WIDTH * 3 / 4;
                     portENTER_CRITICAL(&lock);
-                    bool face = face_ms && face_ms <= now && now - face_ms < 3500;
+                    bool face = !priority && !periodic_due && face_ms && face_ms <= now &&
+                                now - face_ms < 3500;
                     if (face)
                     {
                         x = face_x;
@@ -568,21 +622,33 @@ static void worker(void *arg)
                     unsigned measured_lines =
                         meta ? (unsigned)((exposure[0] << 8) | exposure[1]) : 0;
                     unsigned measured_vts = meta ? (unsigned)((timing[2] << 8) | timing[3]) : 0;
-                    bool at_limit = meta && measured_vts > 19 &&
-                                    measured_lines == measured_vts - 15 && ag == 8.0f;
-                    bool publish =
-                        now - last_light >= (uint64_t)atomic_load(&sample_seconds) * 1000;
+                    float line_time = meta ? ((timing[0] << 8) | timing[1]) / 81.6667f : 0;
+                    bool at_limit = false;
+                    if (meta && measured_vts > 19)
+                        at_limit = hb_camera_exposure_at_limit(line_time, measured_vts - 15,
+                                                               measured_lines, ag);
                     hb_light_reading light = {0};
-                    if (publish)
+                    if (priority || periodic_due)
                     {
                         light = hb_light_measure_isp(frame.pixels, WIDTH, HEIGHT, exp, ag, dg,
                                                      meta && e == ESP_OK && frame.settled);
                         light = hb_light_apply_dark_limit(light, exp, ag, dg, at_limit);
                     }
+                    bool publish = false, calibrated = false;
+                    if (periodic_due)
+                        publish = hb_light_confirm(&periodic, light, frame.timestamp_ms);
+                    if (priority && frame.timestamp_ms > requested_ms)
+                        calibrated = hb_light_confirm(&calibration, light, frame.timestamp_ms);
                     portENTER_CRITICAL(&lock);
+                    if (calibrated && status.calibration_pending &&
+                        status.calibration_id == calibration_id)
+                    {
+                        status.calibration_light = light;
+                        status.calibration_pending = false;
+                        publish = true;
+                    }
                     if (publish)
                     {
-                        // Independent scene meter, not the face-weighted AE statistic.
                         status.light = light;
                         status.light_ms = frame.timestamp_ms;
                     }
@@ -593,7 +659,8 @@ static void worker(void *arg)
                     portEXIT_CRITICAL(&lock);
                     if (publish)
                     {
-                        last_light = now;
+                        next_light = now + (uint64_t)atomic_load(&sample_seconds) * 1000;
+                        periodic = (hb_light_confirmation){0};
                         ESP_LOGI("camera",
                                  "frames=%u fps=%.1f light_valid=%d below_range=%d metric=%.3f "
                                  "luma=%.1f "

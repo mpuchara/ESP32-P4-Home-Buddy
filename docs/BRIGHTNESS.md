@@ -107,3 +107,19 @@ No automatic flash write or erase occurs. Saving explicitly persists schema 2 in
 the same brightness key; older firmware will reject that new record. Recalibrate
 if the provisional curve is unsuitable. Physical day/night tuning and validation
 on the actual board are required.
+
+## 0.13.5 — shared camera and priority calibration
+
+The normal light measurement uses one window every five minutes (first on boot),
+with three consistent fresh frames and a bounded 20-second acquisition window.
+Existing interval settings are normalized to 300 seconds. Camera acquisition
+remains single-owner and face consumers use the shared frame pool. During a
+measurement window AE uses the scene instead of a face; only explicit calibration
+also pauses new background inference. Existing in-flight inference may finish.
+
+Day/night buttons request a new sample asynchronously, not the periodic cache.
+Requests expire after 20 seconds, are canceled on leaving the page or changing
+mode, and never save a stale/invalid sample. Successful calibration enables
+manual preview; explicit save returns to AUTO. Night-limit detection accounts
+for anti-flicker rounding of maximum exposure (not necessarily VTS-15).
+Physical acceptance remains required.

@@ -153,7 +153,8 @@ static void worker(void *)
         hb_camera_status camera{};
         hb_camera_get_status(&camera);
         hb_camera_frame frame{};
-        if (!camera.running || camera.test_pattern || !hb_camera_acquire(&frame))
+        if (!camera.running || camera.test_pattern || hb_camera_light_priority() ||
+            !hb_camera_acquire(&frame))
         {
             hb_compute_leave();
             vTaskDelay(pdMS_TO_TICKS(100));

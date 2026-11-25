@@ -155,7 +155,7 @@ int main(void)
     install(&legacy);
     CHECK(hb_brightness_start(true) == ESP_OK);
     c = current();
-    CHECK(c.mode == HB_BRIGHT_AUTO && c.schema == 2 && c.sample_seconds == 10);
+    CHECK(c.mode == HB_BRIGHT_AUTO && c.schema == 2 && c.sample_seconds == 300);
     CHECK(!c.day.valid && !c.night.valid && writes == 0);
     c.day = (hb_light_anchor){2, 230, 1};
     c.night = (hb_light_anchor){-2, 30, 1};
@@ -166,7 +166,7 @@ int main(void)
     c = current();
     CHECK(c.day.metric == 2 && c.night.pwm == 30 && c.mode == HB_BRIGHT_AUTO);
     tick(100);
-    CHECK(interval == 10);
+    CHECK(interval == 300);
     unsigned saved_writes = writes;
     for (unsigned i = 2; i < 100; i++)
         tick(i * 100);

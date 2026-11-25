@@ -22,7 +22,7 @@ static void controller(void)
     hb_brightness_config c = hb_brightness_defaults();
     CHECK(hb_brightness_valid(&c));
     CHECK(!hb_brightness_calibrated(&c));
-    CHECK(c.mode == HB_BRIGHT_AUTO);
+    CHECK(c.mode == HB_BRIGHT_AUTO && c.sample_seconds == 300);
     CHECK(hb_brightness_target(&c, -15.5f) == 26);
     CHECK(hb_brightness_target(&c, -5.5f) == 255);
     CHECK(hb_brightness_target(&c, -10.5f) == 141);
@@ -31,6 +31,9 @@ static void controller(void)
     hb_brightness_init(&factory, 128, 0);
     CHECK(hb_brightness_step(&factory, &c, false, 0, 0, 100) == 128);
     CHECK(hb_brightness_step(&factory, &c, true, -15.5f, 200, 200) < 128);
+    hb_brightness_step(&factory, &c, true, -5.5f, 300200, 300200);
+    CHECK(factory.filtered > -7.0f); // No extra five-minute confirmation delays.
+    c.sample_seconds = 5;
     c.day = (hb_light_anchor){2, 240, 1};
     c.night = (hb_light_anchor){-2, 40, 1};
     c.mode = HB_BRIGHT_AUTO;
@@ -226,6 +229,7 @@ static void dark_limit(void)
     hb_light_reading day = hb_light_histogram(histogram, 32078, 8, 1, true);
     CHECK(day.valid && !day.below_range && day.metric > floor.metric);
     hb_brightness_config c = hb_brightness_defaults();
+    c.sample_seconds = 5;
     c.mode = HB_BRIGHT_AUTO;
     c.night = (hb_light_anchor){floor.metric, 40, 1};
     c.day = (hb_light_anchor){day.metric, 240, 1};
@@ -368,6 +372,21 @@ static void rgb888(void)
     CHECK(lines == 400 && gain == 640);
     hb_camera_exposure_plan(25, 1100, 400, 2048, 20, true, &lines, &gain);
     CHECK(lines >= 400 && lines <= 1100 && gain <= 2048);
+    CHECK(hb_camera_exposure_at_limit(25, 1100, 800, 8));
+    CHECK(!hb_camera_exposure_at_limit(25, 1100, 400, 8));
+    CHECK(!hb_camera_exposure_at_limit(25, 1100, 800, 4));
+    hb_light_confirmation confirm = {0};
+    hb_light_reading light = {.valid = true, .metric = -15};
+    CHECK(!hb_light_confirm(&confirm, light, 100));
+    CHECK(!hb_light_confirm(&confirm, light, 100)); // duplicate frame
+    CHECK(!hb_light_confirm(&confirm, light, 200));
+    CHECK(hb_light_confirm(&confirm, light, 300));
+    light.metric = -10;
+    CHECK(!hb_light_confirm(&confirm, light, 400));
+    light.valid = false;
+    CHECK(!hb_light_confirm(&confirm, light, 500));
+    light.valid = true;
+    CHECK(!hb_light_confirm(&confirm, light, 600));
 }
 int main(void)
 {

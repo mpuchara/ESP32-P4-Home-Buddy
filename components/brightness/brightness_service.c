@@ -59,6 +59,7 @@ static esp_err_t apply(const hb_brightness_config *value, bool begin_override)
         return ESP_ERR_INVALID_STATE;
     xSemaphoreTake(mutex, portMAX_DELAY);
     config = *value;
+    config.sample_seconds = 300;
     if (config.mode == HB_BRIGHT_OVERRIDE)
     {
         if (begin_override)
@@ -92,6 +93,7 @@ esp_err_t hb_brightness_save(const hb_brightness_config *value)
     if (e != ESP_OK)
         return e;
     hb_brightness_config saved = *value;
+    saved.sample_seconds = 300;
     // Override is deliberately temporary, including across reboot.
     if (saved.mode == HB_BRIGHT_OVERRIDE)
         saved.mode = HB_BRIGHT_AUTO;
@@ -141,6 +143,7 @@ esp_err_t hb_brightness_start(bool available)
             nvs_close(handle);
         }
     }
+    config.sample_seconds = 300;
     hb_brightness_init(&state, (uint8_t)config.fallback_pwm, now_ms());
     return xTaskCreate(worker, "brightness", 4096, NULL, 1, NULL) == pdPASS ? ESP_OK
                                                                             : ESP_ERR_NO_MEM;

@@ -46,3 +46,6 @@ uint32_t hb_isp_gamma_gain(uint32_t x, float gain);
 void hb_camera_exposure_plan(float line_us, unsigned max_lines, unsigned old_lines,
                              unsigned old_gain, float luma, bool face, unsigned *lines,
                              unsigned *gain);
+
+// Maximum attainable exposure after anti-flicker rounding, not raw VTS.
+bool hb_camera_exposure_at_limit(float line_us, unsigned max_lines, unsigned lines, float gain);

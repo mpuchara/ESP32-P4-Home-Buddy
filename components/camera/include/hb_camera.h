@@ -26,6 +26,9 @@ typedef struct
     float fps, exposure_us, analogue_gain, digital_gain;
     uint64_t light_ms;
     hb_light_reading light;
+    uint32_t calibration_id;
+    bool calibration_pending;
+    hb_light_reading calibration_light;
     esp_err_t error;
     bool running;
     bool test_pattern;
@@ -36,6 +39,10 @@ void hb_camera_get_status(hb_camera_status *status);
 bool hb_camera_acquire(hb_camera_frame *frame);
 void hb_camera_release(hb_camera_frame *frame);
 void hb_camera_set_sample_seconds(uint32_t seconds);
+// Fresh, asynchronous scene measurement with priority over background inference.
+uint32_t hb_camera_request_light(void);
+void hb_camera_cancel_light(uint32_t id);
+bool hb_camera_light_priority(void);
 void hb_camera_test_pattern(bool enabled);
 
 // Upright native face rectangle; expires automatically, never holds a camera lease.

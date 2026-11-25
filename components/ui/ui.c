@@ -83,7 +83,9 @@ static uint32_t preview_tick, preview_sequence;
 static uint32_t preview_count, preview_started, camera_info_tick;
 static uint32_t present_us;
 static hb_brightness_config brightness_editor;
-static int calibration;
+static int calibration, calibration_kind;
+static uint32_t calibration_request;
+static uint64_t calibration_until;
 static float calibration_metric;
 static lv_obj_t *identity_info, *identity_choice, *identity_marks[5], *identity_box;
 // Only the LVGL task accesses these snapshots. Page transitions may be nested
@@ -235,6 +237,10 @@ static void close_page(void)
     household_list = guided_enrollment = confirming = creating_profile = false;
     product_info = audio_meter = enroll_progress = commit_button = NULL;
     memset(product_states, 0, sizeof(product_states));
+    if (calibration_request)
+        hb_camera_cancel_light(calibration_request);
+    calibration_request = 0;
+    calibration = 0;
     brightness_manual = brightness_day = brightness_night = NULL;
     audio_testing = false;
     hb_voice_diagnostic_stop();
@@ -1387,6 +1393,9 @@ static void brightness_mode(lv_event_t *e)
 {
     if (critical)
         return;
+    if (calibration_request)
+        hb_camera_cancel_light(calibration_request);
+    calibration_request = 0;
     calibration = 0;
     brightness_editor.mode = (uint32_t)(uintptr_t)lv_event_get_user_data(e);
     if (brightness_editor.mode == HB_BRIGHT_OVERRIDE)
@@ -1397,29 +1406,46 @@ static void brightness_mode(lv_event_t *e)
 }
 static void calibrate(lv_event_t *e)
 {
-    if (critical)
+    if (critical || calibration_request)
         return;
     brightness_sync_mode();
-    hb_camera_status camera;
-    hb_camera_get_status(&camera);
-    uint64_t now = (uint64_t)esp_timer_get_time() / 1000;
-    if (!camera.running || !camera.light.valid || camera.light_ms > now ||
-        now - camera.light_ms > (uint64_t)brightness_editor.sample_seconds * 3000)
-    {
-        form_error("Brak aktualnego pomiaru światła. Kalibracja niedostępna.");
+    calibration = 0;
+    calibration_kind = (int)(intptr_t)lv_event_get_user_data(e);
+    calibration_until = (uint64_t)esp_timer_get_time() / 1000 + HB_LIGHT_WINDOW_MS;
+    calibration_request = hb_camera_request_light();
+    form_error("Pomiar światła... Kalibracja ma priorytet. Poczekaj.");
+}
+static void calibration_update(const hb_camera_status *camera, uint64_t now)
+{
+    if (!calibration_request)
         return;
+    if (camera->calibration_id == calibration_request && !camera->calibration_pending &&
+        camera->calibration_light.valid)
+    {
+        calibration_request = 0;
+        calibration = calibration_kind;
+        calibration_metric = camera->calibration_light.metric;
+        uint8_t pwm;
+        hb_brightness_get(NULL, &pwm);
+        brightness_editor.manual_pwm = pwm;
+        lv_slider_set_value(brightness_manual, pwm, LV_ANIM_OFF);
+        brightness_editor.mode = HB_BRIGHT_MANUAL;
+        hb_brightness_apply(&brightness_editor);
+        brightness_visibility();
+        form_error("Pomiar gotowy. Ustaw jasność suwakiem i wybierz Zapisz.");
     }
-    calibration = (int)(intptr_t)lv_event_get_user_data(e);
-    calibration_metric = camera.light.metric;
-    brightness_editor.mode = HB_BRIGHT_MANUAL;
-    hb_brightness_apply(&brightness_editor);
-    form_error(camera.light.below_range ? "Próg ciemności pobrany. Ustaw suwak i wybierz Zapisz."
-                                        : "Pomiar pobrany. Ustaw suwak i wybierz Zapisz.");
+    else if (now >= calibration_until ||
+             (camera->calibration_id == calibration_request && !camera->calibration_pending))
+    {
+        hb_camera_cancel_light(calibration_request);
+        calibration_request = 0;
+        form_error("Pomiar nieudany. Sprawdź kamerę i ponów kalibrację.");
+    }
 }
 static void save_brightness(lv_event_t *e)
 {
     (void)e;
-    if (critical)
+    if (critical || calibration_request)
         return;
     brightness_sync_mode();
     if (calibration)
@@ -1432,6 +1458,8 @@ static void save_brightness(lv_event_t *e)
             brightness_editor.night = anchor;
     }
     config_job job = {.brightness = true, .brightness_value = brightness_editor};
+    if (calibration)
+        job.brightness_value.mode = HB_BRIGHT_AUTO;
     if (xQueueSend(jobs, &job, 0) == pdTRUE)
     {
         critical = true;
@@ -1446,14 +1474,7 @@ static void brightness_options(lv_event_t *e)
         return;
     brightness_sync_mode();
     unsigned option = lv_dropdown_get_selected(lv_event_get_target(e));
-    if (lv_event_get_user_data(e))
-        brightness_editor.transition_seconds = 20 + option * 10;
-    else
-    {
-        static const uint32_t seconds[] = {1, 5, 10, 30, 60};
-        if (option < 5)
-            brightness_editor.sample_seconds = seconds[option];
-    }
+    brightness_editor.transition_seconds = 20 + option * 10;
     hb_brightness_apply(&brightness_editor);
     brightness_visibility();
 }
@@ -1498,18 +1519,7 @@ static void brightness_tuning(lv_event_t *e)
     page_base("Ustawienia pomiaru jasności");
     back_group = 5;
     hb_brightness_get(&brightness_editor, NULL);
-    label(page, "Pomiar", LV_ALIGN_TOP_LEFT, 24, 355);
-    lv_obj_t *interval = lv_dropdown_create(page);
-    lv_obj_set_pos(interval, 115, 345);
-    lv_obj_set_width(interval, 140);
-    lv_dropdown_set_options(interval, "1 s\n5 s\n10 s\n30 s\n60 s");
-    unsigned index = brightness_editor.sample_seconds == 1    ? 0
-                     : brightness_editor.sample_seconds == 5  ? 1
-                     : brightness_editor.sample_seconds == 10 ? 2
-                     : brightness_editor.sample_seconds == 30 ? 3
-                                                              : 4;
-    lv_dropdown_set_selected(interval, index);
-    lv_obj_add_event_cb(interval, brightness_options, LV_EVENT_VALUE_CHANGED, NULL);
+    label(page, "Pomiar co 5 min", LV_ALIGN_TOP_LEFT, 24, 355);
     label(page, "Przejście", LV_ALIGN_TOP_LEFT, 300, 355);
     lv_obj_t *response = lv_dropdown_create(page);
     lv_obj_set_pos(response, 420, 345);
@@ -1711,6 +1721,7 @@ static void camera_brightness_update(void)
     }
     if (brightness_info)
     {
+        calibration_update(&camera, now);
         if (brightness_editor.mode == HB_BRIGHT_OVERRIDE && current.mode != HB_BRIGHT_OVERRIDE)
             brightness_editor.mode = current.mode;
         lv_label_set_text_fmt(pwm_info, "%u / 255", pwm);
@@ -1845,6 +1856,12 @@ static void update(lv_timer_t *timer)
         else if (c.type == CMD_SAVED)
         {
             critical = false;
+            if (brightness_info && calibration)
+            {
+                hb_brightness_get(&brightness_editor, NULL);
+                calibration = 0;
+                brightness_visibility();
+            }
             form_error("Zapisano konfigurację.");
         }
         else if (c.type == CMD_CONFIG_ERROR)

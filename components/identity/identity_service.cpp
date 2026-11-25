@@ -1125,7 +1125,7 @@ static void worker(void *)
             // Keep the verified staging set unchanged while the user confirms saving.
             message(state, "Weryfikacja OK. Potwierdź zapis próbek");
         }
-        else if (hb_compute_enter(0))
+        else if (!hb_camera_light_priority() && hb_compute_enter(0))
         {
             uint32_t ticket = state.session;
             if (ticket != epoch.load())
