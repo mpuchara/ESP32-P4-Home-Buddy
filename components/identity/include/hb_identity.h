@@ -39,7 +39,8 @@ extern "C"
         HB_ID_CMD_VOICE_SAVE,
         HB_ID_CMD_NOTICE_ACK,
         HB_ID_CMD_RETRY_SAVE,
-        HB_ID_CMD_ENABLE
+        HB_ID_CMD_ENABLE,
+        HB_ID_CMD_VOICE_TEST
     } hb_id_command_type;
     typedef struct
     {

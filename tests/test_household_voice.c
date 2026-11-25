@@ -118,6 +118,27 @@ int main(void)
            HB_VEN_MISMATCH);
     assert(hb_household_voice_sample(&en, &face, &voice, &e, 7, 20000, 600002, true) ==
            HB_VEN_TIMEOUT);
+    id = begin();
+    hb_voice_policy provisional = policy;
+    provisional.calibrated = false;
+    assert(hb_household_voice_trial_begin(&en, &face, id, 7, 1, false, true, &provisional) ==
+           HB_VEN_GATED);
+    assert(hb_household_voice_trial_begin(&en, &face, id, 7, 1, true, false, &provisional) ==
+           HB_VEN_GATED);
+    assert(hb_household_voice_trial_begin(&en, &face, id, 7, 1, true, true, &provisional) ==
+           HB_VEN_OK);
+    collect();
+    e = sample(.05f);
+    assert(hb_household_voice_sample(&en, &face, &voice, &e, 7, 20000, 20001, true) == HB_VEN_OK);
+    assert(hb_household_voice_commit(&en, &face, &voice, 7, 20002) == HB_VEN_OK);
+    assert(hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000,
+                                         24001).person_id == id);
+    assert(hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000,
+                                         30001).state == HB_VOICE_UNAVAILABLE);
+    assert(!hb_voice_accepted(&accepted, &provisional));
+    face.people[0].enabled = false;
+    assert(hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000,
+                                         24001).state == HB_VOICE_UNAVAILABLE);
     puts("Household voice: gates, four staged samples, fresh verification, conflict, rename, "
          "independent re-enrollment, delete, cancellation, timeout passed");
 }

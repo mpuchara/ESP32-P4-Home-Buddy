@@ -61,12 +61,29 @@ static uint8_t durable_digest[32];
 static bool digest_valid;
 static hb_voice_database *voice_database;
 static hb_household_voice_enrollment *voice_enrollment;
-// No accepted microphone/model/resource/speech/calibration evidence yet.
-// There is intentionally no UI, NVS or network bypass of these acceptance gates.
-static const hb_voice_acceptance voice_acceptance{};
-static const hb_voice_policy voice_policy{};
+// Manual candidate testing is separate from production voice acceptance and fusion.
+static const hb_voice_policy voice_policy{false, 0.65f, 0.10f, 0.55f, 0.9995f, 2};
 static uint32_t voice_epoch = 1;
-static bool voice_verifying;
+static bool voice_verifying, voice_testing, voice_pending;
+static int voice_slot = -1;
+static bool voice_trial_ready()
+{
+#if CONFIG_HB_VOICE_MANUAL_TRIAL
+    hb_voice_readiness report{};
+    if (hb_voice_diagnostic_report(&report) && report.standalone)
+    {
+        voice_slot = report.error == ESP_OK && report.slot < 2 && report.sample_rate == 16000 &&
+                             report.samples == HB_VOICE_SAMPLES && report.dimensions == HB_VOICE_DIM &&
+                             report.rms && report.peak && !report.suspicious &&
+                             report.callback_detached && report.pcm_released
+                         ? (int)report.slot
+                         : -1;
+    }
+    return voice_slot >= 0;
+#else
+    return false;
+#endif
+}
 // Initial engineering thresholds, deliberately not described as calibrated probabilities.
 static const hb_id_policy policy{CONFIG_HB_IDENTITY_THRESHOLD_MILLI / 1000.0f,
                                  CONFIG_HB_IDENTITY_MARGIN_MILLI / 1000.0f,
@@ -106,7 +123,7 @@ static void publish(hb_id_status &s)
             snprintf(d.name, sizeof(d.name), "%s", p.name);
         }
     s.psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-    s.voice_available = hb_voice_accepted(&voice_acceptance, &voice_policy);
+    s.voice_available = voice_trial_ready();
     s.voice_enrollment_state = voice_enrollment ? voice_enrollment->state : HB_VEN_IDLE;
     s.voice_enrollment_samples = voice_enrollment ? voice_enrollment->staging.count : 0;
     s.psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
@@ -754,15 +771,38 @@ static void worker(void *)
         static hb_voice_capture_result voice_result;
         if (hb_voice_capture_take(&voice_result))
         {
-            if (voice_enrollment && voice_result.epoch == voice_epoch)
+            if (voice_pending && voice_result.epoch == voice_epoch && !stop_requested.load())
             {
-                auto r =
-                    voice_result.error == ESP_OK
-                        ? hb_household_voice_sample(voice_enrollment, database, voice_database,
-                                                    &voice_result.embedding, voice_epoch,
-                                                    voice_result.end_ms, now_ms(), voice_verifying)
-                        : HB_VEN_SAMPLE;
-                message(state, hb_household_voice_error(r));
+                voice_pending = false;
+                if (voice_testing)
+                {
+                    auto match = voice_result.error == ESP_OK
+                                     ? hb_household_voice_trial_match(
+                                           database, voice_database, &voice_result.embedding,
+                                           voice_trial_ready(), hb_config_biometric_notice(),
+                                           &voice_policy, voice_result.end_ms, now_ms())
+                                     : hb_voice_match{HB_VOICE_UNAVAILABLE, 0, -1, -1};
+                    const hb_id_person *person = hb_id_find(database, match.person_id);
+                    const char *candidate = match.state == HB_VOICE_KNOWN && person
+                                                ? person->name
+                                                : match.state == HB_VOICE_AMBIGUOUS ? "AMBIGUOUS"
+                                                  : match.state == HB_VOICE_UNKNOWN ? "UNKNOWN"
+                                                                                    : "UNAVAILABLE";
+                    snprintf(state.message, sizeof(state.message),
+                             "Głos TEST: %s | best %.3f / second %.3f", candidate,
+                             (double)match.best, (double)match.second);
+                    voice_testing = false;
+                }
+                else if (voice_enrollment)
+                {
+                    auto result = voice_result.error == ESP_OK
+                                      ? hb_household_voice_sample(
+                                            voice_enrollment, database, voice_database,
+                                            &voice_result.embedding, voice_epoch, voice_result.end_ms,
+                                            now_ms(), voice_verifying)
+                                      : HB_VEN_SAMPLE;
+                    message(state, hb_household_voice_error(result));
+                }
             }
             memset(&voice_result, 0, sizeof(voice_result));
         }
@@ -772,6 +812,7 @@ static void worker(void *)
             hb_voice_diagnostic_stop();
             hb_household_voice_cancel(voice_enrollment);
             ++voice_epoch;
+            voice_pending = voice_testing = false;
         }
         if (stop_requested.exchange(false))
         {
@@ -779,6 +820,7 @@ static void worker(void *)
             hb_voice_diagnostic_stop();
             hb_household_voice_cancel(voice_enrollment);
             ++voice_epoch;
+            voice_pending = voice_testing = false;
             memset(enrollment, 0, sizeof(*enrollment));
             state.mode = HB_ID_STOP;
             state.confirmed = false;
@@ -802,11 +844,12 @@ static void worker(void *)
             if (c.type != HB_ID_CMD_ENABLE && c.type != HB_ID_CMD_RETRY_SAVE &&
                 c.type != HB_ID_CMD_NOTICE_ACK)
                 profile_pause = false;
-            if (c.type < HB_ID_CMD_VOICE_BEGIN)
+            if (c.type < HB_ID_CMD_VOICE_BEGIN || c.type == HB_ID_CMD_ENABLE)
             {
                 hb_voice_diagnostic_stop();
                 hb_household_voice_cancel(voice_enrollment);
                 ++voice_epoch;
+                voice_pending = voice_testing = false;
             }
             if (c.type == HB_ID_CMD_EVALUATE)
             {
@@ -849,7 +892,7 @@ static void worker(void *)
             hb_id_tracker_reset(&tracker, epoch.load());
             evaluate = false;
             if ((c.type == HB_ID_CMD_CREATE || c.type == HB_ID_CMD_BEGIN ||
-                 c.type == HB_ID_CMD_VOICE_BEGIN) &&
+                 c.type == HB_ID_CMD_VOICE_BEGIN || c.type == HB_ID_CMD_VOICE_TEST) &&
                 !hb_config_biometric_notice())
             {
                 message(state, "Najpierw potwierdź lokalny zapis bez szyfrowania");
@@ -888,7 +931,7 @@ static void worker(void *)
             }
             case HB_ID_CMD_VOICE_BEGIN:
             {
-                if (!hb_voice_accepted(&voice_acceptance, &voice_policy))
+                if (!voice_trial_ready() || voice_pending)
                 {
                     message(state, hb_household_voice_error(HB_VEN_GATED));
                     break;
@@ -910,9 +953,12 @@ static void worker(void *)
                 }
                 hb_voice_diagnostic_stop();
                 ++voice_epoch;
-                auto r =
-                    hb_household_voice_begin(voice_enrollment, database, c.person_id, voice_epoch,
-                                             now_ms(), &voice_acceptance, &voice_policy);
+                voice_pending = voice_testing = false;
+                state.mode = HB_ID_STOP;
+                profile_pause = false;
+                auto r = hb_household_voice_trial_begin(
+                    voice_enrollment, database, c.person_id, voice_epoch, now_ms(),
+                    voice_trial_ready(), hb_config_biometric_notice(), &voice_policy);
                 message(state, r == HB_VEN_OK ? "Naciśnij Pobierz próbkę i mów normalnie"
                                               : hb_household_voice_error(r));
                 break;
@@ -920,12 +966,17 @@ static void worker(void *)
             case HB_ID_CMD_VOICE_SAMPLE:
             case HB_ID_CMD_VOICE_VERIFY:
                 if (voice_enrollment && c.person_id == voice_enrollment->staging.id &&
-                    hb_voice_accepted(&voice_acceptance, &voice_policy) &&
+                    voice_trial_ready() && !voice_pending &&
                     voice_enrollment->state ==
                         (c.type == HB_ID_CMD_VOICE_VERIFY ? HB_VEN_VERIFY : HB_VEN_COLLECT))
                 {
-                    voice_verifying = c.type == HB_ID_CMD_VOICE_VERIFY;
-                    auto err = hb_voice_capture_start(0, voice_epoch);
+                    auto err = hb_voice_capture_start((unsigned)voice_slot, voice_epoch);
+                    if (err == ESP_OK)
+                    {
+                        voice_pending = true;
+                        voice_testing = false;
+                        voice_verifying = c.type == HB_ID_CMD_VOICE_VERIFY;
+                    }
                     message(state, err == ESP_OK
                                        ? "Mów normalnie; jedna osoba, inne zdanie"
                                        : "Mikrofon zajęty lub brak pamięci; spróbuj ponownie");
@@ -935,17 +986,40 @@ static void worker(void *)
                 break;
             case HB_ID_CMD_VOICE_SAVE:
                 if (voice_enrollment && c.person_id == voice_enrollment->staging.id &&
-                    hb_voice_accepted(&voice_acceptance, &voice_policy))
+                    voice_trial_ready() && !voice_pending && hb_config_biometric_notice())
                 {
                     auto result = hb_household_voice_commit(voice_enrollment, database,
                                                             voice_database, voice_epoch, now_ms());
                     message(state, hb_household_voice_error(result));
                     if (result == HB_VEN_OK)
-                        persistence_commit(state, false);
+                        message(state, persistence_commit(state, false)
+                                           ? "Głos TEST: zapis lokalny OK"
+                                           : "Głos TEST: zapis w RAM; ponów zapis Flash");
                 }
                 else
                     message(state, hb_household_voice_error(HB_VEN_GATED));
                 break;
+            case HB_ID_CMD_VOICE_TEST:
+            {
+                if (!voice_trial_ready() || voice_pending ||
+                    (voice_enrollment && voice_enrollment->deadline_ms))
+                {
+                    message(state, "Zakończ rejestrację albo zaczekaj na próbkę");
+                    break;
+                }
+                state.mode = HB_ID_STOP;
+                profile_pause = false;
+                ++voice_epoch;
+                auto err = hb_voice_capture_start((unsigned)voice_slot, voice_epoch);
+                if (err == ESP_OK)
+                {
+                    voice_pending = voice_testing = true;
+                    message(state, "Głos TEST: mów samodzielnie przez kilka sekund");
+                }
+                else
+                    message(state, "Mikrofon zajęty lub brak pamięci; spróbuj ponownie");
+                break;
+            }
             case HB_ID_CMD_CREATE:
             {
                 uint64_t created = hb_id_create(database, c.name);
@@ -1484,7 +1558,7 @@ esp_err_t hb_identity_start(void)
 }
 esp_err_t hb_identity_command(const hb_id_command *c)
 {
-    if (!c || (unsigned)c->type > HB_ID_CMD_ENABLE || !memchr(c->name, 0, HB_ID_NAME))
+    if (!c || (unsigned)c->type > HB_ID_CMD_VOICE_TEST || !memchr(c->name, 0, HB_ID_NAME))
         return ESP_ERR_INVALID_ARG;
     esp_err_t start = hb_identity_start();
     if (start)

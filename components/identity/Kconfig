@@ -5,6 +5,13 @@ config HB_IDENTITY_EXPERIMENTAL
     help
         Explicit development opt-in. Requires the provisioned human_face_feat
         onboard Flash partition. Never downloads models during operation.
+config HB_VOICE_MANUAL_TRIAL
+    bool "Enable manual local voice candidate trial"
+    depends on HB_IDENTITY_EXPERIMENTAL
+    default n
+    help
+        Requires a successful local microphone/model diagnostic each boot.
+        Provisional scores only; no automatic listening, greetings, HA or fusion.
 config HB_IDENTITY_PERSISTENCE
     bool "Enable local profile persistence"
     default n

@@ -62,6 +62,14 @@ extern "C"
                                                const hb_voice_acceptance *, const hb_voice_policy *,
                                                hb_voice_tracker *, uint32_t epoch, uint64_t end,
                                                uint64_t now, bool *confirmed);
+    // Manual, provisional on-device calibration only. Never confirms an identity or emits events.
+    hb_voice_enrollment_result hb_household_voice_trial_begin(
+        hb_household_voice_enrollment *, hb_id_database *, uint64_t id, uint32_t epoch,
+        uint64_t now, bool ready, bool consent, const hb_voice_policy *);
+    hb_voice_match hb_household_voice_trial_match(hb_id_database *, const hb_voice_database *,
+                                                  const hb_voice_embedding *, bool ready,
+                                                  bool consent, const hb_voice_policy *,
+                                                  uint64_t end, uint64_t now);
     const char *hb_household_voice_error(hb_voice_enrollment_result);
 #ifdef __cplusplus
 }

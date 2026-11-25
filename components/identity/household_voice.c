@@ -27,15 +27,14 @@ static hb_voice_enrollment_result session(hb_household_voice_enrollment *en, hb_
         return HB_VEN_TIMEOUT;
     return HB_VEN_OK;
 }
-hb_voice_enrollment_result hb_household_voice_begin(hb_household_voice_enrollment *en,
-                                                    hb_id_database *db, uint64_t id, uint32_t epoch,
-                                                    uint64_t now, const hb_voice_acceptance *a,
-                                                    const hb_voice_policy *p)
+static hb_voice_enrollment_result begin(hb_household_voice_enrollment *en, hb_id_database *db,
+                                         uint64_t id, uint32_t epoch, uint64_t now, bool allowed,
+                                         const hb_voice_policy *p)
 {
     if (!en)
         return HB_VEN_SESSION;
     hb_household_voice_cancel(en);
-    if (!hb_voice_accepted(a, p))
+    if (!allowed || !hb_voice_policy_valid(p))
         return HB_VEN_GATED;
     hb_id_person *person = hb_id_find(db, id);
     if (!person || !person->enabled)
@@ -48,6 +47,25 @@ hb_voice_enrollment_result hb_household_voice_begin(hb_household_voice_enrollmen
     en->policy = *p;
     en->state = HB_VEN_COLLECT;
     return HB_VEN_OK;
+}
+hb_voice_enrollment_result hb_household_voice_begin(hb_household_voice_enrollment *en,
+                                                    hb_id_database *db, uint64_t id, uint32_t epoch,
+                                                    uint64_t now, const hb_voice_acceptance *a,
+                                                    const hb_voice_policy *p)
+{
+    return begin(en, db, id, epoch, now, hb_voice_accepted(a, p), p);
+}
+hb_voice_enrollment_result hb_household_voice_trial_begin(
+    hb_household_voice_enrollment *en, hb_id_database *db, uint64_t id, uint32_t epoch,
+    uint64_t now, bool ready, bool consent, const hb_voice_policy *p)
+{
+    // The core requires its policy enable bit even for numerical experiments.
+    // Copy it locally; the caller's provisional policy and production gate stay uncalibrated.
+    hb_voice_policy local = {0};
+    if (p)
+        local = *p;
+    local.calibrated = true;
+    return begin(en, db, id, epoch, now, ready && consent && p && !p->calibrated, &local);
 }
 hb_voice_enrollment_result hb_household_voice_sample(hb_household_voice_enrollment *en,
                                                      hb_id_database *db,
@@ -208,4 +226,26 @@ unavailable:
     if (tracker)
         memset(tracker, 0, sizeof(*tracker));
     return match;
+}
+hb_voice_match hb_household_voice_trial_match(hb_id_database *db, const hb_voice_database *voice,
+                                              const hb_voice_embedding *embedding, bool ready,
+                                              bool consent, const hb_voice_policy *p, uint64_t end,
+                                              uint64_t now)
+{
+    hb_voice_match unavailable = {HB_VOICE_UNAVAILABLE, 0, -1, -1};
+    if (!ready || !consent || !p || p->calibrated || !hb_voice_database_valid(voice) || !end ||
+        end > now || now - end > 5000)
+        return unavailable;
+    // The database is owned by the household worker. Do not allow disabled/orphaned IDs.
+    for (unsigned i = 0; i < HB_VOICE_PEOPLE; ++i)
+    {
+        if (!voice->people[i].id)
+            continue;
+        hb_id_person *person = hb_id_find(db, voice->people[i].id);
+        if (!person || !person->enabled)
+            return unavailable;
+    }
+    hb_voice_policy local = *p;
+    local.calibrated = true;
+    return hb_voice_identify(voice, embedding, &local);
 }

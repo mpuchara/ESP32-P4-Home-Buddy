@@ -462,7 +462,7 @@ static void recognition_page(lv_event_t *e)
     button(page, "Włącz automatyczne", 412, 78, 364, identity_send,
            (void *)(uintptr_t)HB_ID_CMD_AUTO);
     button(page, "Dodaj domownika", 24, 350, 350, household_page, NULL);
-    lv_obj_t *voice_switch = button(page, "Głos: oczekuje na walidację", 412, 350, 364, NULL, NULL);
+    lv_obj_t *voice_switch = button(page, "Głos: lokalny TEST w profilu", 412, 350, 364, NULL, NULL);
     lv_obj_add_state(voice_switch, LV_STATE_DISABLED);
     identity_info = label(page, "Oczekiwanie na stan", LV_ALIGN_TOP_LEFT, 24, 160);
     lv_obj_set_width(identity_info, 745);
@@ -624,7 +624,7 @@ static void profile_page(lv_event_t *e)
     button(page, "Uzupełnij rejestrację", 412, 210, 364, identity_page, (void *)1);
     button(page, "Usuń domownika", 24, 280, 350, identity_delete, NULL);
     lv_obj_t *voice_button =
-        button(page, s->voice_available ? "Rejestruj głos" : "Głos: oczekuje na walidację", 412,
+        button(page, s->voice_available ? "Głos: rejestracja / TEST" : "Głos: test modelu L/R", 412,
                280, 364, voice_enrollment_page, NULL);
     if (!s->voice_available)
         lv_obj_add_state(voice_button, LV_STATE_DISABLED);
@@ -651,7 +651,8 @@ static void voice_enrollment_page(lv_event_t *e)
     identity_selected = id;
     voice_screen = true;
     resume_auto = s->auto_enabled;
-    label(page, "Cztery różne wypowiedzi, potem nowa do weryfikacji.", LV_ALIGN_TOP_LEFT, 24, 78);
+    label(page, "TEST lokalny: cztery wypowiedzi, potem nowa do weryfikacji.", LV_ALIGN_TOP_LEFT,
+          24, 78);
     label(page, "Mów samodzielnie, naturalnie. Zapis profilu po potwierdzeniu.", LV_ALIGN_TOP_LEFT,
           24, 110);
     button(page, "Rozpocznij", 24, 160, 350, identity_send,
@@ -662,8 +663,11 @@ static void voice_enrollment_page(lv_event_t *e)
            (void *)(uintptr_t)HB_ID_CMD_VOICE_VERIFY);
     button(page, "Potwierdź zapis profilu", 412, 230, 364, identity_send,
            (void *)(uintptr_t)HB_ID_CMD_VOICE_SAVE);
+    button(page, "Rozpoznaj po głosie (TEST)", 24, 300, 752, identity_send,
+           (void *)(uintptr_t)HB_ID_CMD_VOICE_TEST);
     identity_info =
-        label(page, "Naciśnij Rozpocznij. Mikrofon jest wyłączony.", LV_ALIGN_TOP_LEFT, 24, 320);
+        label(page, "Naciśnij Rozpocznij. Mikrofon jest wyłączony.", LV_ALIGN_TOP_LEFT, 24, 370);
+    lv_obj_set_pos(page_error, 24, 430);
     lv_obj_set_width(identity_info, 745);
     lv_scr_load(page);
 }

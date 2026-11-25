@@ -110,6 +110,7 @@ static void worker(void *)
     hb_audio_status audio{};
     hb_voice_readiness report{};
     report.slot = slot;
+    report.standalone = capture_epoch == 0;
     if (err == ESP_OK && !cancelled.load())
     {
         err = hb_audio_start_capture(slot, consume, nullptr);
@@ -165,18 +166,6 @@ static void worker(void *)
              (unsigned long)(metrics.features_us / 1000),
              (unsigned long)(metrics.inference_us / 1000));
     status(result);
-    portENTER_CRITICAL(&status_lock);
-    if (capture_epoch && !cancelled.load())
-    {
-        result_mailbox.epoch = capture_epoch;
-        result_mailbox.end_ms = gate.end_ms;
-        result_mailbox.error = err;
-        if (err == ESP_OK)
-            result_mailbox.embedding = embedding;
-        result_pending = true;
-    }
-    portEXIT_CRITICAL(&status_lock);
-    memset(&embedding, 0, sizeof(embedding));
     if (window)
     {
         memset(window, 0, HB_VOICE_SAMPLES * sizeof(int16_t));
@@ -200,7 +189,17 @@ static void worker(void *)
     portENTER_CRITICAL(&status_lock);
     last_report = report;
     report_ready = true;
+    if (capture_epoch && !cancelled.load())
+    {
+        result_mailbox.epoch = capture_epoch;
+        result_mailbox.end_ms = gate.end_ms;
+        result_mailbox.error = err;
+        if (err == ESP_OK)
+            result_mailbox.embedding = embedding;
+        result_pending = true;
+    }
     portEXIT_CRITICAL(&status_lock);
+    memset(&embedding, 0, sizeof(embedding));
     hb_voice_gate_reset(&gate);
     ready.store(false);
     busy.store(false);
