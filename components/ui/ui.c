@@ -1714,13 +1714,13 @@ static void camera_brightness_update(void)
         if (brightness_editor.mode == HB_BRIGHT_OVERRIDE && current.mode != HB_BRIGHT_OVERRIDE)
             brightness_editor.mode = current.mode;
         lv_label_set_text_fmt(pwm_info, "%u / 255", pwm);
-        lv_label_set_text_fmt(
-            brightness_info, "%s | %s | Światło: %s",
-            current.mode == HB_BRIGHT_AUTO     ? "AUTO"
-            : current.mode == HB_BRIGHT_MANUAL ? "MANUAL"
-                                               : "TYMCZASOWO",
-            hb_brightness_calibrated(&current) ? "Kalibracja własna" : "Krzywa domyślna",
-            light_text);
+        lv_label_set_text_fmt(brightness_info, "%s | %s | Światło: %s",
+                              current.mode == HB_BRIGHT_AUTO     ? "AUTO"
+                              : current.mode == HB_BRIGHT_MANUAL ? "MANUAL"
+                                                                 : "TYMCZASOWO",
+                              hb_brightness_calibrated(&current) ? "Kalibracja własna"
+                                                                 : "Krzywa domyślna",
+                              light_text);
         brightness_visibility();
     }
 }
