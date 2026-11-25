@@ -45,6 +45,7 @@ extern "C"
     // Single-result RAM mailbox for the sole household worker. Start is explicit.
     esp_err_t hb_voice_capture_start(unsigned slot, uint32_t epoch);
     esp_err_t hb_voice_capture_start_auto(unsigned slot, uint32_t epoch);
+    bool hb_voice_capture_result_pending(void);
     bool hb_voice_capture_take(hb_voice_capture_result *out);
 #ifdef __cplusplus
 }

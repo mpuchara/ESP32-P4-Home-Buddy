@@ -1658,11 +1658,10 @@ static void worker(void *)
         unsigned wait_slices =
             hb_id_wait_slices(state.mode, state.match.state, state.ready, state.confirmed,
                               tracker.hits, policy.confirmations);
-        if (voice_auto_until)
-            wait_slices = 1; // Consume result and rearm promptly, even while face is idle.
         for (unsigned j = 0; j < wait_slices; ++j)
         {
-            if (stop_requested.load() || uxQueueMessagesWaiting(jobs))
+            if (stop_requested.load() || uxQueueMessagesWaiting(jobs) ||
+                (voice_auto_until && hb_voice_capture_result_pending()))
                 break;
             vTaskDelay(pdMS_TO_TICKS(100));
         }

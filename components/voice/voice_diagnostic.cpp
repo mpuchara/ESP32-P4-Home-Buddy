@@ -50,6 +50,13 @@ bool hb_voice_diagnostic_standalone_report(hb_voice_readiness *out)
     portEXIT_CRITICAL(&status_lock);
     return present;
 }
+bool hb_voice_capture_result_pending(void)
+{
+    portENTER_CRITICAL(&status_lock);
+    bool present = result_pending;
+    portEXIT_CRITICAL(&status_lock);
+    return present;
+}
 bool hb_voice_capture_take(hb_voice_capture_result *out)
 {
     if (!out)
