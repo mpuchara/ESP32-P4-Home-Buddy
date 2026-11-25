@@ -183,8 +183,7 @@ static bool auto_publish(const hb_voice_capture_result &result)
 {
     // Backpressure: never overwrite a household result. Bounded wait, cancellation wins.
     int64_t until = esp_timer_get_time() + 5000000;
-    while (!cancelled.load() && hb_voice_capture_result_pending() &&
-           esp_timer_get_time() < until)
+    while (!cancelled.load() && hb_voice_capture_result_pending() && esp_timer_get_time() < until)
         vTaskDelay(pdMS_TO_TICKS(20));
     bool sent = false;
     portENTER_CRITICAL(&status_lock);
@@ -244,7 +243,8 @@ static void auto_worker(void *)
         if (err == ESP_OK && !hb_voice_normalize(&result.embedding))
             err = ESP_ERR_INVALID_STATE;
         result.error = err;
-        result.processing_ms = (metrics.load_us + metrics.features_us + metrics.inference_us) / 1000;
+        result.processing_ms =
+            (metrics.load_us + metrics.features_us + metrics.inference_us) / 1000;
         if (err == ESP_OK)
             result.quality = (float)b.gate.active_samples / HB_VOICE_SAMPLES;
         else

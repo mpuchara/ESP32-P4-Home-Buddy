@@ -843,7 +843,7 @@ static void worker(void *)
                 else if (voice_testing || voice_auto_until)
                 {
                     // An empty terminal receipt must not erase a still-fresh first match.
-                    if (voice_result.no_window && !voice_result.end_ms)
+                    if (voice_auto_until && voice_result.no_window && !voice_result.end_ms)
                     {
                         ++state.voice_empty;
                         voice_fault_streak = 0;
@@ -861,11 +861,12 @@ static void worker(void *)
                         state.voice_match = voice_status_match(match);
                         state.voice_quality = voice_result.quality;
                         state.voice_end_ms = voice_result.end_ms;
-                        state.voice_session = voice_auto_until ? voice_capture_session : epoch.load();
+                        state.voice_session =
+                            voice_auto_until ? voice_capture_session : epoch.load();
                         state.voice_confirmed =
                             voice_auto_until && hb_household_voice_trial_confirm(
-                                                    &voice_tracker, match, &voice_policy, voice_epoch,
-                                                    voice_result.end_ms, now_ms());
+                                                    &voice_tracker, match, &voice_policy,
+                                                    voice_epoch, voice_result.end_ms, now_ms());
                         if (voice_auto_until)
                         {
                             if (voice_result.error == ESP_OK)
@@ -890,10 +891,11 @@ static void worker(void *)
                             voice_next_ms = now_ms() + state.voice_retry_ms;
                         }
                         const hb_id_person *person = hb_id_find(database, match.person_id);
-                        const char *candidate = match.state == HB_VOICE_KNOWN && person ? person->name
-                                                : match.state == HB_VOICE_AMBIGUOUS     ? "AMBIGUOUS"
-                                                : match.state == HB_VOICE_UNKNOWN       ? "UNKNOWN"
-                                                                                        : "UNAVAILABLE";
+                        const char *candidate = match.state == HB_VOICE_KNOWN && person
+                                                    ? person->name
+                                                : match.state == HB_VOICE_AMBIGUOUS ? "AMBIGUOUS"
+                                                : match.state == HB_VOICE_UNKNOWN   ? "UNKNOWN"
+                                                                                    : "UNAVAILABLE";
                         snprintf(state.message, sizeof(state.message),
                                  "Głos TEST: %s | best %.3f / second %.3f", candidate,
                                  (double)match.best, (double)match.second);
