@@ -18,6 +18,8 @@ static portMUX_TYPE status_lock = portMUX_INITIALIZER_UNLOCKED;
 static char message[160] = "Model głosu: test wyłączony";
 static int16_t *window;
 static hb_voice_gate gate;
+static hb_voice_onset onset;
+static bool automatic_capture;
 static unsigned slot;
 static uint32_t capture_epoch;
 static hb_voice_capture_result result_mailbox;
@@ -97,6 +99,14 @@ static void consume(const int16_t *pcm, size_t n, uint32_t rate, uint64_t end_us
     if (discontinuity)
     {
         hb_voice_gate_reset(&gate);
+        onset.run = 0;
+    }
+    if (automatic_capture && onset.run < 3 &&
+        (rate != 16000 || !hb_voice_onset_feed(&onset, pcm, n)))
+    {
+        hb_voice_gate_reset(&gate);
+        onset.run = 0;
+        return;
     }
     size_t remaining = HB_VOICE_SAMPLES - gate.samples;
     if (n > remaining)
@@ -106,6 +116,7 @@ static void consume(const int16_t *pcm, size_t n, uint32_t rate, uint64_t end_us
     if (state == HB_VAD_REJECTED)
     {
         hb_voice_gate_reset(&gate);
+        onset.run = 0;
         return;
     }
     memcpy(window + offset, pcm, n * sizeof(int16_t));
@@ -148,7 +159,11 @@ static void worker(void *)
         report.samples = gate.samples;
         report.active_samples = gate.active_samples;
         if (!ready.load() || cancelled.load())
+        {
+            report.no_window = !cancelled.load() && audio.available && audio.frames &&
+                               !audio.errors && !audio.dropped_samples;
             err = ESP_ERR_INVALID_STATE;
+        }
     }
     else if (err == ESP_OK)
         err = ESP_ERR_INVALID_STATE;
@@ -217,6 +232,9 @@ static void worker(void *)
         result_mailbox.epoch = capture_epoch;
         result_mailbox.end_ms = gate.end_ms;
         result_mailbox.error = err;
+        result_mailbox.no_window = report.no_window;
+        result_mailbox.processing_ms =
+            (metrics.load_us + metrics.features_us + metrics.inference_us) / 1000;
         if (err == ESP_OK)
         {
             result_mailbox.embedding = embedding;
@@ -231,7 +249,7 @@ static void worker(void *)
     busy.store(false);
     vTaskDelete(nullptr);
 }
-static esp_err_t start(unsigned selected, uint32_t epoch)
+static esp_err_t start(unsigned selected, uint32_t epoch, bool automatic)
 {
     if (selected > 1)
         return ESP_ERR_INVALID_ARG;
@@ -248,6 +266,8 @@ static esp_err_t start(unsigned selected, uint32_t epoch)
     }
     slot = selected;
     capture_epoch = epoch;
+    automatic_capture = automatic;
+    onset = {};
     portENTER_CRITICAL(&status_lock);
     memset(&result_mailbox, 0, sizeof(result_mailbox));
     result_pending = false;
@@ -267,9 +287,13 @@ static esp_err_t start(unsigned selected, uint32_t epoch)
 }
 esp_err_t hb_voice_diagnostic_start(unsigned selected)
 {
-    return start(selected, 0);
+    return start(selected, 0, false);
 }
 esp_err_t hb_voice_capture_start(unsigned selected, uint32_t epoch)
 {
-    return epoch ? start(selected, epoch) : ESP_ERR_INVALID_ARG;
+    return epoch ? start(selected, epoch, false) : ESP_ERR_INVALID_ARG;
+}
+esp_err_t hb_voice_capture_start_auto(unsigned selected, uint32_t epoch)
+{
+    return epoch ? start(selected, epoch, true) : ESP_ERR_INVALID_ARG;
 }

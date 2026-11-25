@@ -77,6 +77,8 @@ extern "C"
         bool voice_available, voice_auto, voice_pending, voice_confirmed;
         uint64_t voice_deadline_ms, voice_end_ms;
         uint32_t voice_session;
+        uint32_t voice_windows, voice_empty, voice_faults, voice_confirmations;
+        uint32_t voice_retry_ms, voice_processing_ms;
         hb_id_match voice_match; // Independent experimental result; no event publication.
         bool fusion_trial;
         hb_fusion_trial fusion;

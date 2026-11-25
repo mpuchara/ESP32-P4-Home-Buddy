@@ -152,6 +152,63 @@ hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *g, const int16_t *pcm, siz
                                                                                 : HB_VAD_REJECTED;
     return g->state;
 }
+bool hb_voice_onset_feed(hb_voice_onset *o, const int16_t *pcm, size_t n)
+{
+    if (!o || !pcm || n < 160 || n > 320)
+    {
+        if (o)
+            o->run = 0;
+        return false;
+    }
+    int64_t sum = 0, square = 0;
+    unsigned crossings = 0, clipped = 0, changes = 0;
+    for (size_t i = 0; i < n; ++i)
+    {
+        int32_t v = pcm[i];
+        sum += v;
+        square += (int64_t)v * v;
+        clipped += v >= 32760 || v <= -32760;
+        if (i)
+        {
+            crossings += (v >= 0) != (pcm[i - 1] >= 0);
+            changes += v != pcm[i - 1];
+        }
+    }
+    uint32_t power = (uint32_t)((square * (int64_t)n - sum * sum) / (int64_t)(n * n));
+    if (!o->noise_power)
+        o->noise_power = 10000;
+    bool clean = clipped <= n / 20 && sum / (int64_t)n < 8000 &&
+                 sum / (int64_t)n > -8000 && changes > n / 4;
+    // Reject very fast sign changes at onset; this is not a speech classifier.
+    bool candidate = clean && crossings >= 2 && crossings <= n / 3 && power >= 40000 &&
+                     power >= 4 * o->noise_power;
+    if (candidate)
+    {
+        if (o->run < 3)
+            ++o->run;
+    }
+    else
+    {
+        o->run = 0;
+        // Do not allow loud transients or DC faults to poison the idle baseline.
+        if (clipped <= n / 20 && power <= 4000000)
+        {
+            uint32_t sample = power < 10000 ? 10000 : power;
+            if (sample > 1000000)
+                sample = 1000000;
+            o->noise_power = (15 * o->noise_power + sample) / 16;
+        }
+    }
+    return candidate;
+}
+uint32_t hb_voice_retry_delay_ms(unsigned faults)
+{
+    if (!faults)
+        return 100;
+    if (faults >= 6)
+        return 30000;
+    return 1000u << (faults - 1);
+}
 float hb_voice_similarity(const hb_voice_embedding *a, const hb_voice_embedding *b)
 {
     float dot = 0;

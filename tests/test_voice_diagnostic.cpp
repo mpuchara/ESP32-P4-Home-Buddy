@@ -64,6 +64,17 @@ int main()
     assert(hb_voice_capture_start(0, 7) == ESP_OK);
     diag_fake::run();
     assert(hb_voice_capture_take(&result) && result.error != ESP_OK && !diag_fake::model_calls);
+    assert(result.no_window);
+    diag_fake::reset();
+    assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(hb_voice_capture_take(&result) && result.no_window && !diag_fake::model_calls);
+    diag_fake::reset();
+    diag_fake::speech_like = true;
+    assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(hb_voice_capture_take(&result) && result.error == ESP_OK && result.quality == 1);
+    assert(diag_fake::model_calls == 1);
     diag_fake::reset();
     diag_fake::model_error = ESP_ERR_NO_MEM;
     assert(hb_voice_capture_start(0, 7) == ESP_OK);

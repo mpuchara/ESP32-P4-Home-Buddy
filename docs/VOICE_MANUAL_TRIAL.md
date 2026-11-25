@@ -65,3 +65,21 @@ capture bound to the face session at start, cancellation-aware diagnostic receip
 local saver candidate only after trial confirmation. No raw audio or network event.
 The test session is limited to ten minutes, with gaps during inference/rearming.
 Full microphone/VAD/co-residency accuracy and timing still require physical trials.
+
+## 0.14.4 continuous local AUTO trial
+
+Both voice-only and fusion AUTO now run until explicitly stopped, administrative
+cancellation or reboot. They still require a successful L/R diagnostic during
+this boot, a consenting local household and enabled voice profiles. No automatic
+microphone activation after reboot. Switching modes is direct. Automatic capture
+adds an adaptive idle noise floor, bounded sign-change/energy onset filter and
+three consecutive onset frames retained in the candidate buffer. Manual enrollment
+and diagnostic capture preserve the original gate. Synthetic tests cover silence,
+rapid sign changes and a low-frequency signal; these fixtures do not validate
+speech, playback, television, music or concurrent-speaker rejection. No new model
+or dependency. Healthy no-window capture is distinguished from capture/model
+faults; faults retry with bounded 1/2/4/8/16/30-second backoff. A successful window
+or healthy no-window resets backoff. Local UI/serial expose counts and last model
+processing time; the saver remains visibly marked while AUTO is enabled. Gaps
+during inference and audio-driver rearm still exist. Nothing is sent to HA by the
+voice/fusion trial and scores remain uncalibrated.

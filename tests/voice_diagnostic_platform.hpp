@@ -25,6 +25,7 @@ inline hb_audio_consumer consumer;
 inline void *context;
 inline bool active = false, alloc_fail = false, start_fail = false, task_fail = false;
 inline bool silence = false, cancel_inference = false, invalid_embedding = false;
+inline bool speech_like = false;
 inline int model_error = 0, allocations = 0, detachments = 0, model_calls = 0;
 inline int64_t time_us = 1;
 inline void reset()
@@ -33,7 +34,7 @@ inline void reset()
     task = nullptr;
     alloc_fail = start_fail = task_fail = silence = cancel_inference = false;
     model_error = detachments = model_calls = 0;
-    invalid_embedding = false;
+    invalid_embedding = speech_like = false;
     time_us = 1;
 }
 inline void run()
@@ -83,7 +84,8 @@ inline void vTaskDelay(unsigned ms)
         int16_t pcm[320] = {0};
         if (!diag_fake::silence)
             for (unsigned i = 0; i < 320; ++i)
-                pcm[i] = (int16_t)((i * 971) % 6000 - 3000);
+                pcm[i] = diag_fake::speech_like ? (int16_t)((int)(i % 80) * 100 - 4000)
+                                                : (int16_t)((i * 971) % 6000 - 3000);
         diag_fake::consumer(pcm, 320, 16000, diag_fake::time_us, false, diag_fake::context);
     }
 }
@@ -104,6 +106,8 @@ inline void hb_audio_get(hb_audio_status *out)
 {
     *out = {};
     out->sample_rate = 16000;
+    out->available = true;
+    out->frames = 1;
     out->rms = diag_fake::silence ? 0 : 1700;
     out->peak = diag_fake::silence ? 0 : 3000;
 }

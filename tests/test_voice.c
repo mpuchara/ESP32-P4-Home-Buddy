@@ -100,6 +100,22 @@ int main(void)
     for (unsigned i = 0; i < 320; ++i)
         signal[i] = 32767;
     assert(hb_voice_gate_feed(&g, signal, 320, 16000, 20) == HB_VAD_REJECTED);
+    hb_voice_onset onset = {0};
+    memset(signal, 0, sizeof(signal));
+    for (unsigned i = 0; i < 50; ++i)
+        assert(!hb_voice_onset_feed(&onset, signal, 320));
+    assert(onset.run == 0 && onset.noise_power == 10000);
+    for (unsigned i = 0; i < 320; ++i)
+        signal[i] = (int16_t)((i * 971) % 6000 - 3000);
+    assert(!hb_voice_onset_feed(&onset, signal, 320));
+    for (unsigned i = 0; i < 320; ++i)
+        signal[i] = (int16_t)((int)(i % 80) * 100 - 4000);
+    for (unsigned i = 0; i < 3; ++i)
+        assert(hb_voice_onset_feed(&onset, signal, 320));
+    assert(onset.run == 3);
+    assert(!hb_voice_onset_feed(&onset, signal, 1) && onset.run == 0);
+    assert(hb_voice_retry_delay_ms(0) == 100 && hb_voice_retry_delay_ms(1) == 1000);
+    assert(hb_voice_retry_delay_ms(5) == 16000 && hb_voice_retry_delay_ms(100) == 30000);
     hb_voice_policy policy = {true, 0.85f, 0.1f, 0.7f, 0.9999f, 2};
     hb_voice_embedding e = vector(1, 0);
     enroll(1);

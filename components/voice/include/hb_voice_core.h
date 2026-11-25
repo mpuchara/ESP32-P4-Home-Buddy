@@ -75,6 +75,13 @@ extern "C"
     hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *gate, const int16_t *pcm, size_t count,
                                            uint32_t rate, uint64_t end_ms);
     void hb_voice_gate_reset(hb_voice_gate *gate);
+    // Bounded automatic onset filter. Noise estimate is in squared PCM units.
+    typedef struct
+    {
+        uint32_t noise_power, run;
+    } hb_voice_onset;
+    bool hb_voice_onset_feed(hb_voice_onset *, const int16_t *, size_t count);
+    uint32_t hb_voice_retry_delay_ms(unsigned consecutive_faults);
     bool hb_voice_normalize(hb_voice_embedding *embedding);
     // Inputs must be validated normalized embeddings (same model namespace).
     float hb_voice_similarity(const hb_voice_embedding *, const hb_voice_embedding *);

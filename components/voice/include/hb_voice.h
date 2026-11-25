@@ -26,7 +26,7 @@ extern "C"
         esp_err_t error;
         unsigned slot, dimensions;
         uint32_t sample_rate, samples, rms, peak, clipped, active_samples;
-        bool suspicious, callback_detached, pcm_released, standalone;
+        bool suspicious, callback_detached, pcm_released, standalone, no_window;
         hb_voice_metrics model;
     } hb_voice_readiness;
     // Numeric result of the last completed attempt; no PCM/templates or identity claim.
@@ -39,9 +39,12 @@ extern "C"
         esp_err_t error;
         hb_voice_embedding embedding;
         float quality; // Activity fraction, not calibrated speech confidence.
+        bool no_window; // Healthy capture, no usable window; not a hardware fault.
+        uint32_t processing_ms;
     } hb_voice_capture_result;
     // Single-result RAM mailbox for the sole household worker. Start is explicit.
     esp_err_t hb_voice_capture_start(unsigned slot, uint32_t epoch);
+    esp_err_t hb_voice_capture_start_auto(unsigned slot, uint32_t epoch);
     bool hb_voice_capture_take(hb_voice_capture_result *out);
 #ifdef __cplusplus
 }

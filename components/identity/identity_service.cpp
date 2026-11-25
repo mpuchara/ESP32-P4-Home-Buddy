@@ -68,6 +68,7 @@ static bool voice_verifying, voice_testing, voice_pending;
 static int voice_slot = -1;
 static uint64_t voice_auto_until, voice_next_ms;
 static uint32_t voice_capture_session;
+static unsigned voice_fault_streak;
 static hb_voice_tracker voice_tracker{};
 static bool voice_fusion;
 static bool voice_trial_ready()
@@ -161,6 +162,8 @@ static void stop_voice(hb_id_status &s)
     voice_pending = voice_testing = false;
     voice_auto_until = voice_next_ms = 0;
     voice_capture_session = 0;
+    voice_fault_streak = 0;
+    s.voice_retry_ms = 0;
     voice_fusion = false;
     clear_voice_result(s);
 }
@@ -818,6 +821,7 @@ static void worker(void *)
     for (;;)
     {
         if (voice_auto_until && (now_ms() >= voice_auto_until || !voice_trial_ready() ||
+                                 !hb_config_biometric_notice() ||
                                  !hb_household_voice_mask(database, voice_database)))
         {
             stop_voice(state);
@@ -852,7 +856,29 @@ static void worker(void *)
                         voice_auto_until && hb_household_voice_trial_confirm(
                                                 &voice_tracker, match, &voice_policy, voice_epoch,
                                                 voice_result.end_ms, now_ms());
-                    voice_next_ms = now_ms() + 300;
+                    if (voice_auto_until)
+                    {
+                        if (voice_result.error == ESP_OK)
+                        {
+                            ++state.voice_windows;
+                            state.voice_confirmations += state.voice_confirmed;
+                            state.voice_processing_ms = voice_result.processing_ms;
+                            voice_fault_streak = 0;
+                        }
+                        else if (voice_result.no_window)
+                        {
+                            ++state.voice_empty;
+                            voice_fault_streak = 0;
+                        }
+                        else
+                        {
+                            ++state.voice_faults;
+                            if (voice_fault_streak < 6)
+                                ++voice_fault_streak;
+                        }
+                        state.voice_retry_ms = hb_voice_retry_delay_ms(voice_fault_streak);
+                        voice_next_ms = now_ms() + state.voice_retry_ms;
+                    }
                     const hb_id_person *person = hb_id_find(database, match.person_id);
                     const char *candidate = match.state == HB_VOICE_KNOWN && person ? person->name
                                             : match.state == HB_VOICE_AMBIGUOUS     ? "AMBIGUOUS"
@@ -1078,10 +1104,13 @@ static void worker(void *)
                 voice_fusion = c.type == HB_ID_CMD_VOICE_FUSION;
                 state.mode = voice_fusion ? HB_ID_BACKGROUND : HB_ID_STOP;
                 profile_pause = false;
-                voice_auto_until = now_ms() + 600000;
+                // Explicit opt-in for this boot; never enable on reboot without consent.
+                voice_auto_until = UINT64_MAX;
                 until = voice_auto_until;
                 voice_next_ms = now_ms();
-                message(state, "Głos TEST: nasłuch przez 10 minut");
+                state.voice_windows = state.voice_empty = state.voice_faults = 0;
+                state.voice_confirmations = state.voice_processing_ms = state.voice_retry_ms = 0;
+                message(state, "Głos AUTO TEST: do wyłączenia lub restartu");
                 break;
             case HB_ID_CMD_VOICE_TEST:
             {
@@ -1557,11 +1586,18 @@ static void worker(void *)
         if (voice_auto_until && !voice_pending && now_ms() >= voice_next_ms &&
             !stop_requested.load() && !uxQueueMessagesWaiting(jobs))
         {
-            auto err = hb_voice_capture_start((unsigned)voice_slot, voice_epoch);
+            auto err = hb_voice_capture_start_auto((unsigned)voice_slot, voice_epoch);
             voice_pending = err == ESP_OK;
             if (voice_pending)
                 voice_capture_session = state.session;
-            voice_next_ms = now_ms() + (voice_pending ? 300 : 1000);
+            else
+            {
+                ++state.voice_faults;
+                if (voice_fault_streak < 6)
+                    ++voice_fault_streak;
+            }
+            state.voice_retry_ms = voice_pending ? 0 : hb_voice_retry_delay_ms(voice_fault_streak);
+            voice_next_ms = now_ms() + state.voice_retry_ms;
         }
         if (voice_fusion)
         {
@@ -1605,6 +1641,14 @@ static void worker(void *)
                      state.storage_result, state.persistence_ready, state.storage_saved,
                      storage_dirty, state.storage_bank,
                      (unsigned long long)state.storage_generation);
+            if (voice_auto_until)
+                ESP_LOGI("identity",
+                         "VOICE_AUTO windows=%u empty=%u faults=%u confirmed=%u retry_ms=%u "
+                         "processing_ms=%u fusion=%u",
+                         (unsigned)state.voice_windows, (unsigned)state.voice_empty,
+                         (unsigned)state.voice_faults, (unsigned)state.voice_confirmations,
+                         (unsigned)state.voice_retry_ms, (unsigned)state.voice_processing_ms,
+                         (unsigned)voice_fusion);
             if (state.mode == HB_ID_ENROLL)
                 ESP_LOGI("identity", "ENROLL_STATUS samples=%u verified=%d faces=%u official=%d",
                          state.samples, state.verified, state.faces, state.official_landmarks);
@@ -1614,6 +1658,8 @@ static void worker(void *)
         unsigned wait_slices =
             hb_id_wait_slices(state.mode, state.match.state, state.ready, state.confirmed,
                               tracker.hits, policy.confirmations);
+        if (voice_auto_until)
+            wait_slices = 1; // Consume result and rearm promptly, even while face is idle.
         for (unsigned j = 0; j < wait_slices; ++j)
         {
             if (stop_requested.load() || uxQueueMessagesWaiting(jobs))
@@ -1721,7 +1767,8 @@ void hb_identity_get(hb_id_status *out)
         out->voice_confirmed = false;
         out->voice_match = {HB_ID_UNAVAILABLE, 0, -1, -1};
     }
-    if (out->voice_auto && now_ms() >= out->voice_deadline_ms)
+    if (out->voice_auto && (now_ms() >= out->voice_deadline_ms || stop_requested.load() ||
+                            out->session != epoch.load()))
     {
         out->voice_auto = out->fusion_trial = false;
         out->fusion = {};
