@@ -116,6 +116,30 @@ int main(void)
     assert(!hb_voice_onset_feed(&onset, signal, 1) && onset.run == 0);
     assert(hb_voice_retry_delay_ms(0) == 100 && hb_voice_retry_delay_ms(1) == 1000);
     assert(hb_voice_retry_delay_ms(5) == 16000 && hb_voice_retry_delay_ms(100) == 30000);
+    float support = 0;
+    assert(hb_voice_screen_window(pcm, 1, &support) == HB_VOICE_SCREEN_INVALID);
+    memset(pcm, 0, HB_VOICE_SAMPLES * sizeof(*pcm));
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) ==
+           HB_VOICE_SCREEN_LOW_ACTIVITY);
+    for (unsigned i = 0; i < HB_VOICE_SAMPLES; ++i)
+        pcm[i] = (int16_t)(2000 * sin(6.283185307 * 440 * i / 16000));
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) ==
+           HB_VOICE_SCREEN_STATIONARY);
+    uint32_t rng = 1234;
+    for (unsigned i = 0; i < HB_VOICE_SAMPLES; ++i)
+    {
+        rng = rng * 1664525u + 1013904223u;
+        pcm[i] = (int16_t)((int32_t)(rng >> 16) / 8 - 4096);
+    }
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) ==
+           HB_VOICE_SCREEN_BROADBAND);
+    for (unsigned i = 0; i < HB_VOICE_SAMPLES; ++i)
+    {
+        int amplitude = (i / 4800) % 2 ? 2 : 1;
+        pcm[i] = (int16_t)(amplitude * ((int)(i % 80) * 50 - 2000));
+    }
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) == HB_VOICE_SCREEN_PASS);
+    assert(support > .9f && support <= 1);
     hb_voice_policy policy = {true, 0.85f, 0.1f, 0.7f, 0.9999f, 2};
     hb_voice_embedding e = vector(1, 0);
     enroll(1);

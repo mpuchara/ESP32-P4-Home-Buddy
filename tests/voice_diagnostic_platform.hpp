@@ -30,7 +30,7 @@ inline hb_voice_capture_result first{};
 inline unsigned drained, during_inference, stop_after, driver_starts, inference_frames;
 inline uint64_t previous_end;
 inline bool continuous_capture;
-inline bool saw_stale, saw_skipped, saw_empty;
+inline bool saw_stale, saw_skipped, saw_empty, saw_screened, stationary;
 inline int model_error = 0, allocations = 0, detachments = 0, model_calls = 0;
 inline int64_t time_us = 1;
 inline void reset()
@@ -44,7 +44,7 @@ inline void reset()
     stop_after = 4;
     inference_frames = 151;
     previous_end = 0;
-    continuous_capture = saw_stale = saw_skipped = saw_empty = false;
+    continuous_capture = saw_stale = saw_skipped = saw_empty = saw_screened = stationary = false;
     first = {};
     time_us = 1;
 }
@@ -100,6 +100,7 @@ inline void vTaskDelay(unsigned ms)
             assert(diag_fake::first.end_ms > diag_fake::previous_end);
             diag_fake::previous_end = diag_fake::first.end_ms;
             diag_fake::saw_stale |= diag_fake::first.stale;
+            diag_fake::saw_screened |= diag_fake::first.screening != HB_VOICE_SCREEN_PASS;
             diag_fake::saw_skipped |= diag_fake::first.skipped_frames > 0;
         }
         if (++diag_fake::drained >= diag_fake::stop_after)
@@ -109,9 +110,13 @@ inline void vTaskDelay(unsigned ms)
     {
         int16_t pcm[320] = {0};
         if (!diag_fake::silence)
+        {
+            int amplitude = diag_fake::stationary ? 1 : 1 + (diag_fake::time_us / 300000) % 2;
             for (unsigned i = 0; i < 320; ++i)
-                pcm[i] = diag_fake::speech_like ? (int16_t)((int)(i % 80) * 100 - 4000)
-                                                : (int16_t)((i * 971) % 6000 - 3000);
+                pcm[i] = diag_fake::speech_like
+                             ? (int16_t)(amplitude * ((int)(i % 80) * 50 - 2000))
+                             : (int16_t)((i * 971) % 6000 - 3000);
+        }
         diag_fake::consumer(pcm, 320, 16000, diag_fake::time_us, false, diag_fake::context);
     }
 }

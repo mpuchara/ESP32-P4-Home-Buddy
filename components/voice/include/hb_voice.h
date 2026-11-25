@@ -43,6 +43,7 @@ extern "C"
         uint32_t processing_ms;
         bool more; // The automatic stream remains active.
         bool stale;
+        hb_voice_screen screening;
         uint32_t skipped_frames; // Cumulative producer backpressure, not DMA loss.
     } hb_voice_capture_result;
     // Single-result RAM mailbox for the sole household worker. Start is explicit.

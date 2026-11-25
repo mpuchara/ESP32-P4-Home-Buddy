@@ -110,3 +110,19 @@ healthy silence without restarting the ADC. Terminal failures use existing
 recovery backoff. No raw audio leaves RAM. Host tests exercise more than two
 windows with one driver start, cancellation, overload and stale rejection.
 This is not a promise of lossless audio or physical real-time performance.
+
+## 0.14.7 acoustic window screening
+
+Before automatic speaker inference, a bounded worker-side PCM screen checks 150
+20 ms frames for active energy, centered sign changes, derivative power and
+300 ms envelope variation. It rejects stationary tones, very broadband noise,
+low-activity and invalid windows; the support fraction caps voice fusion weight.
+Rejected windows are counted separately from hardware faults and clear positive
+voice evidence without restarting capture. Automatic inference now uses the
+remaining five-second freshness budget instead of a 120-second cooperative
+budget; an expired otherwise-successful/cancelled result is stale, not a driver
+fault. Constructor/graph sections are still non-preemptible. Model load timing
+now includes package verification. Manual diagnostics/enrollment retain the
+original capture and inference budget. Synthetic tone/noise/modulated fixtures
+are regression checks, not validated VAD, playback rejection, diarization or
+speech accuracy. A television carrying natural speech can still pass.

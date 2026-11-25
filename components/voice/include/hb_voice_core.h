@@ -81,6 +81,16 @@ extern "C"
         uint32_t noise_power, run;
     } hb_voice_onset;
     bool hb_voice_onset_feed(hb_voice_onset *, const int16_t *, size_t count);
+    typedef enum
+    {
+        HB_VOICE_SCREEN_PASS,
+        HB_VOICE_SCREEN_INVALID,
+        HB_VOICE_SCREEN_LOW_ACTIVITY,
+        HB_VOICE_SCREEN_BROADBAND,
+        HB_VOICE_SCREEN_STATIONARY
+    } hb_voice_screen;
+    // Worker-side acoustic screening, not a trained speech or playback classifier.
+    hb_voice_screen hb_voice_screen_window(const int16_t *, size_t count, float *support);
     uint32_t hb_voice_retry_delay_ms(unsigned consecutive_faults);
     bool hb_voice_normalize(hb_voice_embedding *embedding);
     // Inputs must be validated normalized embeddings (same model namespace).

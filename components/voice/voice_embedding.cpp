@@ -135,11 +135,11 @@ esp_err_t hb_voice_embedding_run(const int16_t *pcm, size_t n, uint32_t rate,
     if (metrics->internal_largest < 65536 || metrics->internal_free < 131072 ||
         metrics->psram_largest < 8 * 1024 * 1024)
         return ESP_ERR_NO_MEM;
+    int64_t start = esp_timer_get_time();
     Mapping mapping;
     esp_err_t err = mapping.open(cancel, ctx);
     if (err != ESP_OK)
         return err;
-    int64_t start = esp_timer_get_time();
     // Flash-backed parameters reduce residency. The pinned loader still contains
     // internal STL allocations: physical low-memory fault acceptance remains pending.
     auto *model = new (std::nothrow)

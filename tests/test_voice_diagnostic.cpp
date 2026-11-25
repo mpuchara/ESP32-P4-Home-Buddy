@@ -73,6 +73,13 @@ int main()
     assert(diag_fake::saw_empty && !diag_fake::model_calls);
     assert(hb_voice_capture_take(&result) && !result.more && result.error != ESP_OK);
     diag_fake::reset();
+    diag_fake::speech_like = diag_fake::auto_drain = diag_fake::stationary = true;
+    diag_fake::stop_after = 1;
+    assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(diag_fake::saw_screened && !diag_fake::model_calls);
+    assert(hb_voice_capture_take(&result) && !result.more);
+    diag_fake::reset();
     diag_fake::speech_like = diag_fake::auto_drain = true;
     assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
     diag_fake::run();

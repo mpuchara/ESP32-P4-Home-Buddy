@@ -201,6 +201,80 @@ bool hb_voice_onset_feed(hb_voice_onset *o, const int16_t *pcm, size_t n)
     }
     return candidate;
 }
+hb_voice_screen hb_voice_screen_window(const int16_t *pcm, size_t count, float *support)
+{
+    if (support)
+        *support = 0;
+    if (!pcm || count != HB_VOICE_SAMPLES || !support)
+        return HB_VOICE_SCREEN_INVALID;
+    uint64_t block_energy[10] = {0};
+    unsigned block_count[10] = {0};
+    unsigned active = 0, shaped = 0, broadband = 0;
+    unsigned min_crossings = 320, max_crossings = 0;
+    // 150 complete 20 ms frames, plus the model's 15 ms tail.
+    for (unsigned frame = 0; frame < 150; ++frame)
+    {
+        const int16_t *p = pcm + frame * 320;
+        int64_t sum = 0, square = 0, diff = 0;
+        unsigned clip = 0, crossings = 0;
+        for (unsigned i = 0; i < 320; ++i)
+        {
+            int32_t x = p[i];
+            sum += x;
+            square += (int64_t)x * x;
+            clip += x >= 32760 || x <= -32760;
+            if (i)
+            {
+                int32_t d = x - p[i - 1];
+                diff += (int64_t)d * d;
+            }
+        }
+        if (clip > 16 || sum / 320 > 8000 || sum / 320 < -8000)
+            return HB_VOICE_SCREEN_INVALID;
+        int32_t mean = (int32_t)(sum / 320);
+        uint64_t power = (uint64_t)(square * 320 - sum * sum) / (320 * 320);
+        block_energy[frame / 15] += power;
+        ++block_count[frame / 15];
+        if (power < 40000)
+            continue;
+        ++active;
+        for (unsigned i = 1; i < 320; ++i)
+            crossings += (p[i] >= mean) != (p[i - 1] >= mean);
+        if (crossings > 106 || (uint64_t)diff > power * 480)
+        {
+            ++broadband;
+            continue;
+        }
+        if (crossings < 2)
+            continue;
+        ++shaped;
+        if (crossings < min_crossings)
+            min_crossings = crossings;
+        if (crossings > max_crossings)
+            max_crossings = crossings;
+    }
+    if (active < 100)
+        return HB_VOICE_SCREEN_LOW_ACTIVITY;
+    if (broadband * 2 >= active)
+        return HB_VOICE_SCREEN_BROADBAND;
+    if (shaped < 80)
+        return HB_VOICE_SCREEN_LOW_ACTIVITY;
+    uint64_t lo = UINT64_MAX, hi = 0;
+    for (unsigned i = 0; i < 10; ++i)
+    {
+        uint64_t energy = block_energy[i] / block_count[i];
+        if (energy < lo)
+            lo = energy;
+        if (energy > hi)
+            hi = energy;
+    }
+    // Reject sustained near-constant tones/motor noise, even if they pass the energy gate.
+    // Preserve modulated or changing-frequency windows for the speaker model.
+    if (hi * 2 < lo * 3 && max_crossings - min_crossings < 8)
+        return HB_VOICE_SCREEN_STATIONARY;
+    *support = (float)shaped / 150;
+    return HB_VOICE_SCREEN_PASS;
+}
 uint32_t hb_voice_retry_delay_ms(unsigned faults)
 {
     if (!faults)

@@ -852,6 +852,11 @@ static void worker(void *)
                         ++state.voice_stale;
                         clear_voice_result(state);
                     }
+                    else if (voice_auto_until && voice_result.screening != HB_VOICE_SCREEN_PASS)
+                    {
+                        ++state.voice_screened;
+                        clear_voice_result(state);
+                    }
                     else if (voice_auto_until && voice_result.no_window && !voice_result.end_ms)
                     {
                         ++state.voice_empty;
@@ -1138,7 +1143,7 @@ static void worker(void *)
                 until = voice_auto_until;
                 voice_next_ms = now_ms();
                 state.voice_windows = state.voice_empty = state.voice_faults = 0;
-                state.voice_stale = state.voice_skipped_frames = 0;
+                state.voice_stale = state.voice_skipped_frames = state.voice_screened = 0;
                 state.voice_confirmations = state.voice_processing_ms = state.voice_retry_ms = 0;
                 message(state, "Głos AUTO TEST: do wyłączenia lub restartu");
                 break;
@@ -1674,12 +1679,12 @@ static void worker(void *)
             if (voice_auto_until)
                 ESP_LOGI("identity",
                          "VOICE_AUTO windows=%u empty=%u faults=%u confirmed=%u retry_ms=%u "
-                         "processing_ms=%u fusion=%u stale=%u skipped_frames=%u",
+                         "processing_ms=%u fusion=%u stale=%u skipped_frames=%u screened=%u",
                          (unsigned)state.voice_windows, (unsigned)state.voice_empty,
                          (unsigned)state.voice_faults, (unsigned)state.voice_confirmations,
                          (unsigned)state.voice_retry_ms, (unsigned)state.voice_processing_ms,
                          (unsigned)voice_fusion, (unsigned)state.voice_stale,
-                         (unsigned)state.voice_skipped_frames);
+                         (unsigned)state.voice_skipped_frames, (unsigned)state.voice_screened);
             if (state.mode == HB_ID_ENROLL)
                 ESP_LOGI("identity", "ENROLL_STATUS samples=%u verified=%d faces=%u official=%d",
                          state.samples, state.verified, state.faces, state.official_landmarks);

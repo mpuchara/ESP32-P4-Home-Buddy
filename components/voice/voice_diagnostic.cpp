@@ -274,24 +274,36 @@ static void auto_worker(void *)
         // Do not waste a model run on a queued window already too old to identify.
         uint64_t now = esp_timer_get_time() / 1000;
         bool stale = result.end_ms > now || now - result.end_ms > 5000;
+        float support = 0;
         if (!stale)
+            result.screening = hb_voice_screen_window(b.pcm, HB_VOICE_SAMPLES, &support);
+        if (!stale && result.screening == HB_VOICE_SCREEN_PASS)
         {
-            inference_deadline = esp_timer_get_time() + 120000000;
+            // The identity freshness budget includes queueing, hashing and inference.
+            inference_deadline = (int64_t)(result.end_ms + 5000) * 1000;
             err = hb_voice_embedding_run(b.pcm, HB_VOICE_SAMPLES, 16000, cancel, nullptr,
                                          &result.embedding, &metrics);
-            if (esp_timer_get_time() > inference_deadline)
-                err = ESP_ERR_TIMEOUT;
+            bool expired = esp_timer_get_time() >= inference_deadline;
             inference_deadline = 0;
-            if (err == ESP_OK && !hb_voice_normalize(&result.embedding))
+            if (expired && (err == ESP_OK || err == ESP_ERR_INVALID_STATE ||
+                            err == ESP_ERR_TIMEOUT))
+            {
+                stale = true;
+                err = ESP_OK;
+            }
+            if (err == ESP_OK && !stale && !hb_voice_normalize(&result.embedding))
                 err = ESP_ERR_INVALID_STATE;
             now = esp_timer_get_time() / 1000;
-            stale = now < result.end_ms || now - result.end_ms > 5000;
+            stale |= now < result.end_ms || now - result.end_ms > 5000;
         }
         result.error = err;
         result.processing_ms =
             (metrics.load_us + metrics.features_us + metrics.inference_us) / 1000;
-        if (err == ESP_OK && !stale)
-            result.quality = (float)b.gate.active_samples / HB_VOICE_SAMPLES;
+        if (err == ESP_OK && !stale && result.screening == HB_VOICE_SCREEN_PASS)
+        {
+            float activity = (float)b.gate.active_samples / HB_VOICE_SAMPLES;
+            result.quality = support < activity ? support : activity;
+        }
         else
             memset(&result.embedding, 0, sizeof(result.embedding));
         if (err == ESP_OK && stale)
@@ -299,6 +311,8 @@ static void auto_worker(void *)
             result.error = ESP_ERR_INVALID_STATE;
             result.stale = true;
         }
+        else if (err == ESP_OK && result.screening != HB_VOICE_SCREEN_PASS)
+            result.error = ESP_ERR_INVALID_STATE;
         // Release only after all reads and scrubbing; producer acquires full=false.
         memset(b.pcm, 0, HB_VOICE_SAMPLES * sizeof(int16_t));
         hb_voice_gate_reset(&b.gate);
