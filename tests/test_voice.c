@@ -119,20 +119,17 @@ int main(void)
     float support = 0;
     assert(hb_voice_screen_window(pcm, 1, &support) == HB_VOICE_SCREEN_INVALID);
     memset(pcm, 0, HB_VOICE_SAMPLES * sizeof(*pcm));
-    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) ==
-           HB_VOICE_SCREEN_LOW_ACTIVITY);
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) == HB_VOICE_SCREEN_LOW_ACTIVITY);
     for (unsigned i = 0; i < HB_VOICE_SAMPLES; ++i)
         pcm[i] = (int16_t)(2000 * sin(6.283185307 * 440 * i / 16000));
-    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) ==
-           HB_VOICE_SCREEN_STATIONARY);
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) == HB_VOICE_SCREEN_STATIONARY);
     uint32_t rng = 1234;
     for (unsigned i = 0; i < HB_VOICE_SAMPLES; ++i)
     {
         rng = rng * 1664525u + 1013904223u;
         pcm[i] = (int16_t)((int32_t)(rng >> 16) / 8 - 4096);
     }
-    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) ==
-           HB_VOICE_SCREEN_BROADBAND);
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) == HB_VOICE_SCREEN_BROADBAND);
     for (unsigned i = 0; i < HB_VOICE_SAMPLES; ++i)
     {
         int amplitude = (i / 4800) % 2 ? 2 : 1;

@@ -285,8 +285,8 @@ static void auto_worker(void *)
                                          &result.embedding, &metrics);
             bool expired = esp_timer_get_time() >= inference_deadline;
             inference_deadline = 0;
-            if (expired && (err == ESP_OK || err == ESP_ERR_INVALID_STATE ||
-                            err == ESP_ERR_TIMEOUT))
+            if (expired &&
+                (err == ESP_OK || err == ESP_ERR_INVALID_STATE || err == ESP_ERR_TIMEOUT))
             {
                 stale = true;
                 err = ESP_OK;
