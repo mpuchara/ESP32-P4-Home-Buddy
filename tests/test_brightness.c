@@ -78,10 +78,21 @@ static void controller(void)
     float before = s.filtered;
     hb_brightness_step(&s, &c, true, 10, 5000, 5000);
     CHECK(s.filtered == before);
-    hb_brightness_step(&s, &c, true, 0, 10000, 10000);
+    last = hb_brightness_step(&s, &c, true, 0, 10000, 10000);
     CHECK(s.filtered == before);
     c.day.valid = 0;
-    CHECK(hb_brightness_step(&s, &c, true, 0, 10100, 10100) <= 129);
+    CHECK(!hb_brightness_calibrated(&c));
+    CHECK(hb_brightness_target(&c, 0) == 255);
+    // Losing a calibration switches to the factory curve without a PWM jump.
+    int next = hb_brightness_step(&s, &c, true, 0, 10100, 10100);
+    CHECK(next >= last && next <= last + 1);
+    for (uint64_t now = 10200; now <= 30100; now += 100)
+    {
+        int pwm = hb_brightness_step(&s, &c, true, 0, now, now);
+        CHECK(pwm >= next && pwm <= next + 1);
+        next = pwm;
+    }
+    CHECK(next >= 252 && next <= 255);
     c.schema = 99;
     CHECK(!hb_brightness_valid(&c));
     c = hb_brightness_defaults();
