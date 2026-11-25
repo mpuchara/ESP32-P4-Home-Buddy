@@ -125,9 +125,11 @@ esp_err_t hb_voice_embedding_run(const int16_t *pcm, size_t n, uint32_t rate,
     if (gate.state != HB_VAD_READY)
         return ESP_ERR_INVALID_ARG;
 #if CONFIG_HB_IDENTITY_EXPERIMENTAL
-    if (!hb_compute_enter(0))
+    if (!hb_compute_enter(250))
         return ESP_ERR_TIMEOUT;
     ComputeLease lease;
+    if (cancel && cancel(ctx))
+        return ESP_ERR_INVALID_STATE;
     sample_memory(metrics);
     // Conservative engineering admission, not measured simultaneous-model fit.
     if (metrics->internal_largest < 65536 || metrics->internal_free < 131072 ||

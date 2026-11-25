@@ -38,6 +38,7 @@ extern "C"
         uint64_t end_ms;
         esp_err_t error;
         hb_voice_embedding embedding;
+        float quality; // Activity fraction, not calibrated speech confidence.
     } hb_voice_capture_result;
     // Single-result RAM mailbox for the sole household worker. Start is explicit.
     esp_err_t hb_voice_capture_start(unsigned slot, uint32_t epoch);

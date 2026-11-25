@@ -149,6 +149,26 @@ int main(void)
     assert(hb_identity_fuse(&in, 1, 9001, true).source == HB_ID_SOURCE_VOICE);
     assert(hb_identity_fuse(&in, 2, 9001, true).status == HB_FUSION_UNKNOWN);
     assert(hb_identity_fuse(&in, 1, 20000, true).status == HB_FUSION_UNKNOWN);
+    hb_fusion_evidence fe = {.7f, .1f, 1}, ve = {.65f, .1f, .5f};
+    in.face_frame_ms = in.voice_window_end_ms = 9000;
+    in.face.best = .9f;
+    in.face.second = .4f;
+    in.voice.best = .85f;
+    in.voice.second = .3f;
+    hb_fusion_trial ft = hb_identity_trial_fuse(&in, 1, 9001, fe, ve);
+    assert(ft.decision.source == HB_ID_SOURCE_BOTH && ft.score > 0 && ft.score <= 1);
+    assert(ft.face_weight > ft.voice_weight);
+    fe.quality = .2f;
+    ft = hb_identity_trial_fuse(&in, 1, 9001, fe, ve);
+    assert(ft.voice_weight > ft.face_weight);
+    in.voice.person_id = 2;
+    assert(hb_identity_trial_fuse(&in, 1, 9001, fe, ve).decision.status == HB_FUSION_CONFLICT);
+    in.face_frame_ms = 5000;
+    assert(hb_identity_trial_fuse(&in, 1, 9001, fe, ve).decision.source == HB_ID_SOURCE_VOICE);
+    in.face_frame_ms = 9000;
+    ve.quality = 0;
+    assert(hb_identity_trial_fuse(&in, 1, 9001, fe, ve).decision.source == HB_ID_SOURCE_FACE);
+    assert(hb_identity_trial_fuse(&in, 1, 20000, fe, ve).decision.status == HB_FUSION_UNKNOWN);
     puts("Voice numerical, frame-boundary, activity, enrollment, open-set, confirmation and fusion "
          "safety passed");
     return 0;

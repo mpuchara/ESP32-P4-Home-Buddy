@@ -146,8 +146,8 @@ int main(void)
                .person_id == other_id);
     hb_household_voice_reconcile(&face, &voice);
     assert(hb_household_voice_count(&voice, id) == 4);
-    hb_voice_match trial = hb_household_voice_trial_match(&face, &voice, &e, true, true,
-                                                          &provisional, 24000, 24001);
+    hb_voice_match trial =
+        hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000, 24001);
     memset(&tracker, 0, sizeof(tracker));
     assert(!hb_household_voice_trial_confirm(&tracker, trial, &provisional, 9, 24000, 24001));
     assert(hb_household_voice_trial_confirm(&tracker, trial, &provisional, 9, 28000, 28001));

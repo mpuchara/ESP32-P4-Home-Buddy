@@ -31,6 +31,16 @@ typedef struct
     hb_id_source source;
     uint64_t person_id;
 } hb_identity_fusion_result;
+// Trial score is threshold-relative support, not a calibrated probability.
+typedef struct
+{
+    float threshold, margin, quality;
+} hb_fusion_evidence;
+typedef struct
+{
+    hb_identity_fusion_result decision;
+    float score, face_weight, voice_weight;
+} hb_fusion_trial;
 // Future fusion must return CONFLICT on distinct confirmed IDs; never choose
 // whichever source has a higher raw similarity across different model scales.
 // Voice templates require their own versioned schema/model namespace and storage
@@ -43,6 +53,9 @@ extern "C"
     hb_identity_fusion_result hb_identity_fuse(const hb_identity_fusion_input *input,
                                                uint32_t session, uint64_t now_ms,
                                                bool voice_physically_accepted);
+    hb_fusion_trial hb_identity_trial_fuse(const hb_identity_fusion_input *, uint32_t session,
+                                           uint64_t now_ms, hb_fusion_evidence face,
+                                           hb_fusion_evidence voice);
 #ifdef __cplusplus
 }
 #endif

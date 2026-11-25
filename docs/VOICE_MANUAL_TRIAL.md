@@ -44,3 +44,18 @@ confirmation after two independent windows; the saver shows a microphone TEST
 indicator. No auto-start on reboot, voice events/greetings/HA, fusion or production
 acceptance. Stop and identity administration cancel capture and clear the trial.
 Disabled voice profiles are excluded without erasing enrolled vectors.
+
+## Face + voice shadow scoring (0.14.2)
+
+Recognition > Twarz + głos TEST starts a ten-minute session with both providers.
+Inference is serialized by the compute mutex, and microphone activity selection
+remains provisional. The UI shows independent voice candidate, joint decision,
+threshold-relative support score and face/voice weights. Scores are NOT
+probabilities. Poor face quality reduces its weight; voice weight uses the
+active fraction of the accepted PCM window (not speech probability). Confirmed
+modalities only contribute positive support; simultaneous differing candidates
+are a conflict; evidence separated by more than 3 seconds is not combined.
+Stale evidence and session changes are rejected. The existing face event path
+is paused during this shadow trial and resumes afterward; no VOICE or BOTH
+identity event is emitted. Neither calibration nor physical co-residency is
+claimed. No production VAD or replay/speaker-overlap acceptance yet.

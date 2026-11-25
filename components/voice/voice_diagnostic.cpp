@@ -137,7 +137,6 @@ static void worker(void *)
             vTaskDelay(pdMS_TO_TICKS(20));
         hb_audio_get(&audio);
         report.sample_rate = audio.sample_rate;
-        report.samples = gate.samples;
         report.rms = audio.rms;
         report.peak = audio.peak;
         report.clipped = audio.clipped;
@@ -146,6 +145,7 @@ static void worker(void *)
         // Retire the bounded callback, independent of driver cleanup progress.
         hb_audio_detach_consumer(consume, nullptr);
         report.callback_detached = true;
+        report.samples = gate.samples;
         if (!ready.load() || cancelled.load())
             err = ESP_ERR_INVALID_STATE;
     }
@@ -212,7 +212,11 @@ static void worker(void *)
         result_mailbox.end_ms = gate.end_ms;
         result_mailbox.error = err;
         if (err == ESP_OK)
+        {
             result_mailbox.embedding = embedding;
+            if (!report.suspicious && !report.clipped && report.rms)
+                result_mailbox.quality = (float)gate.active_samples / HB_VOICE_SAMPLES;
+        }
         result_pending = true;
     }
     portEXIT_CRITICAL(&status_lock);
