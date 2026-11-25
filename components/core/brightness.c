@@ -8,8 +8,8 @@ static float clamp(float value, float lo, float hi)
 }
 hb_brightness_config hb_brightness_defaults(void)
 {
-    return (hb_brightness_config){.schema = 1,
-                                  .mode = HB_BRIGHT_MANUAL,
+    return (hb_brightness_config){.schema = 2,
+                                  .mode = HB_BRIGHT_AUTO,
                                   .manual_pwm = 128,
                                   .fallback_pwm = 128,
                                   .sample_seconds = 5,
@@ -23,7 +23,7 @@ static bool valid_anchor(const hb_light_anchor *a)
 }
 bool hb_brightness_valid(const hb_brightness_config *c)
 {
-    return c && c->schema == 1 && c->mode <= HB_BRIGHT_OVERRIDE && c->manual_pwm >= 26 &&
+    return c && c->schema == 2 && c->mode <= HB_BRIGHT_OVERRIDE && c->manual_pwm >= 26 &&
            c->manual_pwm <= 255 && c->fallback_pwm >= 26 && c->fallback_pwm <= 255 &&
            c->sample_seconds >= 1 && c->sample_seconds <= 60 && c->transition_seconds >= 20 &&
            c->transition_seconds <= 60 && c->override_seconds >= 10 &&
@@ -38,10 +38,17 @@ uint8_t hb_brightness_target(const hb_brightness_config *c, float metric)
 {
     if (!hb_brightness_valid(c))
         return 128;
-    if (!hb_brightness_calibrated(c) || !isfinite(metric))
+    if (!isfinite(metric))
         return (uint8_t)c->fallback_pwm;
-    float t = clamp((metric - c->night.metric) / (c->day.metric - c->night.metric), 0, 1);
-    return (uint8_t)lroundf(clamp(c->night.pwm + t * ((float)c->day.pwm - c->night.pwm), 26, 255));
+    // Factory curve for the relative ISP light estimate; user anchors take precedence.
+    hb_light_anchor night = {-15.5f, 26, 1}, day = {-5.5f, 255, 1};
+    if (hb_brightness_calibrated(c))
+    {
+        night = c->night;
+        day = c->day;
+    }
+    float t = clamp((metric - night.metric) / (day.metric - night.metric), 0, 1);
+    return (uint8_t)lroundf(clamp(night.pwm + t * ((float)day.pwm - night.pwm), 26, 255));
 }
 void hb_brightness_init(hb_brightness_state *s, uint8_t pwm, uint64_t now)
 {
@@ -60,8 +67,6 @@ uint8_t hb_brightness_step(hb_brightness_state *s, const hb_brightness_config *c
                   (c->mode == HB_BRIGHT_OVERRIDE && now < s->override_until_ms);
     if (manual)
         s->output = (float)c->manual_pwm;
-    else if (!hb_brightness_calibrated(c))
-        s->output = (float)c->fallback_pwm;
     else if (valid && isfinite(metric) && fabsf(metric) <= 64 && sample <= now &&
              now - sample <= (uint64_t)c->sample_seconds * 3000)
     {

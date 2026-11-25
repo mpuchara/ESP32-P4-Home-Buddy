@@ -145,7 +145,18 @@ int main(void)
 {
     CHECK(hb_brightness_start(true) == ESP_OK);
     hb_brightness_config c = current();
-    CHECK(c.mode == HB_BRIGHT_MANUAL && c.manual_pwm == 128);
+    CHECK(c.mode == HB_BRIGHT_AUTO && c.schema == 2 && c.manual_pwm == 128);
+    hb_brightness_config legacy = c;
+    legacy.schema = 1;
+    legacy.mode = HB_BRIGHT_MANUAL;
+    legacy.day = (hb_light_anchor){2, 230, 1};
+    legacy.night = (hb_light_anchor){-2, 30, 1};
+    legacy.sample_seconds = 10;
+    install(&legacy);
+    CHECK(hb_brightness_start(true) == ESP_OK);
+    c = current();
+    CHECK(c.mode == HB_BRIGHT_AUTO && c.schema == 2 && c.sample_seconds == 10);
+    CHECK(!c.day.valid && !c.night.valid && writes == 0);
     c.day = (hb_light_anchor){2, 230, 1};
     c.night = (hb_light_anchor){-2, 30, 1};
     c.mode = HB_BRIGHT_AUTO;
@@ -217,6 +228,7 @@ int main(void)
     unsigned before_open = opens;
     CHECK(hb_brightness_start(false) == ESP_OK);
     c = current();
+    c.mode = HB_BRIGHT_MANUAL;
     c.manual_pwm = 26;
     CHECK(hb_brightness_apply(&c) == ESP_OK);
     tick(320000);

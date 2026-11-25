@@ -22,7 +22,15 @@ static void controller(void)
     hb_brightness_config c = hb_brightness_defaults();
     CHECK(hb_brightness_valid(&c));
     CHECK(!hb_brightness_calibrated(&c));
-    CHECK(hb_brightness_target(&c, 1) == 128);
+    CHECK(c.mode == HB_BRIGHT_AUTO);
+    CHECK(hb_brightness_target(&c, -15.5f) == 26);
+    CHECK(hb_brightness_target(&c, -5.5f) == 255);
+    CHECK(hb_brightness_target(&c, -10.5f) == 141);
+    CHECK(hb_brightness_target(&c, NAN) == 128);
+    hb_brightness_state factory;
+    hb_brightness_init(&factory, 128, 0);
+    CHECK(hb_brightness_step(&factory, &c, false, 0, 0, 100) == 128);
+    CHECK(hb_brightness_step(&factory, &c, true, -15.5f, 200, 200) < 128);
     c.day = (hb_light_anchor){2, 240, 1};
     c.night = (hb_light_anchor){-2, 40, 1};
     c.mode = HB_BRIGHT_AUTO;
@@ -73,8 +81,8 @@ static void controller(void)
     hb_brightness_step(&s, &c, true, 0, 10000, 10000);
     CHECK(s.filtered == before);
     c.day.valid = 0;
-    CHECK(hb_brightness_step(&s, &c, true, 0, 10100, 10100) == 128);
-    c.schema = 2;
+    CHECK(hb_brightness_step(&s, &c, true, 0, 10100, 10100) <= 129);
+    c.schema = 99;
     CHECK(!hb_brightness_valid(&c));
     c = hb_brightness_defaults();
     c.sample_seconds = 0;
@@ -141,6 +149,29 @@ static void meter(void)
     CHECK(!hb_light_measure(pixels, 64, 64, 1000, 1, 1, true).valid);
     memset(pixels, 0, sizeof(pixels));
     CHECK(!hb_light_measure(pixels, 64, 64, 1000, 1, 1, true).valid);
+}
+static void isp_light(void)
+{
+    uint8_t pixels[32 * 32 * 3] = {0};
+    for (unsigned i = 0; i < 32 * 32; i++)
+        pixels[i * 3 + 1] = 128;
+    hb_light_reading a = hb_light_measure_isp(pixels, 32, 32, 1000, 1, 1, true);
+    hb_light_reading b = hb_light_measure_isp(pixels, 32, 32, 2000, 1, 1, true);
+    CHECK(a.valid && b.valid && fabsf(a.metric - b.metric - 1) < 0.001f);
+    CHECK(a.luminance > 60 && a.luminance < 80);
+    for (unsigned i = 0; i < 32 * 32; i++)
+    {
+        pixels[i * 3] = 255;
+        pixels[i * 3 + 2] = 255;
+    }
+    CHECK(hb_light_measure_isp(pixels, 32, 32, 1000, 1, 1, true).metric == a.metric);
+    CHECK(!hb_light_measure_isp(pixels, 32, 32, 1000, 1, 1, false).valid);
+    memset(pixels, 255, sizeof(pixels));
+    CHECK(!hb_light_measure_isp(pixels, 32, 32, 1000, 1, 1, true).valid);
+    memset(pixels, 0, sizeof(pixels));
+    hb_light_reading dark = hb_light_measure_isp(pixels, 32, 32, 32078, 8, 1, true);
+    CHECK(!dark.valid && dark.below_range);
+    CHECK(hb_light_apply_dark_limit(dark, 32078, 8, 1, true).valid);
 }
 static void dark_limit(void)
 {
@@ -332,6 +363,7 @@ int main(void)
     controller();
     leases();
     meter();
+    isp_light();
     dark_limit();
     preview();
     raw_frame();

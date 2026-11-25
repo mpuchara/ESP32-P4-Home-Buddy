@@ -540,7 +540,6 @@ static void worker(void *arg)
                         h -= 2 * (h / 5);
                     }
                     hb_rgb888_stats q = hb_rgb888_quality(frame.pixels, WIDTH, HEIGHT, x, y, w, h);
-                    hb_light_reading light = {.luminance = q.mean, .rejected_fraction = q.clipped};
                     // Scene-only, bounded neutral-patch adaptation. Hold during face acquisition.
                     if (!face && now - last_wb >= 2000 && q.mean > 55 && q.mean < 210)
                     {
@@ -571,14 +570,20 @@ static void worker(void *arg)
                     unsigned measured_vts = meta ? (unsigned)((timing[2] << 8) | timing[3]) : 0;
                     bool at_limit = meta && measured_vts > 19 &&
                                     measured_lines == measured_vts - 15 && ag == 8.0f;
-                    light = hb_light_apply_dark_limit(light, exp, ag, dg, at_limit);
                     bool publish =
                         now - last_light >= (uint64_t)atomic_load(&sample_seconds) * 1000;
+                    hb_light_reading light = {0};
+                    if (publish)
+                    {
+                        light = hb_light_measure_isp(frame.pixels, WIDTH, HEIGHT, exp, ag, dg,
+                                                     meta && e == ESP_OK && frame.settled);
+                        light = hb_light_apply_dark_limit(light, exp, ag, dg, at_limit);
+                    }
                     portENTER_CRITICAL(&lock);
                     if (publish)
                     {
-                        // RGB888 is gamma/CCM corrected: never reuse RAW light calibration.
-                        status.light = (hb_light_reading){0};
+                        // Independent scene meter, not the face-weighted AE statistic.
+                        status.light = light;
                         status.light_ms = frame.timestamp_ms;
                     }
                     status.exposure_us = exp;

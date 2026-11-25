@@ -1714,20 +1714,13 @@ static void camera_brightness_update(void)
         if (brightness_editor.mode == HB_BRIGHT_OVERRIDE && current.mode != HB_BRIGHT_OVERRIDE)
             brightness_editor.mode = current.mode;
         lv_label_set_text_fmt(pwm_info, "%u / 255", pwm);
-        char text[400];
-        snprintf(text, sizeof(text), "%s | Światło: %s\nKalibracja: %s | Dzień: %s | Noc: %s",
-                 current.mode == HB_BRIGHT_AUTO     ? "AUTO"
-                 : current.mode == HB_BRIGHT_MANUAL ? "MANUAL"
-                                                    : "TYMCZASOWO",
-                 light_text,
-                 hb_brightness_calibrated(&brightness_editor) ? "OK"
-                                                              : "niepełna / zbyt bliskie punkty",
-                 brightness_editor.day.valid ? "zapisany" : "brak",
-                 brightness_editor.night.valid ? "zapisany" : "brak");
         lv_label_set_text_fmt(
-            brightness_info, "Jasność: %s | Kalibracja: %s",
-            current.mode == HB_BRIGHT_AUTO ? "Automatyczna" : "Ręczna / tymczasowa",
-            hb_brightness_calibrated(&brightness_editor) ? "Gotowa" : "Ustaw dzień i noc");
+            brightness_info, "%s | %s | Światło: %s",
+            current.mode == HB_BRIGHT_AUTO     ? "AUTO"
+            : current.mode == HB_BRIGHT_MANUAL ? "MANUAL"
+                                               : "TYMCZASOWO",
+            hb_brightness_calibrated(&current) ? "Kalibracja własna" : "Krzywa domyślna",
+            light_text);
         brightness_visibility();
     }
 }

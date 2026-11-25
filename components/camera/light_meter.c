@@ -80,3 +80,26 @@ hb_light_reading hb_light_apply_dark_limit(hb_light_reading r, float exposure, f
     r.valid = isfinite(r.metric);
     return r;
 }
+
+// Approximate linear luminance from the fixed green ISP gamma curve.
+// Green is not adjusted by the adaptive red/blue white-balance curves.
+hb_light_reading hb_light_measure_isp(const uint8_t *bgr, unsigned w, unsigned h, float exposure,
+                                      float again, float dgain, bool metadata)
+{
+    if (!bgr || w < 32 || h < 32 || w > 4096 || h > 4096 || !metadata)
+        return (hb_light_reading){0};
+    unsigned hist[256] = {0}, green[256] = {0};
+    for (unsigned y = 0; y < 24; y++)
+        for (unsigned x = 0; x < 32; x++)
+        {
+            unsigned px = w / 8 + x * (w * 3 / 4 - 1) / 31, py = h / 8 + y * (h * 3 / 4 - 1) / 23;
+            green[bgr[((size_t)py * w + px) * 3 + 1]]++;
+        }
+    for (unsigned i = 0; i < 256; i++)
+        if (green[i])
+        {
+            unsigned linear = (unsigned)lroundf(255 * powf(i / 255.0f, 1 / 0.518f));
+            hist[linear] += green[i];
+        }
+    return hb_light_histogram(hist, exposure, again, dgain, metadata);
+}

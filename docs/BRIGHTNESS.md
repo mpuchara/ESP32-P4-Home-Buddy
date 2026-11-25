@@ -85,3 +85,25 @@ save, a second test anchor made with a flashlight, and AUTO dimming in darkness.
 MANUAL during calibration is intentional for immediate slider preview. The flashlight
 day point is provisional; repeat it in normal daytime lighting. Select AUTO and
 explicitly save for mode persistence. Physical reboot restore remains unverified.
+
+## 0.13.4 — automatic brightness on ISP RGB888
+
+The ISP upgrade stopped publishing camera light readings, so AUTO could not work.
+The camera now publishes a central scene estimate from the fixed green gamma
+channel, approximately inverse-gamma corrected and normalized by exposure and
+gain. Face AE, preview and recognition are unchanged. This is not lux; scene
+reflectance, CCM and ISP processing can affect the estimate.
+
+AUTO is the factory default and works without user calibration, using a provisional
+curve from -15.5 relative stops (PWM 26) to -5.5 (PWM 255). Fresh readings use the
+existing filter and transition rate; missing/stale readings hold the last safe
+output (the configured fallback on boot). Two valid user anchors override the
+factory curve. Explicit MANUAL saves in the new schema still persist, and temporary
+mode expires as before.
+
+Legacy schema 1 records are migrated in RAM to schema 2: AUTO is selected and
+old RAW anchors invalidated, but timing, manual PWM and fallback are retained.
+No automatic flash write or erase occurs. Saving explicitly persists schema 2 in
+the same brightness key; older firmware will reject that new record. Recalibrate
+if the provisional curve is unsuitable. Physical day/night tuning and validation
+on the actual board are required.

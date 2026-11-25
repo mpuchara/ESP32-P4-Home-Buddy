@@ -117,6 +117,19 @@ esp_err_t hb_brightness_start(bool available)
             hb_brightness_config loaded;
             size_t size = sizeof(loaded);
             e = nvs_get_blob(handle, "brightness", &loaded, &size);
+            // Schema 1 used the RAW meter (disabled in the RGB888 firmware).
+            // Migrate in RAM only; retain tuning, but do not reuse incompatible anchors.
+            if (e == ESP_OK && size == sizeof(loaded) && loaded.schema == 1)
+            {
+                loaded.schema = 2;
+                if (hb_brightness_valid(&loaded))
+                {
+                    loaded.day.valid = 0;
+                    loaded.night.valid = 0;
+                    loaded.mode = HB_BRIGHT_AUTO;
+                    ESP_LOGW("brightness", "Legacy light calibration reset; AUTO enabled");
+                }
+            }
             if (e == ESP_OK && size == sizeof(loaded) && hb_brightness_valid(&loaded))
             {
                 config = loaded;
@@ -124,11 +137,11 @@ esp_err_t hb_brightness_start(bool available)
                     config.mode = HB_BRIGHT_AUTO;
             }
             else if (e != ESP_ERR_NVS_NOT_FOUND)
-                ESP_LOGW("brightness", "Invalid calibration record preserved; manual fallback 128");
+                ESP_LOGW("brightness", "Invalid calibration record preserved; using AUTO defaults");
             nvs_close(handle);
         }
     }
-    hb_brightness_init(&state, 128, now_ms());
+    hb_brightness_init(&state, (uint8_t)config.fallback_pwm, now_ms());
     return xTaskCreate(worker, "brightness", 4096, NULL, 1, NULL) == pdPASS ? ESP_OK
                                                                             : ESP_ERR_NO_MEM;
 }

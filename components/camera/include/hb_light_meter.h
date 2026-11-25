@@ -20,3 +20,8 @@ hb_light_reading hb_light_histogram(const unsigned histogram[256], float exposur
 hb_light_reading hb_light_apply_dark_limit(hb_light_reading reading, float exposure_us,
                                            float analogue_gain, float digital_gain,
                                            bool settled_at_limit);
+
+// Relative ambient estimate from gamma-corrected ISP BGR888, not calibrated lux.
+hb_light_reading hb_light_measure_isp(const uint8_t *bgr, unsigned width, unsigned height,
+                                      float exposure_us, float analogue_gain, float digital_gain,
+                                      bool metadata_valid);
