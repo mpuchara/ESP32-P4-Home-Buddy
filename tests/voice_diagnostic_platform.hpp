@@ -25,7 +25,9 @@ inline hb_audio_consumer consumer;
 inline void *context;
 inline bool active = false, alloc_fail = false, start_fail = false, task_fail = false;
 inline bool silence = false, cancel_inference = false, invalid_embedding = false;
-inline bool speech_like = false;
+inline bool speech_like = false, auto_drain = false;
+inline hb_voice_capture_result first{};
+inline unsigned drained, during_inference;
 inline int model_error = 0, allocations = 0, detachments = 0, model_calls = 0;
 inline int64_t time_us = 1;
 inline void reset()
@@ -34,7 +36,9 @@ inline void reset()
     task = nullptr;
     alloc_fail = start_fail = task_fail = silence = cancel_inference = false;
     model_error = detachments = model_calls = 0;
-    invalid_embedding = speech_like = false;
+    invalid_embedding = speech_like = auto_drain = false;
+    drained = during_inference = 0;
+    first = {};
     time_us = 1;
 }
 inline void run()
@@ -79,6 +83,9 @@ inline int64_t esp_timer_get_time()
 inline void vTaskDelay(unsigned ms)
 {
     diag_fake::time_us += ms * 1000;
+    if (diag_fake::auto_drain && !diag_fake::drained &&
+        hb_voice_capture_take(&diag_fake::first))
+        ++diag_fake::drained;
     if (diag_fake::active && diag_fake::consumer)
     {
         int16_t pcm[320] = {0};
@@ -129,7 +136,15 @@ inline esp_err_t hb_voice_embedding_run(const int16_t *, size_t n, uint32_t rate
                                         hb_voice_cancel_fn, void *, hb_voice_embedding *out,
                                         hb_voice_metrics *m)
 {
-    assert(!diag_fake::consumer && !diag_fake::active && n == HB_VOICE_SAMPLES && rate == 16000);
+    assert(n == HB_VOICE_SAMPLES && rate == 16000);
+    if (diag_fake::auto_drain && diag_fake::active)
+    {
+        ++diag_fake::during_inference;
+        for (unsigned i = 0; i < 151; ++i)
+            vTaskDelay(20);
+    }
+    else
+        assert(!diag_fake::consumer && !diag_fake::active);
     ++diag_fake::model_calls;
     out->v[0] = diag_fake::invalid_embedding ? 0 : 1;
     m->load_us = 1;

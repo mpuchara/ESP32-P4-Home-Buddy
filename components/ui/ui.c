@@ -782,9 +782,9 @@ static void identity_update(void)
     identity_tick = lv_tick_get();
     hb_id_status *s = &identity_workspace.refresh;
     hb_identity_get(s);
-    voice_interaction = voice_screen && (s->voice_pending ||
-                                         (s->voice_enrollment_state >= HB_VEN_COLLECT &&
-                                          s->voice_enrollment_state <= HB_VEN_READY));
+    voice_interaction =
+        voice_screen && (s->voice_pending || (s->voice_enrollment_state >= HB_VEN_COLLECT &&
+                                              s->voice_enrollment_state <= HB_VEN_READY));
     if (voice_banner)
     {
         if (s->voice_auto)
@@ -930,9 +930,9 @@ static void identity_update(void)
             if (s->voice_match.person_id && s->profiles[i].id == s->voice_match.person_id)
                 candidate = s->profiles[i].name;
         if (voice_switch)
-            lv_label_set_text(lv_obj_get_child(voice_switch, 0),
-                              s->voice_auto && !s->fusion_trial ? "Głos TEST: stop"
-                                                                : "Głos AUTO TEST");
+            lv_label_set_text(lv_obj_get_child(voice_switch, 0), s->voice_auto && !s->fusion_trial
+                                                                     ? "Głos TEST: stop"
+                                                                     : "Głos AUTO TEST");
         if (fusion_switch)
             lv_label_set_text(lv_obj_get_child(fusion_switch, 0),
                               s->fusion_trial ? "Twarz + głos: stop" : "Twarz + głos TEST");
@@ -2025,11 +2025,11 @@ static void update(lv_timer_t *timer)
             lv_obj_set_style_opa(bubble, (lv_opa_t)opacity, 0);
         }
     }
-    if (in_menu && hb_product_timeout(lv_tick_get(), last_touch, critical || creating_profile,
-                                      keyboard && !lv_obj_has_flag(keyboard, LV_OBJ_FLAG_HIDDEN),
-                                      diagnostic || guided_enrollment || audio_testing ||
-                                          voice_interaction,
-                                      confirming))
+    if (in_menu &&
+        hb_product_timeout(lv_tick_get(), last_touch, critical || creating_profile,
+                           keyboard && !lv_obj_has_flag(keyboard, LV_OBJ_FLAG_HIDDEN),
+                           diagnostic || guided_enrollment || audio_testing || voice_interaction,
+                           confirming))
         close_menu(NULL);
 }
 static void return_parent(lv_event_t *e)

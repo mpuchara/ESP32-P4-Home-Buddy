@@ -28,6 +28,15 @@ static hb_voice_readiness last_report;
 static bool report_ready, standalone_ready;
 static hb_voice_readiness standalone_report;
 static int64_t inference_deadline;
+struct AutoSlot
+{
+    int16_t *pcm;
+    hb_voice_gate gate;
+    std::atomic<bool> full;
+};
+static AutoSlot buffers[2];
+static unsigned filling;
+static hb_voice_onset auto_onset;
 bool hb_voice_diagnostic_report(hb_voice_readiness *out)
 {
     if (!out)
@@ -49,6 +58,10 @@ bool hb_voice_diagnostic_standalone_report(hb_voice_readiness *out)
         *out = standalone_report;
     portEXIT_CRITICAL(&status_lock);
     return present;
+}
+bool hb_voice_capture_busy(void)
+{
+    return busy.load();
 }
 bool hb_voice_capture_result_pending(void)
 {
@@ -129,6 +142,160 @@ static void consume(const int16_t *pcm, size_t n, uint32_t rate, uint64_t end_us
     memcpy(window + offset, pcm, n * sizeof(int16_t));
     if (state == HB_VAD_READY)
         ready.store(true);
+}
+static void auto_consume(const int16_t *pcm, size_t n, uint32_t rate, uint64_t end_us,
+                         bool discontinuity, void *)
+{
+    if (cancelled.load() || filling >= 2)
+        return;
+    auto &b = buffers[filling];
+    if (discontinuity)
+    {
+        hb_voice_gate_reset(&b.gate);
+        auto_onset.run = 0;
+    }
+    if (auto_onset.run < 3 && (rate != 16000 || !hb_voice_onset_feed(&auto_onset, pcm, n)))
+    {
+        hb_voice_gate_reset(&b.gate);
+        auto_onset.run = 0;
+        return;
+    }
+    size_t remaining = HB_VOICE_SAMPLES - b.gate.samples;
+    if (n > remaining)
+        n = remaining;
+    unsigned offset = b.gate.samples;
+    auto state = hb_voice_gate_feed(&b.gate, pcm, n, rate, end_us / 1000);
+    if (state == HB_VAD_REJECTED)
+    {
+        hb_voice_gate_reset(&b.gate);
+        auto_onset.run = 0;
+        return;
+    }
+    memcpy(b.pcm + offset, pcm, n * sizeof(int16_t));
+    if (state == HB_VAD_READY)
+    {
+        b.full.store(true); // Immutable until callback retirement and worker cleanup.
+        ++filling;
+        auto_onset.run = 0;
+    }
+}
+static bool auto_publish(const hb_voice_capture_result &result)
+{
+    // Backpressure: never overwrite a household result. Bounded wait, cancellation wins.
+    int64_t until = esp_timer_get_time() + 5000000;
+    while (!cancelled.load() && hb_voice_capture_result_pending() &&
+           esp_timer_get_time() < until)
+        vTaskDelay(pdMS_TO_TICKS(20));
+    bool sent = false;
+    portENTER_CRITICAL(&status_lock);
+    if (!cancelled.load() && !result_pending)
+    {
+        result_mailbox = result;
+        result_pending = true;
+        sent = true;
+    }
+    portEXIT_CRITICAL(&status_lock);
+    return sent;
+}
+static void auto_worker(void *)
+{
+    hb_voice_capture_result result{};
+    result.epoch = capture_epoch;
+    esp_err_t err = ESP_OK;
+    filling = 0;
+    auto_onset = {};
+    for (auto &b : buffers)
+    {
+        b.full.store(false);
+        hb_voice_gate_reset(&b.gate);
+        b.pcm = (int16_t *)heap_caps_calloc(HB_VOICE_SAMPLES, sizeof(int16_t),
+                                            MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!b.pcm)
+            err = ESP_ERR_NO_MEM;
+    }
+    bool owns_audio = false;
+    if (err == ESP_OK && !cancelled.load())
+    {
+        err = hb_audio_start_capture(slot, auto_consume, nullptr);
+        owns_audio = err == ESP_OK;
+    }
+    status("Głos AUTO: dwa bufory lokalne");
+    int64_t deadline = esp_timer_get_time() + 60000000;
+    unsigned processed = 0;
+    for (unsigned i = 0; owns_audio && i < 2 && !cancelled.load(); ++i)
+    {
+        auto &b = buffers[i];
+        while (!cancelled.load() && !b.full.load() && hb_audio_busy() &&
+               esp_timer_get_time() < deadline)
+            vTaskDelay(pdMS_TO_TICKS(20));
+        if (cancelled.load() || !b.full.load())
+            break;
+        result = {};
+        result.epoch = capture_epoch;
+        result.end_ms = b.gate.end_ms;
+        hb_voice_metrics metrics{};
+        inference_deadline = esp_timer_get_time() + 120000000;
+        // A second window can be filled by the audio task while this one is immutable.
+        err = hb_voice_embedding_run(b.pcm, HB_VOICE_SAMPLES, 16000, cancel, nullptr,
+                                     &result.embedding, &metrics);
+        if (esp_timer_get_time() > inference_deadline)
+            err = ESP_ERR_TIMEOUT;
+        inference_deadline = 0;
+        if (err == ESP_OK && !hb_voice_normalize(&result.embedding))
+            err = ESP_ERR_INVALID_STATE;
+        result.error = err;
+        result.processing_ms = (metrics.load_us + metrics.features_us + metrics.inference_us) / 1000;
+        if (err == ESP_OK)
+            result.quality = (float)b.gate.active_samples / HB_VOICE_SAMPLES;
+        else
+            memset(&result.embedding, 0, sizeof(result.embedding));
+        memset(b.pcm, 0, HB_VOICE_SAMPLES * sizeof(int16_t));
+        ++processed;
+        if (err != ESP_OK || i == 1 || cancelled.load())
+            break;
+        // Keep the first result fresh. The next window has only a bounded grace period.
+        result.more = true;
+        if (!auto_publish(result))
+            break;
+        result = {};
+        result.epoch = capture_epoch;
+        int64_t grace = esp_timer_get_time() + 3500000;
+        if (grace < deadline)
+            deadline = grace;
+    }
+    hb_audio_status audio{};
+    if (owns_audio)
+    {
+        hb_audio_stop();
+        hb_audio_detach_consumer(auto_consume, nullptr);
+        hb_audio_get(&audio);
+    }
+    for (auto &b : buffers)
+    {
+        if (b.pcm)
+        {
+            memset(b.pcm, 0, HB_VOICE_SAMPLES * sizeof(int16_t));
+            free(b.pcm);
+            b.pcm = nullptr;
+        }
+        hb_voice_gate_reset(&b.gate);
+        b.full.store(false);
+    }
+    if (!result.end_ms)
+    {
+        result.error = err == ESP_OK ? ESP_ERR_INVALID_STATE : err;
+        result.no_window = owns_audio && err == ESP_OK && audio.available && audio.frames &&
+                           !audio.errors && !audio.dropped_samples;
+    }
+    result.more = false;
+    // A terminal receipt releases the household's pending flag, even after silence.
+    if (!cancelled.load())
+        auto_publish(result);
+    memset(&result, 0, sizeof(result));
+    ESP_LOGI("voice", "VOICE_BATCH processed=%u", processed);
+    (void)processed;
+    busy.store(false);
+    vTaskDelete(nullptr);
 }
 static void worker(void *)
 {
@@ -285,7 +452,8 @@ static esp_err_t start(unsigned selected, uint32_t epoch, bool automatic)
     cancelled.store(false);
     ready.store(false);
     hb_voice_gate_reset(&gate);
-    if (xTaskCreate(worker, "voice_diag", 8192, nullptr, 1, nullptr) != pdPASS)
+    if (xTaskCreate(automatic ? auto_worker : worker, "voice_diag", 8192, nullptr, 1, nullptr) !=
+        pdPASS)
     {
         busy.store(false);
         return ESP_ERR_NO_MEM;

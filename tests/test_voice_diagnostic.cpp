@@ -70,11 +70,15 @@ int main()
     diag_fake::run();
     assert(hb_voice_capture_take(&result) && result.no_window && !diag_fake::model_calls);
     diag_fake::reset();
-    diag_fake::speech_like = true;
+    diag_fake::speech_like = diag_fake::auto_drain = true;
     assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
     diag_fake::run();
+    assert(diag_fake::drained == 1 && diag_fake::first.more);
+    assert(diag_fake::first.error == ESP_OK && diag_fake::first.quality == 1);
     assert(hb_voice_capture_take(&result) && result.error == ESP_OK && result.quality == 1);
-    assert(diag_fake::model_calls == 1);
+    assert(!result.more && result.end_ms > diag_fake::first.end_ms);
+    assert(diag_fake::model_calls == 2 && diag_fake::during_inference == 2);
+    assert(!hb_voice_capture_busy() && !hb_voice_capture_result_pending());
     diag_fake::reset();
     diag_fake::model_error = ESP_ERR_NO_MEM;
     assert(hb_voice_capture_start(0, 7) == ESP_OK);

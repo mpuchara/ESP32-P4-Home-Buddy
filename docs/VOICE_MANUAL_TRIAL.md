@@ -83,3 +83,16 @@ or healthy no-window resets backoff. Local UI/serial expose counts and last mode
 processing time; the saver remains visibly marked while AUTO is enabled. Gaps
 during inference and audio-driver rearm still exist. Nothing is sent to HA by the
 voice/fusion trial and scores remain uncalibrated.
+
+## 0.14.5 bounded double-buffer AUTO capture
+
+AUTO allocates two 48,240-sample PSRAM windows (192,960 bytes total). The audio
+callback fills them in order and never modifies a full buffer. The worker runs
+inference on the first while the callback can fill the second. Each window has
+its own gate/timestamp. A first result is published promptly; one more result or
+terminal receipt follows. The mailbox never overwrites a pending result, and
+backpressure is bounded. No third window is queued; audio is stopped/detached and
+both buffers scrubbed before rearming. Manual capture is unchanged. This reduces
+but does not eliminate gaps; real throughput, memory pressure, actual speech VAD
+and HA acceptance remain unverified. The host mock exercises capture during
+inference and distinct timestamps; it is not a physical concurrency benchmark.

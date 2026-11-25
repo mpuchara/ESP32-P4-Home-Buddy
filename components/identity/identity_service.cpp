@@ -820,9 +820,9 @@ static void worker(void *)
 #endif
     for (;;)
     {
-        if (voice_auto_until && (now_ms() >= voice_auto_until || !voice_trial_ready() ||
-                                 !hb_config_biometric_notice() ||
-                                 !hb_household_voice_mask(database, voice_database)))
+        if (voice_auto_until &&
+            (now_ms() >= voice_auto_until || !voice_trial_ready() ||
+             !hb_config_biometric_notice() || !hb_household_voice_mask(database, voice_database)))
         {
             stop_voice(state);
             epoch.fetch_add(1);
@@ -834,7 +834,7 @@ static void worker(void *)
         {
             if (voice_pending && voice_result.epoch == voice_epoch && !stop_requested.load())
             {
-                voice_pending = false;
+                voice_pending = voice_result.more;
                 if (voice_auto_until && voice_capture_session != epoch.load())
                 {
                     clear_voice_result(state);
@@ -842,52 +842,63 @@ static void worker(void *)
                 }
                 else if (voice_testing || voice_auto_until)
                 {
-                    auto match = voice_result.error == ESP_OK
-                                     ? hb_household_voice_trial_match(
-                                           database, voice_database, &voice_result.embedding,
-                                           voice_trial_ready(), hb_config_biometric_notice(),
-                                           &voice_policy, voice_result.end_ms, now_ms())
-                                     : hb_voice_match{HB_VOICE_UNAVAILABLE, 0, -1, -1};
-                    state.voice_match = voice_status_match(match);
-                    state.voice_quality = voice_result.quality;
-                    state.voice_end_ms = voice_result.end_ms;
-                    state.voice_session = voice_auto_until ? voice_capture_session : epoch.load();
-                    state.voice_confirmed =
-                        voice_auto_until && hb_household_voice_trial_confirm(
-                                                &voice_tracker, match, &voice_policy, voice_epoch,
-                                                voice_result.end_ms, now_ms());
-                    if (voice_auto_until)
+                    // An empty terminal receipt must not erase a still-fresh first match.
+                    if (voice_result.no_window && !voice_result.end_ms)
                     {
-                        if (voice_result.error == ESP_OK)
-                        {
-                            ++state.voice_windows;
-                            state.voice_confirmations += state.voice_confirmed;
-                            state.voice_processing_ms = voice_result.processing_ms;
-                            voice_fault_streak = 0;
-                        }
-                        else if (voice_result.no_window)
-                        {
-                            ++state.voice_empty;
-                            voice_fault_streak = 0;
-                        }
-                        else
-                        {
-                            ++state.voice_faults;
-                            if (voice_fault_streak < 6)
-                                ++voice_fault_streak;
-                        }
-                        state.voice_retry_ms = hb_voice_retry_delay_ms(voice_fault_streak);
+                        ++state.voice_empty;
+                        voice_fault_streak = 0;
+                        state.voice_retry_ms = hb_voice_retry_delay_ms(0);
                         voice_next_ms = now_ms() + state.voice_retry_ms;
                     }
-                    const hb_id_person *person = hb_id_find(database, match.person_id);
-                    const char *candidate = match.state == HB_VOICE_KNOWN && person ? person->name
-                                            : match.state == HB_VOICE_AMBIGUOUS     ? "AMBIGUOUS"
-                                            : match.state == HB_VOICE_UNKNOWN       ? "UNKNOWN"
-                                                                                    : "UNAVAILABLE";
-                    snprintf(state.message, sizeof(state.message),
-                             "Głos TEST: %s | best %.3f / second %.3f", candidate,
-                             (double)match.best, (double)match.second);
-                    voice_testing = false;
+                    else
+                    {
+                        auto match = voice_result.error == ESP_OK
+                                         ? hb_household_voice_trial_match(
+                                               database, voice_database, &voice_result.embedding,
+                                               voice_trial_ready(), hb_config_biometric_notice(),
+                                               &voice_policy, voice_result.end_ms, now_ms())
+                                         : hb_voice_match{HB_VOICE_UNAVAILABLE, 0, -1, -1};
+                        state.voice_match = voice_status_match(match);
+                        state.voice_quality = voice_result.quality;
+                        state.voice_end_ms = voice_result.end_ms;
+                        state.voice_session = voice_auto_until ? voice_capture_session : epoch.load();
+                        state.voice_confirmed =
+                            voice_auto_until && hb_household_voice_trial_confirm(
+                                                    &voice_tracker, match, &voice_policy, voice_epoch,
+                                                    voice_result.end_ms, now_ms());
+                        if (voice_auto_until)
+                        {
+                            if (voice_result.error == ESP_OK)
+                            {
+                                ++state.voice_windows;
+                                state.voice_confirmations += state.voice_confirmed;
+                                state.voice_processing_ms = voice_result.processing_ms;
+                                voice_fault_streak = 0;
+                            }
+                            else if (voice_result.no_window)
+                            {
+                                ++state.voice_empty;
+                                voice_fault_streak = 0;
+                            }
+                            else
+                            {
+                                ++state.voice_faults;
+                                if (voice_fault_streak < 6)
+                                    ++voice_fault_streak;
+                            }
+                            state.voice_retry_ms = hb_voice_retry_delay_ms(voice_fault_streak);
+                            voice_next_ms = now_ms() + state.voice_retry_ms;
+                        }
+                        const hb_id_person *person = hb_id_find(database, match.person_id);
+                        const char *candidate = match.state == HB_VOICE_KNOWN && person ? person->name
+                                                : match.state == HB_VOICE_AMBIGUOUS     ? "AMBIGUOUS"
+                                                : match.state == HB_VOICE_UNKNOWN       ? "UNKNOWN"
+                                                                                        : "UNAVAILABLE";
+                        snprintf(state.message, sizeof(state.message),
+                                 "Głos TEST: %s | best %.3f / second %.3f", candidate,
+                                 (double)match.best, (double)match.second);
+                        voice_testing = false;
+                    }
                 }
                 else if (voice_enrollment)
                 {
@@ -901,6 +912,12 @@ static void worker(void *)
                 }
             }
             memset(&voice_result, 0, sizeof(voice_result));
+        }
+        if (voice_auto_until && voice_pending && !hb_voice_capture_busy() &&
+            !hb_voice_capture_result_pending())
+        {
+            voice_pending = false;
+            voice_next_ms = now_ms() + 1000;
         }
         if (voice_enrollment && voice_enrollment->deadline_ms &&
             now_ms() > voice_enrollment->deadline_ms)

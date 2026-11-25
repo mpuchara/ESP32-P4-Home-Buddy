@@ -177,8 +177,8 @@ bool hb_voice_onset_feed(hb_voice_onset *o, const int16_t *pcm, size_t n)
     uint32_t power = (uint32_t)((square * (int64_t)n - sum * sum) / (int64_t)(n * n));
     if (!o->noise_power)
         o->noise_power = 10000;
-    bool clean = clipped <= n / 20 && sum / (int64_t)n < 8000 &&
-                 sum / (int64_t)n > -8000 && changes > n / 4;
+    bool clean =
+        clipped <= n / 20 && sum / (int64_t)n < 8000 && sum / (int64_t)n > -8000 && changes > n / 4;
     // Reject very fast sign changes at onset; this is not a speech classifier.
     bool candidate = clean && crossings >= 2 && crossings <= n / 4 && power >= 40000 &&
                      power >= 4 * o->noise_power;
