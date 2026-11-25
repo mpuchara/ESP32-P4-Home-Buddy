@@ -131,14 +131,27 @@ int main(void)
     e = sample(.05f);
     assert(hb_household_voice_sample(&en, &face, &voice, &e, 7, 20000, 20001, true) == HB_VEN_OK);
     assert(hb_household_voice_commit(&en, &face, &voice, 7, 20002) == HB_VEN_OK);
-    assert(hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000,
-                                         24001).person_id == id);
-    assert(hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000,
-                                         30001).state == HB_VOICE_UNAVAILABLE);
+    assert(hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000, 24001)
+               .person_id == id);
+    assert(hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000, 30001)
+               .state == HB_VOICE_UNAVAILABLE);
     assert(!hb_voice_accepted(&accepted, &provisional));
     face.people[0].enabled = false;
-    assert(hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000,
-                                         24001).state == HB_VOICE_UNAVAILABLE);
+    assert(hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000, 24001)
+               .state == HB_VOICE_UNAVAILABLE);
+    uint64_t other_id = hb_id_create(&face, "Second");
+    voice.people[1] = voice.people[0];
+    voice.people[1].id = other_id;
+    assert(hb_household_voice_trial_match(&face, &voice, &e, true, true, &provisional, 24000, 24001)
+               .person_id == other_id);
+    hb_household_voice_reconcile(&face, &voice);
+    assert(hb_household_voice_count(&voice, id) == 4);
+    hb_voice_match trial = hb_household_voice_trial_match(&face, &voice, &e, true, true,
+                                                          &provisional, 24000, 24001);
+    memset(&tracker, 0, sizeof(tracker));
+    assert(!hb_household_voice_trial_confirm(&tracker, trial, &provisional, 9, 24000, 24001));
+    assert(hb_household_voice_trial_confirm(&tracker, trial, &provisional, 9, 28000, 28001));
+    assert(!hb_household_voice_trial_confirm(&tracker, trial, &provisional, 10, 32000, 32001));
     puts("Household voice: gates, four staged samples, fresh verification, conflict, rename, "
          "independent re-enrollment, delete, cancellation, timeout passed");
 }

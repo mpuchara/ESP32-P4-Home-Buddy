@@ -23,7 +23,8 @@ static uint32_t capture_epoch;
 static hb_voice_capture_result result_mailbox;
 static bool result_pending;
 static hb_voice_readiness last_report;
-static bool report_ready;
+static bool report_ready, standalone_ready;
+static hb_voice_readiness standalone_report;
 static int64_t inference_deadline;
 bool hb_voice_diagnostic_report(hb_voice_readiness *out)
 {
@@ -33,6 +34,17 @@ bool hb_voice_diagnostic_report(hb_voice_readiness *out)
     bool present = report_ready;
     if (present)
         *out = last_report;
+    portEXIT_CRITICAL(&status_lock);
+    return present;
+}
+bool hb_voice_diagnostic_standalone_report(hb_voice_readiness *out)
+{
+    if (!out)
+        return false;
+    portENTER_CRITICAL(&status_lock);
+    bool present = standalone_ready;
+    if (present)
+        *out = standalone_report;
     portEXIT_CRITICAL(&status_lock);
     return present;
 }
@@ -189,6 +201,11 @@ static void worker(void *)
     portENTER_CRITICAL(&status_lock);
     last_report = report;
     report_ready = true;
+    if (report.standalone)
+    {
+        standalone_report = report;
+        standalone_ready = true;
+    }
     if (capture_epoch && !cancelled.load())
     {
         result_mailbox.epoch = capture_epoch;
@@ -226,6 +243,8 @@ static esp_err_t start(unsigned selected, uint32_t epoch)
     memset(&result_mailbox, 0, sizeof(result_mailbox));
     result_pending = false;
     report_ready = false;
+    if (!epoch)
+        standalone_ready = false;
     portEXIT_CRITICAL(&status_lock);
     cancelled.store(false);
     ready.store(false);

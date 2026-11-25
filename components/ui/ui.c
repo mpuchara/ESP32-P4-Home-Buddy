@@ -54,7 +54,7 @@ static lv_obj_t *network_list;
 static char displayed_networks[300];
 static lv_obj_t *page_error, *profile_enable_button;
 static lv_obj_t *system_info;
-static lv_obj_t *test_banner;
+static lv_obj_t *test_banner, *voice_banner, *voice_switch;
 static uint32_t image_since;
 static char service_state[3][128];
 static int section;
@@ -242,10 +242,14 @@ static void close_page(void)
     calibration_request = 0;
     calibration = 0;
     brightness_manual = brightness_day = brightness_night = NULL;
+    if (audio_info)
+    {
+        hb_voice_diagnostic_stop();
+        hb_audio_stop();
+    }
     audio_testing = false;
-    hb_voice_diagnostic_stop();
-    hb_audio_stop();
     audio_info = NULL;
+    voice_switch = NULL;
     identity_saver_intent = false;
     ha_enable = ha_publish = ha_tls = ha_info = ha_mode = NULL;
     identity_info = identity_choice = identity_box = profile_enable_button = NULL;
@@ -441,6 +445,13 @@ static void audio_page(lv_event_t *e)
 {
     (void)e;
     page_base("Mikrofon: diagnostyka");
+    hb_id_status *s = &identity_workspace.page;
+    hb_identity_get(s);
+    if (s->voice_auto)
+    {
+        hb_id_command off = {.type = HB_ID_CMD_VOICE_OFF};
+        hb_identity_command(&off);
+    }
     button(page, "Uruchom test 60 s", 24, 70, 350, audio_start, NULL);
     button(page, "Stop", 400, 70, 230, audio_stop, NULL);
     audio_meter = lv_bar_create(page);
@@ -453,6 +464,15 @@ static void audio_page(lv_event_t *e)
     button(page, "Model 3 s: slot L", 24, 350, 350, voice_test, (void *)(uintptr_t)0);
     button(page, "Model 3 s: slot R", 412, 350, 364, voice_test, (void *)(uintptr_t)1);
 }
+static void voice_auto_toggle(lv_event_t *e)
+{
+    (void)e;
+    hb_id_status *s = &identity_workspace.page;
+    hb_identity_get(s);
+    hb_id_command command = {.type = s->voice_auto ? HB_ID_CMD_VOICE_OFF : HB_ID_CMD_VOICE_AUTO};
+    if (hb_identity_command(&command) != ESP_OK)
+        form_error("Polecenie głosu nieprzyjęte");
+}
 static void recognition_page(lv_event_t *e)
 {
     (void)e;
@@ -462,8 +482,7 @@ static void recognition_page(lv_event_t *e)
     button(page, "Włącz automatyczne", 412, 78, 364, identity_send,
            (void *)(uintptr_t)HB_ID_CMD_AUTO);
     button(page, "Dodaj domownika", 24, 350, 350, household_page, NULL);
-    lv_obj_t *voice_switch = button(page, "Głos: lokalny TEST w profilu", 412, 350, 364, NULL, NULL);
-    lv_obj_add_state(voice_switch, LV_STATE_DISABLED);
+    voice_switch = button(page, "Głos TEST: start 10 min", 412, 350, 364, voice_auto_toggle, NULL);
     identity_info = label(page, "Oczekiwanie na stan", LV_ALIGN_TOP_LEFT, 24, 160);
     lv_obj_set_width(identity_info, 745);
     lv_obj_set_pos(page_error, 24, 410);
@@ -760,6 +779,13 @@ static void identity_update(void)
     identity_tick = lv_tick_get();
     hb_id_status *s = &identity_workspace.refresh;
     hb_identity_get(s);
+    if (voice_banner)
+    {
+        if (s->voice_auto)
+            lv_obj_clear_flag(voice_banner, LV_OBJ_FLAG_HIDDEN);
+        else
+            lv_obj_add_flag(voice_banner, LV_OBJ_FLAG_HIDDEN);
+    }
     if (creating_profile)
     {
         if (s->created_id && s->created_id != created_before)
@@ -874,14 +900,26 @@ static void identity_update(void)
                            : s->mode == HB_ID_AUTO && s->ready ? "Aktywne"
                            : s->mode == HB_ID_AUTO             ? "Niedostępne / uruchamianie"
                                                                : "Wyłączone";
+        const char *candidate = "Brak wyniku";
+        if (s->voice_match.state == HB_ID_AMBIGUOUS)
+            candidate = "AMBIGUOUS";
+        else if (s->voice_match.state == HB_ID_UNKNOWN)
+            candidate = "UNKNOWN";
+        for (unsigned i = 0; i < s->profile_count; ++i)
+            if (s->voice_match.person_id && s->profiles[i].id == s->voice_match.person_id)
+                candidate = s->profiles[i].name;
+        if (voice_switch)
+            lv_label_set_text(lv_obj_get_child(voice_switch, 0),
+                              s->voice_auto ? "Głos TEST: stop" : "Głos TEST: start 10 min");
         lv_label_set_text_fmt(identity_info,
-                              "Automatyczne rozpoznawanie: %s\nStatus: %s\nDomownicy: %u\nOstatnio "
-                              "rozpoznano: %s\nModel: %s\n%s",
+                              "Twarz AUTO: %s | %s\nDomownicy: %u | Ostatnio: %s\n"
+                              "Głos TEST: %s | %s\nKandydat: %s (%s)\n%s",
                               s->auto_enabled ? "Włączone" : "Wyłączone", mode, s->profile_count,
                               s->last_recognized_ms ? s->last_recognized : "Brak",
-                              s->ready ? "Dostępny" : "Niezaładowany",
-                              s->usable_profiles ? ""
-                                                 : "Dodaj domownika, aby rozpocząć rozpoznawanie.");
+                              s->voice_auto ? "Nasłuch" : "Wyłączony",
+                              s->voice_available ? "Model gotowy" : "Wymagany test L/R",
+                              candidate, s->voice_confirmed ? "2 próbki" : "bez potwierdzenia",
+                              s->voice_auto ? "" : s->message);
         return;
     }
     if (!identity_screen)
@@ -2050,6 +2088,10 @@ static void screens(void)
     lv_obj_set_style_bg_color(test_banner, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(test_banner, 180, 0);
     lv_obj_add_flag(test_banner, LV_OBJ_FLAG_HIDDEN);
+    voice_banner = label(saver, "MIKROFON: TEST", LV_ALIGN_TOP_RIGHT, -16, 16);
+    lv_obj_set_style_bg_color(voice_banner, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(voice_banner, 180, 0);
+    lv_obj_add_flag(voice_banner, LV_OBJ_FLAG_HIDDEN);
     clock_label = label(saver, "--:--", LV_ALIGN_BOTTOM_LEFT, 24, -18);
     temp_label = label(saver, "--°C", LV_ALIGN_BOTTOM_RIGHT, -24, -18);
     lv_obj_set_style_text_font(clock_label, &lv_font_montserrat_48, 0);

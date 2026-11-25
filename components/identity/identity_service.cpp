@@ -66,16 +66,19 @@ static const hb_voice_policy voice_policy{false, 0.65f, 0.10f, 0.55f, 0.9995f, 2
 static uint32_t voice_epoch = 1;
 static bool voice_verifying, voice_testing, voice_pending;
 static int voice_slot = -1;
+static uint64_t voice_auto_until, voice_next_ms;
+static hb_voice_tracker voice_tracker{};
 static bool voice_trial_ready()
 {
 #if CONFIG_HB_VOICE_MANUAL_TRIAL
     hb_voice_readiness report{};
-    if (hb_voice_diagnostic_report(&report) && report.standalone)
+    voice_slot = -1;
+    if (hb_voice_diagnostic_standalone_report(&report) && report.standalone)
     {
         voice_slot = report.error == ESP_OK && report.slot < 2 && report.sample_rate == 16000 &&
-                             report.samples == HB_VOICE_SAMPLES && report.dimensions == HB_VOICE_DIM &&
-                             report.rms && report.peak && !report.suspicious &&
-                             report.callback_detached && report.pcm_released
+                             report.samples == HB_VOICE_SAMPLES &&
+                             report.dimensions == HB_VOICE_DIM && report.rms && report.peak &&
+                             !report.suspicious && report.callback_detached && report.pcm_released
                          ? (int)report.slot
                          : -1;
     }
@@ -124,6 +127,9 @@ static void publish(hb_id_status &s)
         }
     s.psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     s.voice_available = voice_trial_ready();
+    s.voice_auto = voice_auto_until != 0;
+    s.voice_deadline_ms = voice_auto_until;
+    s.voice_pending = voice_pending;
     s.voice_enrollment_state = voice_enrollment ? voice_enrollment->state : HB_VEN_IDLE;
     s.voice_enrollment_samples = voice_enrollment ? voice_enrollment->staging.count : 0;
     s.psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
@@ -134,6 +140,42 @@ static void publish(hb_id_status &s)
     xSemaphoreGive(guard);
 }
 
+static void clear_voice_result(hb_id_status &s)
+{
+    voice_tracker = {};
+    s.voice_match = {HB_ID_UNAVAILABLE, 0, -1, -1};
+    s.voice_confirmed = false;
+    s.voice_end_ms = 0;
+    s.voice_session = 0;
+}
+static void stop_voice(hb_id_status &s)
+{
+    hb_voice_diagnostic_stop();
+    hb_household_voice_cancel(voice_enrollment);
+    ++voice_epoch;
+    voice_pending = voice_testing = false;
+    voice_auto_until = voice_next_ms = 0;
+    clear_voice_result(s);
+}
+static hb_id_match voice_status_match(hb_voice_match m)
+{
+    hb_id_state status = HB_ID_UNAVAILABLE;
+    switch (m.state)
+    {
+    case HB_VOICE_KNOWN:
+        status = HB_ID_KNOWN;
+        break;
+    case HB_VOICE_AMBIGUOUS:
+        status = HB_ID_AMBIGUOUS;
+        break;
+    case HB_VOICE_UNKNOWN:
+        status = HB_ID_UNKNOWN;
+        break;
+    case HB_VOICE_UNAVAILABLE:
+        break;
+    }
+    return {status, m.person_id, m.best, m.second};
+}
 static void identity_events(const hb_id_status &s)
 {
     static hb_presence_tracker presence{};
@@ -768,13 +810,21 @@ static void worker(void *)
 #endif
     for (;;)
     {
+        if (voice_auto_until &&
+            (now_ms() >= voice_auto_until || !voice_trial_ready() ||
+             !hb_household_voice_mask(database, voice_database)))
+        {
+            stop_voice(state);
+            state.mode = resting_mode(state.auto_enabled);
+            message(state, "Głos TEST: koniec nasłuchu");
+        }
         static hb_voice_capture_result voice_result;
         if (hb_voice_capture_take(&voice_result))
         {
             if (voice_pending && voice_result.epoch == voice_epoch && !stop_requested.load())
             {
                 voice_pending = false;
-                if (voice_testing)
+                if (voice_testing || voice_auto_until)
                 {
                     auto match = voice_result.error == ESP_OK
                                      ? hb_household_voice_trial_match(
@@ -782,11 +832,18 @@ static void worker(void *)
                                            voice_trial_ready(), hb_config_biometric_notice(),
                                            &voice_policy, voice_result.end_ms, now_ms())
                                      : hb_voice_match{HB_VOICE_UNAVAILABLE, 0, -1, -1};
+                    state.voice_match = voice_status_match(match);
+                    state.voice_end_ms = voice_result.end_ms;
+                    state.voice_session = epoch.load();
+                    state.voice_confirmed =
+                        voice_auto_until && hb_household_voice_trial_confirm(
+                                                &voice_tracker, match, &voice_policy, voice_epoch,
+                                                voice_result.end_ms, now_ms());
+                    voice_next_ms = now_ms() + 300;
                     const hb_id_person *person = hb_id_find(database, match.person_id);
-                    const char *candidate = match.state == HB_VOICE_KNOWN && person
-                                                ? person->name
-                                                : match.state == HB_VOICE_AMBIGUOUS ? "AMBIGUOUS"
-                                                  : match.state == HB_VOICE_UNKNOWN ? "UNKNOWN"
+                    const char *candidate = match.state == HB_VOICE_KNOWN && person ? person->name
+                                            : match.state == HB_VOICE_AMBIGUOUS     ? "AMBIGUOUS"
+                                            : match.state == HB_VOICE_UNKNOWN       ? "UNKNOWN"
                                                                                     : "UNAVAILABLE";
                     snprintf(state.message, sizeof(state.message),
                              "Głos TEST: %s | best %.3f / second %.3f", candidate,
@@ -798,8 +855,8 @@ static void worker(void *)
                     auto result = voice_result.error == ESP_OK
                                       ? hb_household_voice_sample(
                                             voice_enrollment, database, voice_database,
-                                            &voice_result.embedding, voice_epoch, voice_result.end_ms,
-                                            now_ms(), voice_verifying)
+                                            &voice_result.embedding, voice_epoch,
+                                            voice_result.end_ms, now_ms(), voice_verifying)
                                       : HB_VEN_SAMPLE;
                     message(state, hb_household_voice_error(result));
                 }
@@ -809,18 +866,12 @@ static void worker(void *)
         if (voice_enrollment && voice_enrollment->deadline_ms &&
             now_ms() > voice_enrollment->deadline_ms)
         {
-            hb_voice_diagnostic_stop();
-            hb_household_voice_cancel(voice_enrollment);
-            ++voice_epoch;
-            voice_pending = voice_testing = false;
+            stop_voice(state);
         }
         if (stop_requested.exchange(false))
         {
             profile_pause = false;
-            hb_voice_diagnostic_stop();
-            hb_household_voice_cancel(voice_enrollment);
-            ++voice_epoch;
-            voice_pending = voice_testing = false;
+            stop_voice(state);
             memset(enrollment, 0, sizeof(*enrollment));
             state.mode = HB_ID_STOP;
             state.confirmed = false;
@@ -844,12 +895,13 @@ static void worker(void *)
             if (c.type != HB_ID_CMD_ENABLE && c.type != HB_ID_CMD_RETRY_SAVE &&
                 c.type != HB_ID_CMD_NOTICE_ACK)
                 profile_pause = false;
-            if (c.type < HB_ID_CMD_VOICE_BEGIN || c.type == HB_ID_CMD_ENABLE)
+            if (c.type < HB_ID_CMD_VOICE_BEGIN || c.type == HB_ID_CMD_ENABLE ||
+                c.type == HB_ID_CMD_VOICE_OFF || c.type == HB_ID_CMD_VOICE_BEGIN ||
+                c.type == HB_ID_CMD_VOICE_AUTO)
             {
-                hb_voice_diagnostic_stop();
-                hb_household_voice_cancel(voice_enrollment);
-                ++voice_epoch;
-                voice_pending = voice_testing = false;
+                if (voice_auto_until)
+                    state.mode = resting_mode(state.auto_enabled);
+                stop_voice(state);
             }
             if (c.type == HB_ID_CMD_EVALUATE)
             {
@@ -892,7 +944,8 @@ static void worker(void *)
             hb_id_tracker_reset(&tracker, epoch.load());
             evaluate = false;
             if ((c.type == HB_ID_CMD_CREATE || c.type == HB_ID_CMD_BEGIN ||
-                 c.type == HB_ID_CMD_VOICE_BEGIN || c.type == HB_ID_CMD_VOICE_TEST) &&
+                 c.type == HB_ID_CMD_VOICE_BEGIN || c.type == HB_ID_CMD_VOICE_TEST ||
+                 c.type == HB_ID_CMD_VOICE_AUTO) &&
                 !hb_config_biometric_notice())
             {
                 message(state, "Najpierw potwierdź lokalny zapis bez szyfrowania");
@@ -999,9 +1052,24 @@ static void worker(void *)
                 else
                     message(state, hb_household_voice_error(HB_VEN_GATED));
                 break;
+            case HB_ID_CMD_VOICE_OFF:
+                message(state, "Głos TEST: wyłączony");
+                break;
+            case HB_ID_CMD_VOICE_AUTO:
+                if (!voice_trial_ready() || !hb_household_voice_mask(database, voice_database))
+                {
+                    message(state, "Głos TEST: wymagany test modelu i aktywny profil głosowy");
+                    break;
+                }
+                state.mode = HB_ID_STOP;
+                profile_pause = false;
+                voice_auto_until = now_ms() + 600000;
+                voice_next_ms = now_ms();
+                message(state, "Głos TEST: nasłuch przez 10 minut");
+                break;
             case HB_ID_CMD_VOICE_TEST:
             {
-                if (!voice_trial_ready() || voice_pending ||
+                if (voice_auto_until || !voice_trial_ready() || voice_pending ||
                     (voice_enrollment && voice_enrollment->deadline_ms))
                 {
                     message(state, "Zakończ rejestrację albo zaczekaj na próbkę");
@@ -1470,6 +1538,13 @@ static void worker(void *)
             epoch.fetch_add(1);
         }
         enrollment_active.store(state.mode == HB_ID_ENROLL);
+        if (voice_auto_until && !voice_pending && now_ms() >= voice_next_ms &&
+            !stop_requested.load() && !uxQueueMessagesWaiting(jobs))
+        {
+            auto err = hb_voice_capture_start((unsigned)voice_slot, voice_epoch);
+            voice_pending = err == ESP_OK;
+            voice_next_ms = now_ms() + (voice_pending ? 300 : 1000);
+        }
         publish(state);
         identity_events(state);
         static uint64_t health_at;
@@ -1558,7 +1633,7 @@ esp_err_t hb_identity_start(void)
 }
 esp_err_t hb_identity_command(const hb_id_command *c)
 {
-    if (!c || (unsigned)c->type > HB_ID_CMD_VOICE_TEST || !memchr(c->name, 0, HB_ID_NAME))
+    if (!c || (unsigned)c->type > HB_ID_CMD_VOICE_OFF || !memchr(c->name, 0, HB_ID_NAME))
         return ESP_ERR_INVALID_ARG;
     esp_err_t start = hb_identity_start();
     if (start)
@@ -1601,6 +1676,14 @@ void hb_identity_get(hb_id_status *out)
     xSemaphoreTake(guard, portMAX_DELAY);
     *out = published;
     xSemaphoreGive(guard);
+    if (out->voice_session != epoch.load() || !out->voice_end_ms ||
+        out->voice_end_ms > now_ms() || now_ms() - out->voice_end_ms > 5000)
+    {
+        out->voice_confirmed = false;
+        out->voice_match = {HB_ID_UNAVAILABLE, 0, -1, -1};
+    }
+    if (out->voice_auto && now_ms() >= out->voice_deadline_ms)
+        out->voice_auto = false;
     if (out->session != epoch.load() || !out->completed_ms || !out->frame_ms ||
         out->frame_ms > now_ms() || now_ms() - out->frame_ms > 5000 ||
         now_ms() - out->completed_ms > 5000)

@@ -21,8 +21,7 @@ The trial threshold .65, margin .10, agreement .55, duplicate .9995 are engineer
 starting values, not calibrated. Manual single-window candidates do not produce
 confirmed identity, greetings, HA events or fused scores. The production speech
 selection, model/numerical/resource and accuracy gates are not closed. TV/music and
-multiple speakers remain unvalidated. Any disabled/orphaned voice profile currently
-blocks the trial comparison (fail closed); a filtered matcher is a follow-up.
+multiple speakers remain unvalidated. Disabled/orphaned slots are excluded without blocking other profiles.
 A capture result more than five seconds old fails closed; measure real device
 inference before changing this policy. Voice profile data is local and follows
 the existing storage security setting; no new dependencies or model asset.
@@ -33,3 +32,15 @@ reboot/persistence, cancellation, silence, television, overlapping speakers,
 noise, timings and heap. Then add validated VAD and voice confirmation, followed
 by session-aligned face/voice scoring with explicit conflict and missing-modality
 handling. Do not average raw cosine values from different models.
+
+## Automatic voice-only trial (0.14.1)
+
+Recognition > Głos TEST: start 10 min starts a bounded local session after a
+successful standalone diagnostic and at least one enabled voice profile. Face
+processing stops during this test and resumes prior AUTO preference on timeout
+or Voice Off. The worker re-arms after results/silence using the experimental
+activity gate. The current candidate is visible in Recognition, with provisional
+confirmation after two independent windows; the saver shows a microphone TEST
+indicator. No auto-start on reboot, voice events/greetings/HA, fusion or production
+acceptance. Stop and identity administration cancel capture and clear the trial.
+Disabled voice profiles are excluded without erasing enrolled vectors.

@@ -6,6 +6,7 @@ int main()
     hb_voice_capture_result result{};
     hb_voice_readiness report{};
     assert(!hb_voice_diagnostic_report(&report));
+    assert(!hb_voice_diagnostic_standalone_report(&report));
     diag_fake::reset();
     assert(hb_voice_capture_start(2, 7) == ESP_ERR_INVALID_ARG);
     assert(hb_voice_capture_start(0, 0) == ESP_ERR_INVALID_ARG);
@@ -28,6 +29,12 @@ int main()
         diag_fake::run();
         assert(!hb_voice_capture_take(&result));
     }
+    assert(hb_voice_diagnostic_standalone_report(&report) && report.standalone);
+    diag_fake::reset();
+    assert(hb_voice_capture_start(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(hb_voice_capture_take(&result));
+    assert(hb_voice_diagnostic_standalone_report(&report) && report.standalone);
     diag_fake::reset();
     assert(hb_voice_capture_start(0, 7) == ESP_OK);
     hb_voice_diagnostic_stop();

@@ -236,18 +236,19 @@ void hb_voice_delete(hb_voice_database *db, uint64_t id)
             if (db->people[i].id == id)
                 memset(&db->people[i], 0, sizeof(db->people[i]));
 }
-hb_voice_match hb_voice_identify(const hb_voice_database *db, const hb_voice_embedding *e,
-                                 const hb_voice_policy *p)
+hb_voice_match hb_voice_identify_masked(const hb_voice_database *db, const hb_voice_embedding *e,
+                                        const hb_voice_policy *p, uint32_t mask)
 {
     hb_voice_match r = {HB_VOICE_UNAVAILABLE, 0, -1, -1};
-    if (!hb_voice_database_valid(db) || !valid(e) || !hb_voice_policy_valid(p))
+    if (!mask || !hb_voice_database_valid(db) || !valid(e) || !hb_voice_policy_valid(p))
         return r;
     uint64_t best_id = 0;
     bool winner_agrees = false;
     for (unsigned i = 0; i < HB_VOICE_PEOPLE; ++i)
     {
         const hb_voice_person *person = &db->people[i];
-        if (!person->id || person->count < 3 || person->count > HB_VOICE_TEMPLATES)
+        if (!(mask & (1u << i)) || !person->id || person->count < 3 ||
+            person->count > HB_VOICE_TEMPLATES)
             continue;
         float best = -1;
         unsigned agree = 0;
@@ -280,6 +281,11 @@ hb_voice_match hb_voice_identify(const hb_voice_database *db, const hb_voice_emb
             r.person_id = best_id;
     }
     return r;
+}
+hb_voice_match hb_voice_identify(const hb_voice_database *db, const hb_voice_embedding *e,
+                                 const hb_voice_policy *p)
+{
+    return hb_voice_identify_masked(db, e, p, UINT32_MAX);
 }
 bool hb_voice_confirm(hb_voice_tracker *t, hb_voice_match m, uint32_t epoch, uint64_t end,
                       uint64_t now, const hb_voice_policy *p)

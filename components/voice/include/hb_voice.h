@@ -31,6 +31,7 @@ extern "C"
     } hb_voice_readiness;
     // Numeric result of the last completed attempt; no PCM/templates or identity claim.
     bool hb_voice_diagnostic_report(hb_voice_readiness *out);
+    bool hb_voice_diagnostic_standalone_report(hb_voice_readiness *out);
     typedef struct
     {
         uint32_t epoch;

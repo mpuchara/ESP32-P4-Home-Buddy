@@ -92,6 +92,8 @@ extern "C"
     void hb_voice_delete(hb_voice_database *db, uint64_t id);
     hb_voice_match hb_voice_identify(const hb_voice_database *db, const hb_voice_embedding *e,
                                      const hb_voice_policy *policy);
+    hb_voice_match hb_voice_identify_masked(const hb_voice_database *, const hb_voice_embedding *,
+                                            const hb_voice_policy *, uint32_t mask);
     bool hb_voice_confirm(hb_voice_tracker *tracker, hb_voice_match match, uint32_t epoch,
                           uint64_t end_ms, uint64_t now_ms, const hb_voice_policy *policy);
 #ifdef __cplusplus
