@@ -56,10 +56,10 @@ static float support(hb_id_match match, hb_fusion_evidence e)
 }
 static bool usable(hb_id_match m, hb_fusion_evidence e)
 {
-    return m.state == HB_ID_KNOWN && m.person_id && unit(e.quality) > 0 &&
-           isfinite(m.best) && isfinite(m.second) && isfinite(e.threshold) &&
-           isfinite(e.margin) && e.threshold > 0 && e.threshold < 1 && e.margin > 0 &&
-           e.margin < 1 && m.best >= e.threshold && m.best - m.second >= e.margin;
+    return m.state == HB_ID_KNOWN && m.person_id && unit(e.quality) > 0 && isfinite(m.best) &&
+           isfinite(m.second) && isfinite(e.threshold) && isfinite(e.margin) && e.threshold > 0 &&
+           e.threshold < 1 && e.margin > 0 && e.margin < 1 && m.best >= e.threshold &&
+           m.best - m.second >= e.margin;
 }
 hb_fusion_trial hb_identity_trial_fuse(const hb_identity_fusion_input *in, uint32_t session,
                                        uint64_t now, hb_fusion_evidence face,

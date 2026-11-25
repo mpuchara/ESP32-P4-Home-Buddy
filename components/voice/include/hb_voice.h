@@ -25,7 +25,7 @@ extern "C"
     {
         esp_err_t error;
         unsigned slot, dimensions;
-        uint32_t sample_rate, samples, rms, peak, clipped;
+        uint32_t sample_rate, samples, rms, peak, clipped, active_samples;
         bool suspicious, callback_detached, pcm_released, standalone;
         hb_voice_metrics model;
     } hb_voice_readiness;

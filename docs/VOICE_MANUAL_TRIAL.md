@@ -59,3 +59,9 @@ Stale evidence and session changes are rejected. The existing face event path
 is paused during this shadow trial and resumes afterward; no VOICE or BOTH
 identity event is emitted. Neither calibration nor physical co-residency is
 claimed. No production VAD or replay/speaker-overlap acceptance yet.
+
+0.14.3 hardening: whole-window activity quality (not last-frame silence), automatic
+capture bound to the face session at start, cancellation-aware diagnostic receipt,
+local saver candidate only after trial confirmation. No raw audio or network event.
+The test session is limited to ten minutes, with gaps during inference/rearming.
+Full microphone/VAD/co-residency accuracy and timing still require physical trials.

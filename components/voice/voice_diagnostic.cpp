@@ -146,6 +146,7 @@ static void worker(void *)
         hb_audio_detach_consumer(consume, nullptr);
         report.callback_detached = true;
         report.samples = gate.samples;
+        report.active_samples = gate.active_samples;
         if (!ready.load() || cancelled.load())
             err = ESP_ERR_INVALID_STATE;
     }
@@ -199,6 +200,11 @@ static void worker(void *)
              (unsigned long)metrics.internal_low, (unsigned long)metrics.psram_low,
              (unsigned long)metrics.stack_min);
     portENTER_CRITICAL(&status_lock);
+    if (cancelled.load())
+    {
+        report.error = ESP_ERR_INVALID_STATE;
+        report.dimensions = 0;
+    }
     last_report = report;
     report_ready = true;
     if (report.standalone)
@@ -214,8 +220,7 @@ static void worker(void *)
         if (err == ESP_OK)
         {
             result_mailbox.embedding = embedding;
-            if (!report.suspicious && !report.clipped && report.rms)
-                result_mailbox.quality = (float)gate.active_samples / HB_VOICE_SAMPLES;
+            result_mailbox.quality = (float)report.active_samples / HB_VOICE_SAMPLES;
         }
         result_pending = true;
     }

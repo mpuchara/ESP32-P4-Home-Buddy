@@ -17,10 +17,12 @@ int main()
     assert(hb_voice_diagnostic_report(&report) && report.error == ESP_OK);
     assert(report.slot == 0 && report.sample_rate == 16000 && report.samples == HB_VOICE_SAMPLES);
     assert(report.dimensions == 512 && report.rms == 1700 && report.peak == 3000);
+    assert(report.active_samples == HB_VOICE_SAMPLES);
     assert(report.callback_detached && report.pcm_released);
     assert(hb_voice_capture_start(0, 7) ==
            ESP_ERR_INVALID_STATE); // Pending result cannot be overwritten.
     assert(hb_voice_capture_take(&result) && result.epoch == 7 && result.embedding.v[0] == 1);
+    assert(result.quality == 1.0f);
     assert(!hb_voice_capture_take(&result));
     for (unsigned i = 0; i < 10; ++i)
     {

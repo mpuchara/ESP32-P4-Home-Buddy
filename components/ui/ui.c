@@ -482,9 +482,9 @@ static void recognition_page(lv_event_t *e)
     button(page, "Wyłącz", 24, 78, 350, identity_send, (void *)(uintptr_t)HB_ID_CMD_STOP);
     button(page, "Włącz automatyczne", 412, 78, 364, identity_send,
            (void *)(uintptr_t)HB_ID_CMD_AUTO);
-    fusion_switch = button(page, "Twarz + głos TEST", 24, 350, 350, voice_auto_toggle,
-                           (void *)1);
-    voice_switch = button(page, "Głos TEST: start 10 min", 412, 350, 364, voice_auto_toggle, NULL);
+    button(page, "Dodaj domownika", 24, 350, 240, household_page, NULL);
+    fusion_switch = button(page, "Twarz + głos TEST", 280, 350, 240, voice_auto_toggle, (void *)1);
+    voice_switch = button(page, "Głos TEST: start", 536, 350, 240, voice_auto_toggle, NULL);
     identity_info = label(page, "Oczekiwanie na stan", LV_ALIGN_TOP_LEFT, 24, 160);
     lv_obj_set_width(identity_info, 745);
     lv_obj_set_pos(page_error, 24, 410);
@@ -784,7 +784,22 @@ static void identity_update(void)
     if (voice_banner)
     {
         if (s->voice_auto)
+        {
+            uint64_t id = 0;
+            if (s->fusion_trial && s->fusion.decision.status == HB_FUSION_CONFIRMED)
+                id = s->fusion.decision.person_id;
+            else if (!s->fusion_trial && s->voice_confirmed)
+                id = s->voice_match.person_id;
+            const char *name = NULL;
+            for (unsigned i = 0; i < s->profile_count; ++i)
+                if (id && s->profiles[i].id == id && s->profiles[i].enabled)
+                    name = s->profiles[i].name;
+            if (name)
+                lv_label_set_text_fmt(voice_banner, "TEST: %s", name);
+            else
+                lv_label_set_text(voice_banner, "MIKROFON: TEST");
             lv_obj_clear_flag(voice_banner, LV_OBJ_FLAG_HIDDEN);
+        }
         else
             lv_obj_add_flag(voice_banner, LV_OBJ_FLAG_HIDDEN);
     }
@@ -912,7 +927,7 @@ static void identity_update(void)
                 candidate = s->profiles[i].name;
         if (voice_switch)
             lv_label_set_text(lv_obj_get_child(voice_switch, 0),
-                              s->voice_auto ? "Głos TEST: stop" : "Głos TEST: start 10 min");
+                              s->voice_auto ? "Głos TEST: stop" : "Głos TEST: start");
         if (fusion_switch)
             lv_label_set_text(lv_obj_get_child(fusion_switch, 0),
                               s->fusion_trial ? "Twarz + głos: stop" : "Twarz + głos TEST");
@@ -941,7 +956,9 @@ static void identity_update(void)
                               s->voice_auto ? "Nasłuch" : "Wyłączony",
                               s->voice_available ? "Model gotowy" : "Wymagany test L/R", candidate,
                               s->voice_confirmed ? "2 próbki" : "bez potwierdzenia",
-                              s->fusion_trial ? fusion_text : s->voice_auto ? "" : s->message);
+                              s->fusion_trial ? fusion_text
+                              : s->voice_auto ? ""
+                                              : s->message);
         return;
     }
     if (!identity_screen)

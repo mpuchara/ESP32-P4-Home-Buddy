@@ -67,6 +67,7 @@ static uint32_t voice_epoch = 1;
 static bool voice_verifying, voice_testing, voice_pending;
 static int voice_slot = -1;
 static uint64_t voice_auto_until, voice_next_ms;
+static uint32_t voice_capture_session;
 static hb_voice_tracker voice_tracker{};
 static bool voice_fusion;
 static bool voice_trial_ready()
@@ -78,8 +79,8 @@ static bool voice_trial_ready()
     {
         voice_slot = report.error == ESP_OK && report.slot < 2 && report.sample_rate == 16000 &&
                              report.samples == HB_VOICE_SAMPLES &&
-                             report.dimensions == HB_VOICE_DIM && report.rms && report.peak &&
-                             !report.suspicious && report.callback_detached && report.pcm_released
+                             report.dimensions == HB_VOICE_DIM && report.active_samples >= 32000 &&
+                             report.callback_detached && report.pcm_released
                          ? (int)report.slot
                          : -1;
     }
@@ -159,6 +160,7 @@ static void stop_voice(hb_id_status &s)
     ++voice_epoch;
     voice_pending = voice_testing = false;
     voice_auto_until = voice_next_ms = 0;
+    voice_capture_session = 0;
     voice_fusion = false;
     clear_voice_result(s);
 }
@@ -829,7 +831,12 @@ static void worker(void *)
             if (voice_pending && voice_result.epoch == voice_epoch && !stop_requested.load())
             {
                 voice_pending = false;
-                if (voice_testing || voice_auto_until)
+                if (voice_auto_until && voice_capture_session != epoch.load())
+                {
+                    clear_voice_result(state);
+                    voice_next_ms = now_ms() + 300;
+                }
+                else if (voice_testing || voice_auto_until)
                 {
                     auto match = voice_result.error == ESP_OK
                                      ? hb_household_voice_trial_match(
@@ -840,7 +847,7 @@ static void worker(void *)
                     state.voice_match = voice_status_match(match);
                     state.voice_quality = voice_result.quality;
                     state.voice_end_ms = voice_result.end_ms;
-                    state.voice_session = epoch.load();
+                    state.voice_session = voice_auto_until ? voice_capture_session : epoch.load();
                     state.voice_confirmed =
                         voice_auto_until && hb_household_voice_trial_confirm(
                                                 &voice_tracker, match, &voice_policy, voice_epoch,
@@ -1552,6 +1559,8 @@ static void worker(void *)
         {
             auto err = hb_voice_capture_start((unsigned)voice_slot, voice_epoch);
             voice_pending = err == ESP_OK;
+            if (voice_pending)
+                voice_capture_session = state.session;
             voice_next_ms = now_ms() + (voice_pending ? 300 : 1000);
         }
         if (voice_fusion)
@@ -1741,10 +1750,9 @@ void hb_identity_get(hb_id_status *out)
         float q = out->quality.valid && out->faces == 1 ? 1.0f : 0.0f;
         if (out->quality.flags)
             q *= 0.35f;
-        out->fusion = hb_identity_trial_fuse(&in, epoch.load(), now_ms(),
-                                             {policy.threshold, policy.margin, q},
-                                             {voice_policy.threshold, voice_policy.margin,
-                                              out->voice_quality});
+        out->fusion = hb_identity_trial_fuse(
+            &in, epoch.load(), now_ms(), {policy.threshold, policy.margin, q},
+            {voice_policy.threshold, voice_policy.margin, out->voice_quality});
     }
 }
 bool hb_identity_preview(uint16_t *pixels, size_t capacity, hb_id_status *out)
