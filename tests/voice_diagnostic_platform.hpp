@@ -27,7 +27,10 @@ inline bool active = false, alloc_fail = false, start_fail = false, task_fail = 
 inline bool silence = false, cancel_inference = false, invalid_embedding = false;
 inline bool speech_like = false, auto_drain = false;
 inline hb_voice_capture_result first{};
-inline unsigned drained, during_inference;
+inline unsigned drained, during_inference, stop_after, driver_starts, inference_frames;
+inline uint64_t previous_end;
+inline bool continuous_capture;
+inline bool saw_stale, saw_skipped, saw_empty;
 inline int model_error = 0, allocations = 0, detachments = 0, model_calls = 0;
 inline int64_t time_us = 1;
 inline void reset()
@@ -37,7 +40,11 @@ inline void reset()
     alloc_fail = start_fail = task_fail = silence = cancel_inference = false;
     model_error = detachments = model_calls = 0;
     invalid_embedding = speech_like = auto_drain = false;
-    drained = during_inference = 0;
+    drained = during_inference = driver_starts = 0;
+    stop_after = 4;
+    inference_frames = 151;
+    previous_end = 0;
+    continuous_capture = saw_stale = saw_skipped = saw_empty = false;
     first = {};
     time_us = 1;
 }
@@ -83,9 +90,21 @@ inline int64_t esp_timer_get_time()
 inline void vTaskDelay(unsigned ms)
 {
     diag_fake::time_us += ms * 1000;
-    if (diag_fake::auto_drain && !diag_fake::drained &&
-        hb_voice_capture_take(&diag_fake::first))
-        ++diag_fake::drained;
+    if (diag_fake::auto_drain && hb_voice_capture_take(&diag_fake::first))
+    {
+        assert(diag_fake::first.more);
+        if (diag_fake::first.no_window)
+            diag_fake::saw_empty = true;
+        else
+        {
+            assert(diag_fake::first.end_ms > diag_fake::previous_end);
+            diag_fake::previous_end = diag_fake::first.end_ms;
+            diag_fake::saw_stale |= diag_fake::first.stale;
+            diag_fake::saw_skipped |= diag_fake::first.skipped_frames > 0;
+        }
+        if (++diag_fake::drained >= diag_fake::stop_after)
+            diag_fake::active = false;
+    }
     if (diag_fake::active && diag_fake::consumer)
     {
         int16_t pcm[320] = {0};
@@ -107,7 +126,13 @@ inline esp_err_t hb_audio_start_capture(unsigned, hb_audio_consumer consumer, vo
     diag_fake::consumer = consumer;
     diag_fake::context = context;
     diag_fake::active = true;
+    ++diag_fake::driver_starts;
     return ESP_OK;
+}
+inline esp_err_t hb_audio_start_continuous(unsigned slot, hb_audio_consumer consumer, void *context)
+{
+    diag_fake::continuous_capture = true;
+    return hb_audio_start_capture(slot, consumer, context);
 }
 inline void hb_audio_get(hb_audio_status *out)
 {
@@ -137,10 +162,10 @@ inline esp_err_t hb_voice_embedding_run(const int16_t *, size_t n, uint32_t rate
                                         hb_voice_metrics *m)
 {
     assert(n == HB_VOICE_SAMPLES && rate == 16000);
-    if (diag_fake::auto_drain && diag_fake::active)
+    if (diag_fake::continuous_capture && diag_fake::active)
     {
         ++diag_fake::during_inference;
-        for (unsigned i = 0; i < 151; ++i)
+        for (unsigned i = 0; i < diag_fake::inference_frames; ++i)
             vTaskDelay(20);
     }
     else

@@ -32,6 +32,12 @@ static void exercise(int fail)
 int main(void)
 {
     assert(hb_audio_start_capture(2, NULL, NULL) == ESP_ERR_INVALID_ARG);
+    assert(hb_audio_start_continuous(0, NULL, NULL) == ESP_ERR_INVALID_ARG);
+    assert(hb_audio_start_continuous(1, consume, NULL) == ESP_OK);
+    assert(hb_audio_start() == ESP_ERR_INVALID_STATE);
+    if (!setjmp(idle_jump))
+        entry(NULL);
+    assert(!hb_audio_busy() && !resources && samples_seen == 1);
     for (int i = 0; i < 30; ++i)
         exercise(0);
     for (int fail = 1; fail <= 6; ++fail)

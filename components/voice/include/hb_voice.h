@@ -41,7 +41,9 @@ extern "C"
         float quality;  // Activity fraction, not calibrated speech confidence.
         bool no_window; // Healthy capture, no usable window; not a hardware fault.
         uint32_t processing_ms;
-        bool more; // Another result may follow in the same bounded automatic batch.
+        bool more; // The automatic stream remains active.
+        bool stale;
+        uint32_t skipped_frames; // Cumulative producer backpressure, not DMA loss.
     } hb_voice_capture_result;
     // Single-result RAM mailbox for the sole household worker. Start is explicit.
     esp_err_t hb_voice_capture_start(unsigned slot, uint32_t epoch);

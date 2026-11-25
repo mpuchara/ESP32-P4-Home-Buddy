@@ -36,6 +36,8 @@ struct AutoSlot
 };
 static AutoSlot buffers[2];
 static unsigned filling;
+static std::atomic<uint32_t> skipped_frames;
+static bool capture_gap;
 static hb_voice_onset auto_onset;
 bool hb_voice_diagnostic_report(hb_voice_readiness *out)
 {
@@ -146,13 +148,20 @@ static void consume(const int16_t *pcm, size_t n, uint32_t rate, uint64_t end_us
 static void auto_consume(const int16_t *pcm, size_t n, uint32_t rate, uint64_t end_us,
                          bool discontinuity, void *)
 {
-    if (cancelled.load() || filling >= 2)
+    if (cancelled.load())
         return;
     auto &b = buffers[filling];
-    if (discontinuity)
+    if (b.full.load())
+    {
+        ++skipped_frames;
+        capture_gap = true;
+        return;
+    }
+    if (discontinuity || capture_gap)
     {
         hb_voice_gate_reset(&b.gate);
         auto_onset.run = 0;
+        capture_gap = false;
     }
     if (auto_onset.run < 3 && (rate != 16000 || !hb_voice_onset_feed(&auto_onset, pcm, n)))
     {
@@ -174,8 +183,8 @@ static void auto_consume(const int16_t *pcm, size_t n, uint32_t rate, uint64_t e
     memcpy(b.pcm + offset, pcm, n * sizeof(int16_t));
     if (state == HB_VAD_READY)
     {
-        b.full.store(true); // Immutable until callback retirement and worker cleanup.
-        ++filling;
+        b.full.store(true); // Publish immutable PCM and timestamp to the consumer.
+        filling = (filling + 1) % 2;
         auto_onset.run = 0;
     }
 }
@@ -202,6 +211,8 @@ static void auto_worker(void *)
     result.epoch = capture_epoch;
     esp_err_t err = ESP_OK;
     filling = 0;
+    skipped_frames.store(0);
+    capture_gap = false;
     auto_onset = {};
     for (auto &b : buffers)
     {
@@ -215,60 +226,99 @@ static void auto_worker(void *)
     bool owns_audio = false;
     if (err == ESP_OK && !cancelled.load())
     {
-        err = hb_audio_start_capture(slot, auto_consume, nullptr);
+        err = hb_audio_start_continuous(slot, auto_consume, nullptr);
         owns_audio = err == ESP_OK;
     }
-    status("Głos AUTO: dwa bufory lokalne");
-    int64_t deadline = esp_timer_get_time() + 60000000;
-    unsigned processed = 0;
-    for (unsigned i = 0; owns_audio && i < 2 && !cancelled.load(); ++i)
+    status("Głos AUTO: ciągły nasłuch lokalny");
+    unsigned reading = 0;
+    int64_t heartbeat = esp_timer_get_time() + 60000000;
+    while (owns_audio && !cancelled.load())
     {
-        auto &b = buffers[i];
-        while (!cancelled.load() && !b.full.load() && hb_audio_busy() &&
-               esp_timer_get_time() < deadline)
-            vTaskDelay(pdMS_TO_TICKS(20));
-        if (cancelled.load() || !b.full.load())
+        auto &b = buffers[reading];
+        if (!hb_audio_busy())
+        {
+            err = ESP_ERR_INVALID_STATE;
             break;
+        }
+        if (!b.full.load())
+        {
+            if (esp_timer_get_time() >= heartbeat)
+            {
+                hb_audio_status audio{};
+                hb_audio_get(&audio);
+                if (!audio.available || !audio.frames || audio.errors)
+                {
+                    err = ESP_ERR_INVALID_STATE;
+                    break;
+                }
+                result = {};
+                result.epoch = capture_epoch;
+                result.error = ESP_ERR_INVALID_STATE;
+                result.no_window = true;
+                result.more = true;
+                result.skipped_frames = skipped_frames.load();
+                if (!auto_publish(result))
+                {
+                    err = ESP_ERR_TIMEOUT;
+                    break;
+                }
+                heartbeat = esp_timer_get_time() + 60000000;
+            }
+            vTaskDelay(pdMS_TO_TICKS(20));
+            continue;
+        }
         result = {};
         result.epoch = capture_epoch;
         result.end_ms = b.gate.end_ms;
         hb_voice_metrics metrics{};
-        inference_deadline = esp_timer_get_time() + 120000000;
-        // A second window can be filled by the audio task while this one is immutable.
-        err = hb_voice_embedding_run(b.pcm, HB_VOICE_SAMPLES, 16000, cancel, nullptr,
-                                     &result.embedding, &metrics);
-        if (esp_timer_get_time() > inference_deadline)
-            err = ESP_ERR_TIMEOUT;
-        inference_deadline = 0;
-        if (err == ESP_OK && !hb_voice_normalize(&result.embedding))
-            err = ESP_ERR_INVALID_STATE;
+        // Do not waste a model run on a queued window already too old to identify.
+        uint64_t now = esp_timer_get_time() / 1000;
+        bool stale = result.end_ms > now || now - result.end_ms > 5000;
+        if (!stale)
+        {
+            inference_deadline = esp_timer_get_time() + 120000000;
+            err = hb_voice_embedding_run(b.pcm, HB_VOICE_SAMPLES, 16000, cancel, nullptr,
+                                         &result.embedding, &metrics);
+            if (esp_timer_get_time() > inference_deadline)
+                err = ESP_ERR_TIMEOUT;
+            inference_deadline = 0;
+            if (err == ESP_OK && !hb_voice_normalize(&result.embedding))
+                err = ESP_ERR_INVALID_STATE;
+            now = esp_timer_get_time() / 1000;
+            stale = now < result.end_ms || now - result.end_ms > 5000;
+        }
         result.error = err;
         result.processing_ms =
             (metrics.load_us + metrics.features_us + metrics.inference_us) / 1000;
-        if (err == ESP_OK)
+        if (err == ESP_OK && !stale)
             result.quality = (float)b.gate.active_samples / HB_VOICE_SAMPLES;
         else
             memset(&result.embedding, 0, sizeof(result.embedding));
+        if (err == ESP_OK && stale)
+        {
+            result.error = ESP_ERR_INVALID_STATE;
+            result.stale = true;
+        }
+        // Release only after all reads and scrubbing; producer acquires full=false.
         memset(b.pcm, 0, HB_VOICE_SAMPLES * sizeof(int16_t));
-        ++processed;
-        if (err != ESP_OK || i == 1 || cancelled.load())
+        hb_voice_gate_reset(&b.gate);
+        b.full.store(false);
+        reading = (reading + 1) % 2;
+        if (err != ESP_OK || cancelled.load())
             break;
-        // Keep the first result fresh. The next window has only a bounded grace period.
         result.more = true;
+        result.skipped_frames = skipped_frames.load();
         if (!auto_publish(result))
+        {
+            err = ESP_ERR_TIMEOUT;
             break;
-        result = {};
-        result.epoch = capture_epoch;
-        int64_t grace = esp_timer_get_time() + 3500000;
-        if (grace < deadline)
-            deadline = grace;
+        }
+        heartbeat = esp_timer_get_time() + 60000000;
     }
-    hb_audio_status audio{};
     if (owns_audio)
     {
         hb_audio_stop();
         hb_audio_detach_consumer(auto_consume, nullptr);
-        hb_audio_get(&audio);
     }
     for (auto &b : buffers)
     {
@@ -281,19 +331,13 @@ static void auto_worker(void *)
         hb_voice_gate_reset(&b.gate);
         b.full.store(false);
     }
-    if (!result.end_ms)
-    {
-        result.error = err == ESP_OK ? ESP_ERR_INVALID_STATE : err;
-        result.no_window = owns_audio && err == ESP_OK && audio.available && audio.frames &&
-                           !audio.errors && !audio.dropped_samples;
-    }
-    result.more = false;
-    // A terminal receipt releases the household's pending flag, even after silence.
+    result = {};
+    result.epoch = capture_epoch;
+    result.error = err == ESP_OK ? ESP_ERR_INVALID_STATE : err;
+    result.skipped_frames = skipped_frames.load();
     if (!cancelled.load())
         auto_publish(result);
     memset(&result, 0, sizeof(result));
-    ESP_LOGI("voice", "VOICE_BATCH processed=%u", processed);
-    (void)processed;
     busy.store(false);
     vTaskDelete(nullptr);
 }

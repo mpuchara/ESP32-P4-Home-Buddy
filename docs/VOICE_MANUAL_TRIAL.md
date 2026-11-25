@@ -96,3 +96,17 @@ both buffers scrubbed before rearming. Manual capture is unchanged. This reduces
 but does not eliminate gaps; real throughput, memory pressure, actual speech VAD
 and HA acceptance remain unverified. The host mock exercises capture during
 inference and distinct timestamps; it is not a physical concurrency benchmark.
+
+## 0.14.6 rotating continuous capture
+
+AUTO now starts the ADC once per explicit session and rotates two fixed PCM
+buffers until stop, driver/model failure or bounded mailbox timeout. The manual
+60-second diagnostic retains its separate API. Producer and consumer exchange
+ownership via atomic full flags; no callback waits for inference. A saturated
+producer drops frames, counts them and resets partial onset after a gap. Old
+windows are discarded before/after inference, without reporting them as a
+recognized identity or hardware fault. A 60-second idle heartbeat reports
+healthy silence without restarting the ADC. Terminal failures use existing
+recovery backoff. No raw audio leaves RAM. Host tests exercise more than two
+windows with one driver start, cancellation, overload and stale rejection.
+This is not a promise of lossless audio or physical real-time performance.
