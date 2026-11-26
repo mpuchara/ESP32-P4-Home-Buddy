@@ -1,18 +1,14 @@
 name: Publish Home Buddy installer
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/publish-installer-pages.yml'
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Published Camera ISP release tag'
+        description: 'Published verified Camera ISP or voice test release tag'
         required: true
         default: camera-isp-test-b0dda0f741e1
   workflow_run:
     workflows: ['Camera ISP web installer']
-    branches: [codex/camera-isp-web-upgrade, codex/enrollment-hotfix]
+    branches: [codex/camera-isp-web-upgrade, codex/enrollment-hotfix, codex/voice-local-trial]
     types: [completed]
 permissions:
   contents: read
@@ -51,7 +47,7 @@ jobs:
               echo "ready=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            [[ "$BUILD_BRANCH" == codex/camera-isp-web-upgrade || "$BUILD_BRANCH" == codex/enrollment-hotfix ]]
+            [[ "$BUILD_BRANCH" == codex/camera-isp-web-upgrade || "$BUILD_BRANCH" == codex/enrollment-hotfix || "$BUILD_BRANCH" == codex/voice-local-trial ]]
             head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BUILD_BRANCH" --jq '.object.sha')
             if [[ "$head" != "$BUILD_SHA" ]]; then
               echo "Ignoring superseded build $BUILD_SHA"
@@ -63,12 +59,21 @@ jobs:
               echo "ready=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            tag="camera-isp-test-${BUILD_SHA:0:12}"
+            if [[ "$BUILD_BRANCH" == codex/voice-local-trial ]]; then
+              # This branch publishes only after the complete reusable CI matrix succeeds.
+              [[ "${{ github.event.workflow_run.conclusion }}" == success ]]
+              tag="voice-test-${BUILD_SHA:0:12}"
+            else
+              tag="camera-isp-test-${BUILD_SHA:0:12}"
+            fi
           fi
-          [[ "$tag" =~ ^camera-isp-test-[0-9a-f]{12}$ ]]
+          [[ "$tag" =~ ^(camera-isp-test|voice-test)-[0-9a-f]{12}$ ]]
           gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' | grep -qx false
           mkdir -p web-dist
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir web-dist --pattern index.html --pattern home_buddy.bin --pattern SHA256SUMS
+          if [[ "$tag" == voice-test-* ]]; then
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir web-dist --pattern THIRD_PARTY_NOTICES.txt --pattern HARDWARE_TEST.md
+          fi
           (cd web-dist && sha256sum --strict -c SHA256SUMS)
           test -s web-dist/index.html
           test -s web-dist/home_buddy.bin
