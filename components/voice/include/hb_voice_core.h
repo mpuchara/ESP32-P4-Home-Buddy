@@ -74,6 +74,9 @@ extern "C"
     // Preliminary energy/variation gate, NOT a validated speech or overlap detector.
     hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *gate, const int16_t *pcm, size_t count,
                                            uint32_t rate, uint64_t end_ms);
+    // AUTO admits a natural pause up to 750 ms; same 2 s activity and PCM safety floor.
+    hb_voice_gate_state hb_voice_gate_feed_auto(hb_voice_gate *gate, const int16_t *pcm, size_t count,
+                                                uint32_t rate, uint64_t end_ms);
     void hb_voice_gate_reset(hb_voice_gate *gate);
     // Bounded automatic onset filter. Noise estimate is in squared PCM units.
     typedef struct

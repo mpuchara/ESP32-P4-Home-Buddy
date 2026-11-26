@@ -182,3 +182,21 @@ inline esp_err_t hb_voice_embedding_run(const int16_t *, size_t n, uint32_t rate
         hb_voice_diagnostic_stop();
     return diag_fake::model_error;
 }
+
+// The stream test mocks the same worker-owned API without allocating DSP scratch.
+struct hb_voice_workspace
+{
+};
+inline esp_err_t hb_voice_embedding_run_cached(const int16_t *pcm, size_t n, uint32_t rate,
+                                                hb_voice_cancel_fn cancel, void *ctx,
+                                                hb_voice_embedding *out, hb_voice_metrics *m,
+                                                hb_voice_workspace **workspace)
+{
+    static hb_voice_workspace token;
+    *workspace = &token;
+    return hb_voice_embedding_run(pcm, n, rate, cancel, ctx, out, m);
+}
+inline void hb_voice_workspace_release(hb_voice_workspace **workspace)
+{
+    *workspace = nullptr;
+}

@@ -96,8 +96,8 @@ void hb_voice_gate_reset(hb_voice_gate *g)
     if (g)
         memset(g, 0, sizeof(*g));
 }
-hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *g, const int16_t *pcm, size_t n,
-                                       uint32_t rate, uint64_t end)
+static hb_voice_gate_state gate_feed(hb_voice_gate *g, const int16_t *pcm, size_t n, uint32_t rate,
+                                     uint64_t end, uint32_t max_pause)
 {
     if (!g)
         return HB_VAD_REJECTED;
@@ -147,10 +147,20 @@ hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *g, const int16_t *pcm, siz
         g->pause_samples += (uint32_t)n;
     if (g->active_samples >= 4800)
         g->state = HB_VAD_ACTIVITY;
-    if (g->samples == HB_VOICE_SAMPLES || g->pause_samples >= 8000)
+    if (g->samples == HB_VOICE_SAMPLES || g->pause_samples >= max_pause)
         g->state = g->samples == HB_VOICE_SAMPLES && g->active_samples >= 32000 ? HB_VAD_READY
                                                                                 : HB_VAD_REJECTED;
     return g->state;
+}
+hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *g, const int16_t *pcm, size_t n,
+                                       uint32_t rate, uint64_t end)
+{
+    return gate_feed(g, pcm, n, rate, end, 8000);
+}
+hb_voice_gate_state hb_voice_gate_feed_auto(hb_voice_gate *g, const int16_t *pcm, size_t n,
+                                            uint32_t rate, uint64_t end)
+{
+    return gate_feed(g, pcm, n, rate, end, 12000);
 }
 bool hb_voice_onset_feed(hb_voice_onset *o, const int16_t *pcm, size_t n)
 {

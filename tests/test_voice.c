@@ -100,6 +100,18 @@ int main(void)
     for (unsigned i = 0; i < 320; ++i)
         signal[i] = 32767;
     assert(hb_voice_gate_feed(&g, signal, 320, 16000, 20) == HB_VAD_REJECTED);
+    hb_voice_gate manual = {0}, automatic = {0};
+    for (unsigned i = 0; i < 320; ++i)
+        signal[i] = (int16_t)((int)(i % 80) * 100 - 4000);
+    int16_t quiet[320] = {0};
+    for (unsigned i = 0; i < 150; ++i)
+    {
+        const int16_t *input = i >= 50 && i < 80 ? quiet : signal;
+        hb_voice_gate_feed(&manual, input, 320, 16000, 20 * (i + 1));
+        hb_voice_gate_feed_auto(&automatic, input, 320, 16000, 20 * (i + 1));
+    }
+    assert(manual.state == HB_VAD_REJECTED);
+    assert(hb_voice_gate_feed_auto(&automatic, signal, 240, 16000, 3015) == HB_VAD_READY);
     hb_voice_onset onset = {0};
     memset(signal, 0, sizeof(signal));
     for (unsigned i = 0; i < 50; ++i)

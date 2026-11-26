@@ -17,6 +17,13 @@ extern "C"
     esp_err_t hb_voice_embedding_run(const int16_t *pcm, size_t count, uint32_t rate,
                                      hb_voice_cancel_fn cancel, void *context,
                                      hb_voice_embedding *out, hb_voice_metrics *metrics);
+    // Sole AUTO worker owns this optional feature workspace. No resident model or PCM.
+    typedef struct hb_voice_workspace hb_voice_workspace;
+    esp_err_t hb_voice_embedding_run_cached(const int16_t *pcm, size_t count, uint32_t rate,
+                                            hb_voice_cancel_fn cancel, void *context,
+                                            hb_voice_embedding *out, hb_voice_metrics *metrics,
+                                            hb_voice_workspace **workspace);
+    void hb_voice_workspace_release(hb_voice_workspace **workspace);
     // Explicit, one-shot diagnostic. No enrollment, identity, HA or continuous listening.
     esp_err_t hb_voice_diagnostic_start(unsigned slot);
     void hb_voice_diagnostic_stop(void);

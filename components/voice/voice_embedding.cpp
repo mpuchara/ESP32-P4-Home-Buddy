@@ -99,10 +99,23 @@ struct ComputeLease
     }
 };
 } // namespace
+struct hb_voice_workspace
+{
+    Features features;
+};
 #endif
-esp_err_t hb_voice_embedding_run(const int16_t *pcm, size_t n, uint32_t rate,
-                                 hb_voice_cancel_fn cancel, void *ctx, hb_voice_embedding *out,
-                                 hb_voice_metrics *metrics)
+void hb_voice_workspace_release(hb_voice_workspace **workspace)
+{
+    if (!workspace)
+        return;
+#if CONFIG_HB_IDENTITY_EXPERIMENTAL
+    delete *workspace;
+#endif
+    *workspace = nullptr;
+}
+static esp_err_t run(const int16_t *pcm, size_t n, uint32_t rate, hb_voice_cancel_fn cancel,
+                     void *ctx, hb_voice_embedding *out, hb_voice_metrics *metrics,
+                     hb_voice_workspace **workspace)
 {
     if (!out || !metrics)
         return ESP_ERR_INVALID_ARG;
@@ -118,8 +131,8 @@ esp_err_t hb_voice_embedding_run(const int16_t *pcm, size_t n, uint32_t rate,
         size_t count = n - offset;
         if (count > 320)
             count = 320;
-        if (hb_voice_gate_feed(&gate, pcm + offset, count, rate, 1 + (offset + count) / 16) ==
-            HB_VAD_REJECTED)
+        auto feed = workspace ? hb_voice_gate_feed_auto : hb_voice_gate_feed;
+        if (feed(&gate, pcm + offset, count, rate, 1 + (offset + count) / 16) == HB_VAD_REJECTED)
             return ESP_ERR_INVALID_ARG;
     }
     if (gate.state != HB_VAD_READY)
@@ -131,6 +144,14 @@ esp_err_t hb_voice_embedding_run(const int16_t *pcm, size_t n, uint32_t rate,
     if (cancel && cancel(ctx))
         return ESP_ERR_INVALID_STATE;
     sample_memory(metrics);
+    // Under memory pressure prefer releasing cached scratch to failing a cold run.
+    if (workspace && *workspace &&
+        (metrics->internal_largest < 65536 || metrics->internal_free < 131072 ||
+         metrics->psram_largest < 8 * 1024 * 1024))
+    {
+        hb_voice_workspace_release(workspace);
+        sample_memory(metrics);
+    }
     // Conservative engineering admission, not measured simultaneous-model fit.
     if (metrics->internal_largest < 65536 || metrics->internal_free < 131072 ||
         metrics->psram_largest < 8 * 1024 * 1024)
@@ -170,14 +191,33 @@ esp_err_t hb_voice_embedding_run(const int16_t *pcm, size_t n, uint32_t rate,
         output->exponent.is_per_channel() || (int)in->exponent < -30 || (int)in->exponent > 16 ||
         (int)output->exponent < -30 || (int)output->exponent > 16)
         return ESP_ERR_INVALID_VERSION;
-    Features features;
-    if (!features.init())
-        return ESP_ERR_NO_MEM;
     start = esp_timer_get_time();
-    err = features.run(pcm, n, cancel, ctx);
+    Features local;
+    Features *features = &local;
+    if (workspace)
+    {
+        if (!*workspace)
+        {
+            *workspace = new (std::nothrow) hb_voice_workspace;
+            if (!*workspace || !(*workspace)->features.init())
+                return ESP_ERR_NO_MEM;
+        }
+        features = &(*workspace)->features;
+    }
+    else if (!local.init())
+        return ESP_ERR_NO_MEM;
+    struct Scrub
+    {
+        Features *features;
+        ~Scrub()
+        {
+            features->scrub();
+        }
+    } scrub{features};
+    err = features->run(pcm, n, cancel, ctx);
     if (err != ESP_OK)
         return err;
-    if (!hb_voice_quantize(features.values, 24000, in->exponent, (int16_t *)in->data))
+    if (!hb_voice_quantize(features->values, 24000, in->exponent, (int16_t *)in->data))
         return ESP_ERR_INVALID_ARG;
     metrics->features_us = (uint32_t)(esp_timer_get_time() - start);
     sample_memory(metrics);
@@ -201,4 +241,22 @@ esp_err_t hb_voice_embedding_run(const int16_t *pcm, size_t n, uint32_t rate,
 #else
     return ESP_ERR_NOT_SUPPORTED;
 #endif
+}
+esp_err_t hb_voice_embedding_run(const int16_t *pcm, size_t n, uint32_t rate,
+                                 hb_voice_cancel_fn cancel, void *ctx, hb_voice_embedding *out,
+                                 hb_voice_metrics *metrics)
+{
+    return run(pcm, n, rate, cancel, ctx, out, metrics, nullptr);
+}
+esp_err_t hb_voice_embedding_run_cached(const int16_t *pcm, size_t n, uint32_t rate,
+                                        hb_voice_cancel_fn cancel, void *ctx,
+                                        hb_voice_embedding *out, hb_voice_metrics *metrics,
+                                        hb_voice_workspace **workspace)
+{
+    if (!workspace)
+        return ESP_ERR_INVALID_ARG;
+    auto err = run(pcm, n, rate, cancel, ctx, out, metrics, workspace);
+    if (err != ESP_OK)
+        hb_voice_workspace_release(workspace);
+    return err;
 }

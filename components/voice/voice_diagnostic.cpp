@@ -173,7 +173,7 @@ static void auto_consume(const int16_t *pcm, size_t n, uint32_t rate, uint64_t e
     if (n > remaining)
         n = remaining;
     unsigned offset = b.gate.samples;
-    auto state = hb_voice_gate_feed(&b.gate, pcm, n, rate, end_us / 1000);
+    auto state = hb_voice_gate_feed_auto(&b.gate, pcm, n, rate, end_us / 1000);
     if (state == HB_VAD_REJECTED)
     {
         hb_voice_gate_reset(&b.gate);
@@ -231,10 +231,14 @@ static void auto_worker(void *)
     }
     status("Głos AUTO: ciągły nasłuch lokalny");
     unsigned reading = 0;
+    hb_voice_workspace *workspace = nullptr;
+    int64_t workspace_until = 0;
     int64_t heartbeat = esp_timer_get_time() + 60000000;
     while (owns_audio && !cancelled.load())
     {
         auto &b = buffers[reading];
+        if (workspace && esp_timer_get_time() >= workspace_until)
+            hb_voice_workspace_release(&workspace);
         if (!hb_audio_busy())
         {
             err = ESP_ERR_INVALID_STATE;
@@ -281,8 +285,9 @@ static void auto_worker(void *)
         {
             // The identity freshness budget includes queueing, hashing and inference.
             inference_deadline = (int64_t)(result.end_ms + 5000) * 1000;
-            err = hb_voice_embedding_run(b.pcm, HB_VOICE_SAMPLES, 16000, cancel, nullptr,
-                                         &result.embedding, &metrics);
+            err = hb_voice_embedding_run_cached(b.pcm, HB_VOICE_SAMPLES, 16000, cancel, nullptr,
+                                                &result.embedding, &metrics, &workspace);
+            workspace_until = esp_timer_get_time() + 10000000;
             bool expired = esp_timer_get_time() >= inference_deadline;
             inference_deadline = 0;
             if (expired &&
@@ -334,6 +339,7 @@ static void auto_worker(void *)
         hb_audio_stop();
         hb_audio_detach_consumer(auto_consume, nullptr);
     }
+    hb_voice_workspace_release(&workspace);
     for (auto &b : buffers)
     {
         if (b.pcm)

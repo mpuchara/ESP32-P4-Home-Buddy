@@ -126,3 +126,18 @@ now includes package verification. Manual diagnostics/enrollment retain the
 original capture and inference budget. Synthetic tone/noise/modulated fixtures
 are regression checks, not validated VAD, playback rejection, diarization or
 speech accuracy. A television carrying natural speech can still pass.
+
+## 0.14.8 bounded feature workspace and natural pauses
+
+AUTO keeps its checked FFT plan, mel coefficients and feature/frame scratch for
+at most ten seconds since the last inference. Feature and frame arrays are
+scrubbed after every attempt. The worker releases the workspace on idle,
+pressure, errors, cancellation and stop; no model, flash mapping or compute
+lease is held across windows. Each model load still verifies its pinned hash.
+This optimizes repeated frontend allocations, not model construction. The
+manual diagnostic still creates and destroys its own resources. AUTO allows
+up to 750 ms pause within a fixed 3.015 s window (versus the manual 500 ms),
+retaining the two-second activity and acoustic screening floor. Adapter and
+capture agree on the same policy. Host regressions cover pause tolerance,
+allocation reuse and release, including faults. No trained VAD, TV rejection
+or measured latency improvement is claimed.
