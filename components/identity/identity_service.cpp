@@ -61,12 +61,35 @@ static uint8_t durable_digest[32];
 static bool digest_valid;
 static hb_voice_database *voice_database;
 static hb_household_voice_enrollment *voice_enrollment;
-// No accepted microphone/model/resource/speech/calibration evidence yet.
-// There is intentionally no UI, NVS or network bypass of these acceptance gates.
-static const hb_voice_acceptance voice_acceptance{};
-static const hb_voice_policy voice_policy{};
+// Manual candidate testing is separate from production voice acceptance and fusion.
+static const hb_voice_policy voice_policy{false, 0.65f, 0.10f, 0.55f, 0.9995f, 2};
 static uint32_t voice_epoch = 1;
-static bool voice_verifying;
+static bool voice_verifying, voice_testing, voice_pending;
+static int voice_slot = -1;
+static uint64_t voice_auto_until, voice_next_ms;
+static uint32_t voice_capture_session;
+static unsigned voice_fault_streak;
+static hb_voice_tracker voice_tracker{};
+static bool voice_fusion;
+static bool voice_trial_ready()
+{
+#if CONFIG_HB_VOICE_MANUAL_TRIAL
+    hb_voice_readiness report{};
+    voice_slot = -1;
+    if (hb_voice_diagnostic_standalone_report(&report) && report.standalone)
+    {
+        voice_slot = report.error == ESP_OK && report.slot < 2 && report.sample_rate == 16000 &&
+                             report.samples == HB_VOICE_SAMPLES &&
+                             report.dimensions == HB_VOICE_DIM && report.active_samples >= 32000 &&
+                             report.callback_detached && report.pcm_released
+                         ? (int)report.slot
+                         : -1;
+    }
+    return voice_slot >= 0;
+#else
+    return false;
+#endif
+}
 // Initial engineering thresholds, deliberately not described as calibrated probabilities.
 static const hb_id_policy policy{CONFIG_HB_IDENTITY_THRESHOLD_MILLI / 1000.0f,
                                  CONFIG_HB_IDENTITY_MARGIN_MILLI / 1000.0f,
@@ -106,7 +129,11 @@ static void publish(hb_id_status &s)
             snprintf(d.name, sizeof(d.name), "%s", p.name);
         }
     s.psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-    s.voice_available = hb_voice_accepted(&voice_acceptance, &voice_policy);
+    s.voice_available = voice_trial_ready();
+    s.voice_auto = voice_auto_until != 0;
+    s.voice_deadline_ms = voice_auto_until;
+    s.voice_pending = voice_pending;
+    s.fusion_trial = voice_fusion;
     s.voice_enrollment_state = voice_enrollment ? voice_enrollment->state : HB_VEN_IDLE;
     s.voice_enrollment_samples = voice_enrollment ? voice_enrollment->staging.count : 0;
     s.psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
@@ -117,6 +144,48 @@ static void publish(hb_id_status &s)
     xSemaphoreGive(guard);
 }
 
+static void clear_voice_result(hb_id_status &s)
+{
+    voice_tracker = {};
+    s.voice_match = {HB_ID_UNAVAILABLE, 0, -1, -1};
+    s.voice_confirmed = false;
+    s.voice_end_ms = 0;
+    s.voice_session = 0;
+    s.voice_quality = 0;
+    s.fusion = {};
+}
+static void stop_voice(hb_id_status &s)
+{
+    hb_voice_diagnostic_stop();
+    hb_household_voice_cancel(voice_enrollment);
+    ++voice_epoch;
+    voice_pending = voice_testing = false;
+    voice_auto_until = voice_next_ms = 0;
+    voice_capture_session = 0;
+    voice_fault_streak = 0;
+    s.voice_retry_ms = 0;
+    voice_fusion = false;
+    clear_voice_result(s);
+}
+static hb_id_match voice_status_match(hb_voice_match m)
+{
+    hb_id_state status = HB_ID_UNAVAILABLE;
+    switch (m.state)
+    {
+    case HB_VOICE_KNOWN:
+        status = HB_ID_KNOWN;
+        break;
+    case HB_VOICE_AMBIGUOUS:
+        status = HB_ID_AMBIGUOUS;
+        break;
+    case HB_VOICE_UNKNOWN:
+        status = HB_ID_UNKNOWN;
+        break;
+    case HB_VOICE_UNAVAILABLE:
+        break;
+    }
+    return {status, m.person_id, m.best, m.second};
+}
 static void identity_events(const hb_id_status &s)
 {
     static hb_presence_tracker presence{};
@@ -751,34 +820,141 @@ static void worker(void *)
 #endif
     for (;;)
     {
+        if (voice_auto_until &&
+            (now_ms() >= voice_auto_until || !voice_trial_ready() ||
+             !hb_config_biometric_notice() || !hb_household_voice_mask(database, voice_database)))
+        {
+            stop_voice(state);
+            epoch.fetch_add(1);
+            state.mode = resting_mode(state.auto_enabled);
+            message(state, "Głos TEST: koniec nasłuchu");
+        }
         static hb_voice_capture_result voice_result;
         if (hb_voice_capture_take(&voice_result))
         {
-            if (voice_enrollment && voice_result.epoch == voice_epoch)
+            if (voice_pending && voice_result.epoch == voice_epoch && !stop_requested.load())
             {
-                auto r =
-                    voice_result.error == ESP_OK
-                        ? hb_household_voice_sample(voice_enrollment, database, voice_database,
-                                                    &voice_result.embedding, voice_epoch,
-                                                    voice_result.end_ms, now_ms(), voice_verifying)
-                        : HB_VEN_SAMPLE;
-                message(state, hb_household_voice_error(r));
+                voice_pending = voice_result.more;
+                if (voice_auto_until)
+                {
+                    state.voice_skipped_frames = voice_result.skipped_frames;
+                    ESP_LOGI("identity",
+                             "VOICE_WINDOW end=%llu err=%d screen=%u stale=%u empty=%u "
+                             "quality=%.3f ai_ms=%u skipped=%u more=%u",
+                             (unsigned long long)voice_result.end_ms, (int)voice_result.error,
+                             (unsigned)voice_result.screening, (unsigned)voice_result.stale,
+                             (unsigned)voice_result.no_window, (double)voice_result.quality,
+                             (unsigned)voice_result.processing_ms,
+                             (unsigned)voice_result.skipped_frames, (unsigned)voice_result.more);
+                }
+                if (voice_auto_until && voice_capture_session != epoch.load())
+                {
+                    hb_voice_diagnostic_stop();
+                    voice_pending = false;
+                    clear_voice_result(state);
+                    voice_next_ms = now_ms() + 300;
+                }
+                else if (voice_testing || voice_auto_until)
+                {
+                    // An empty terminal receipt must not erase a still-fresh first match.
+                    if (voice_auto_until && voice_result.stale)
+                    {
+                        ++state.voice_stale;
+                        clear_voice_result(state);
+                    }
+                    else if (voice_auto_until && voice_result.screening != HB_VOICE_SCREEN_PASS)
+                    {
+                        ++state.voice_screened;
+                        clear_voice_result(state);
+                    }
+                    else if (voice_auto_until && voice_result.no_window && !voice_result.end_ms)
+                    {
+                        ++state.voice_empty;
+                        voice_fault_streak = 0;
+                        state.voice_retry_ms = voice_result.more ? 0 : hb_voice_retry_delay_ms(0);
+                        voice_next_ms = now_ms() + state.voice_retry_ms;
+                    }
+                    else
+                    {
+                        auto match = voice_result.error == ESP_OK
+                                         ? hb_household_voice_trial_match(
+                                               database, voice_database, &voice_result.embedding,
+                                               voice_trial_ready(), hb_config_biometric_notice(),
+                                               &voice_policy, voice_result.end_ms, now_ms())
+                                         : hb_voice_match{HB_VOICE_UNAVAILABLE, 0, -1, -1};
+                        state.voice_match = voice_status_match(match);
+                        state.voice_quality = voice_result.quality;
+                        state.voice_end_ms = voice_result.end_ms;
+                        state.voice_session =
+                            voice_auto_until ? voice_capture_session : epoch.load();
+                        state.voice_confirmed =
+                            voice_auto_until && hb_household_voice_trial_confirm(
+                                                    &voice_tracker, match, &voice_policy,
+                                                    voice_epoch, voice_result.end_ms, now_ms());
+                        if (voice_auto_until)
+                        {
+                            if (voice_result.error == ESP_OK)
+                            {
+                                ++state.voice_windows;
+                                state.voice_confirmations += state.voice_confirmed;
+                                state.voice_processing_ms = voice_result.processing_ms;
+                                voice_fault_streak = 0;
+                            }
+                            else if (voice_result.no_window)
+                            {
+                                ++state.voice_empty;
+                                voice_fault_streak = 0;
+                            }
+                            else
+                            {
+                                ++state.voice_faults;
+                                if (voice_fault_streak < 6)
+                                    ++voice_fault_streak;
+                            }
+                            state.voice_retry_ms =
+                                voice_result.more ? 0 : hb_voice_retry_delay_ms(voice_fault_streak);
+                            voice_next_ms = now_ms() + state.voice_retry_ms;
+                        }
+                        const hb_id_person *person = hb_id_find(database, match.person_id);
+                        const char *candidate = match.state == HB_VOICE_KNOWN && person
+                                                    ? person->name
+                                                : match.state == HB_VOICE_AMBIGUOUS ? "AMBIGUOUS"
+                                                : match.state == HB_VOICE_UNKNOWN   ? "UNKNOWN"
+                                                                                    : "UNAVAILABLE";
+                        snprintf(state.message, sizeof(state.message),
+                                 "Głos TEST: %s | best %.3f / second %.3f", candidate,
+                                 (double)match.best, (double)match.second);
+                        voice_testing = false;
+                    }
+                }
+                else if (voice_enrollment)
+                {
+                    auto result = voice_result.error == ESP_OK
+                                      ? hb_household_voice_sample(
+                                            voice_enrollment, database, voice_database,
+                                            &voice_result.embedding, voice_epoch,
+                                            voice_result.end_ms, now_ms(), voice_verifying)
+                                      : HB_VEN_SAMPLE;
+                    message(state, hb_household_voice_error(result));
+                }
             }
             memset(&voice_result, 0, sizeof(voice_result));
+        }
+        if (voice_auto_until && voice_pending && !hb_voice_capture_busy() &&
+            !hb_voice_capture_result_pending())
+        {
+            voice_pending = false;
+            voice_next_ms = now_ms() + 1000;
         }
         if (voice_enrollment && voice_enrollment->deadline_ms &&
             now_ms() > voice_enrollment->deadline_ms)
         {
-            hb_voice_diagnostic_stop();
-            hb_household_voice_cancel(voice_enrollment);
-            ++voice_epoch;
+            stop_voice(state);
         }
         if (stop_requested.exchange(false))
         {
             profile_pause = false;
-            hb_voice_diagnostic_stop();
-            hb_household_voice_cancel(voice_enrollment);
-            ++voice_epoch;
+            stop_voice(state);
             memset(enrollment, 0, sizeof(*enrollment));
             state.mode = HB_ID_STOP;
             state.confirmed = false;
@@ -802,11 +978,13 @@ static void worker(void *)
             if (c.type != HB_ID_CMD_ENABLE && c.type != HB_ID_CMD_RETRY_SAVE &&
                 c.type != HB_ID_CMD_NOTICE_ACK)
                 profile_pause = false;
-            if (c.type < HB_ID_CMD_VOICE_BEGIN)
+            if (c.type < HB_ID_CMD_VOICE_BEGIN || c.type == HB_ID_CMD_ENABLE ||
+                c.type == HB_ID_CMD_VOICE_OFF || c.type == HB_ID_CMD_VOICE_BEGIN ||
+                c.type == HB_ID_CMD_VOICE_AUTO || c.type == HB_ID_CMD_VOICE_FUSION)
             {
-                hb_voice_diagnostic_stop();
-                hb_household_voice_cancel(voice_enrollment);
-                ++voice_epoch;
+                if (voice_auto_until)
+                    state.mode = resting_mode(state.auto_enabled);
+                stop_voice(state);
             }
             if (c.type == HB_ID_CMD_EVALUATE)
             {
@@ -849,7 +1027,8 @@ static void worker(void *)
             hb_id_tracker_reset(&tracker, epoch.load());
             evaluate = false;
             if ((c.type == HB_ID_CMD_CREATE || c.type == HB_ID_CMD_BEGIN ||
-                 c.type == HB_ID_CMD_VOICE_BEGIN) &&
+                 c.type == HB_ID_CMD_VOICE_BEGIN || c.type == HB_ID_CMD_VOICE_TEST ||
+                 c.type == HB_ID_CMD_VOICE_AUTO || c.type == HB_ID_CMD_VOICE_FUSION) &&
                 !hb_config_biometric_notice())
             {
                 message(state, "Najpierw potwierdź lokalny zapis bez szyfrowania");
@@ -888,7 +1067,7 @@ static void worker(void *)
             }
             case HB_ID_CMD_VOICE_BEGIN:
             {
-                if (!hb_voice_accepted(&voice_acceptance, &voice_policy))
+                if (!voice_trial_ready() || voice_pending)
                 {
                     message(state, hb_household_voice_error(HB_VEN_GATED));
                     break;
@@ -910,9 +1089,12 @@ static void worker(void *)
                 }
                 hb_voice_diagnostic_stop();
                 ++voice_epoch;
-                auto r =
-                    hb_household_voice_begin(voice_enrollment, database, c.person_id, voice_epoch,
-                                             now_ms(), &voice_acceptance, &voice_policy);
+                voice_pending = voice_testing = false;
+                state.mode = HB_ID_STOP;
+                profile_pause = false;
+                auto r = hb_household_voice_trial_begin(
+                    voice_enrollment, database, c.person_id, voice_epoch, now_ms(),
+                    voice_trial_ready(), hb_config_biometric_notice(), &voice_policy);
                 message(state, r == HB_VEN_OK ? "Naciśnij Pobierz próbkę i mów normalnie"
                                               : hb_household_voice_error(r));
                 break;
@@ -920,12 +1102,17 @@ static void worker(void *)
             case HB_ID_CMD_VOICE_SAMPLE:
             case HB_ID_CMD_VOICE_VERIFY:
                 if (voice_enrollment && c.person_id == voice_enrollment->staging.id &&
-                    hb_voice_accepted(&voice_acceptance, &voice_policy) &&
+                    voice_trial_ready() && !voice_pending &&
                     voice_enrollment->state ==
                         (c.type == HB_ID_CMD_VOICE_VERIFY ? HB_VEN_VERIFY : HB_VEN_COLLECT))
                 {
-                    voice_verifying = c.type == HB_ID_CMD_VOICE_VERIFY;
-                    auto err = hb_voice_capture_start(0, voice_epoch);
+                    auto err = hb_voice_capture_start((unsigned)voice_slot, voice_epoch);
+                    if (err == ESP_OK)
+                    {
+                        voice_pending = true;
+                        voice_testing = false;
+                        voice_verifying = c.type == HB_ID_CMD_VOICE_VERIFY;
+                    }
                     message(state, err == ESP_OK
                                        ? "Mów normalnie; jedna osoba, inne zdanie"
                                        : "Mikrofon zajęty lub brak pamięci; spróbuj ponownie");
@@ -935,17 +1122,62 @@ static void worker(void *)
                 break;
             case HB_ID_CMD_VOICE_SAVE:
                 if (voice_enrollment && c.person_id == voice_enrollment->staging.id &&
-                    hb_voice_accepted(&voice_acceptance, &voice_policy))
+                    voice_trial_ready() && !voice_pending && hb_config_biometric_notice())
                 {
                     auto result = hb_household_voice_commit(voice_enrollment, database,
                                                             voice_database, voice_epoch, now_ms());
                     message(state, hb_household_voice_error(result));
                     if (result == HB_VEN_OK)
-                        persistence_commit(state, false);
+                        message(state, persistence_commit(state, false)
+                                           ? "Głos TEST: zapis lokalny OK"
+                                           : "Głos TEST: zapis w RAM; ponów zapis Flash");
                 }
                 else
                     message(state, hb_household_voice_error(HB_VEN_GATED));
                 break;
+            case HB_ID_CMD_VOICE_OFF:
+                message(state, "Głos TEST: wyłączony");
+                break;
+            case HB_ID_CMD_VOICE_AUTO:
+            case HB_ID_CMD_VOICE_FUSION:
+                if (!voice_trial_ready() || !hb_household_voice_mask(database, voice_database))
+                {
+                    message(state, "Głos TEST: wymagany test modelu i aktywny profil głosowy");
+                    break;
+                }
+                voice_fusion = c.type == HB_ID_CMD_VOICE_FUSION;
+                state.mode = voice_fusion ? HB_ID_BACKGROUND : HB_ID_STOP;
+                profile_pause = false;
+                // Explicit opt-in for this boot; never enable on reboot without consent.
+                voice_auto_until = UINT64_MAX;
+                until = voice_auto_until;
+                voice_next_ms = now_ms();
+                state.voice_windows = state.voice_empty = state.voice_faults = 0;
+                state.voice_stale = state.voice_skipped_frames = state.voice_screened = 0;
+                state.voice_confirmations = state.voice_processing_ms = state.voice_retry_ms = 0;
+                message(state, "Głos AUTO TEST: do wyłączenia lub restartu");
+                break;
+            case HB_ID_CMD_VOICE_TEST:
+            {
+                if (voice_auto_until || !voice_trial_ready() || voice_pending ||
+                    (voice_enrollment && voice_enrollment->deadline_ms))
+                {
+                    message(state, "Zakończ rejestrację albo zaczekaj na próbkę");
+                    break;
+                }
+                state.mode = HB_ID_STOP;
+                profile_pause = false;
+                ++voice_epoch;
+                auto err = hb_voice_capture_start((unsigned)voice_slot, voice_epoch);
+                if (err == ESP_OK)
+                {
+                    voice_pending = voice_testing = true;
+                    message(state, "Głos TEST: mów samodzielnie przez kilka sekund");
+                }
+                else
+                    message(state, "Mikrofon zajęty lub brak pamięci; spróbuj ponownie");
+                break;
+            }
             case HB_ID_CMD_CREATE:
             {
                 uint64_t created = hb_id_create(database, c.name);
@@ -1396,8 +1628,45 @@ static void worker(void *)
             epoch.fetch_add(1);
         }
         enrollment_active.store(state.mode == HB_ID_ENROLL);
+        if (voice_auto_until && !voice_pending && now_ms() >= voice_next_ms &&
+            !hb_voice_capture_busy() && !stop_requested.load() && !uxQueueMessagesWaiting(jobs))
+        {
+            auto err = hb_voice_capture_start_auto((unsigned)voice_slot, voice_epoch);
+            voice_pending = err == ESP_OK;
+            if (voice_pending)
+                voice_capture_session = state.session;
+            else
+            {
+                ++state.voice_faults;
+                if (voice_fault_streak < 6)
+                    ++voice_fault_streak;
+            }
+            state.voice_retry_ms = voice_pending ? 0 : hb_voice_retry_delay_ms(voice_fault_streak);
+            voice_next_ms = now_ms() + state.voice_retry_ms;
+        }
+        if (voice_fusion)
+        {
+            hb_identity_fusion_input in{};
+            in.session = in.face_session = state.session;
+            in.voice_session = state.voice_session;
+            in.face = state.match;
+            in.voice = state.voice_match;
+            in.face_confirmed = state.confirmed && state.faces == 1;
+            in.voice_confirmed = state.voice_confirmed;
+            in.face_frame_ms = state.frame_ms;
+            in.voice_window_end_ms = state.voice_end_ms;
+            float face_quality = state.quality.valid && state.faces == 1 ? 1.0f : 0.0f;
+            if (state.quality.flags)
+                face_quality *= 0.35f;
+            hb_fusion_evidence face{policy.threshold, policy.margin, face_quality};
+            hb_fusion_evidence voice{voice_policy.threshold, voice_policy.margin,
+                                     state.voice_quality};
+            state.fusion = hb_identity_trial_fuse(&in, epoch.load(), now_ms(), face, voice);
+        }
         publish(state);
-        identity_events(state);
+        // Fusion stays diagnostic: no voice, fused or conflicting identity events.
+        if (!voice_fusion)
+            identity_events(state);
         static uint64_t health_at;
         if (now_ms() >= health_at)
         {
@@ -1417,6 +1686,15 @@ static void worker(void *)
                      state.storage_result, state.persistence_ready, state.storage_saved,
                      storage_dirty, state.storage_bank,
                      (unsigned long long)state.storage_generation);
+            if (voice_auto_until)
+                ESP_LOGI("identity",
+                         "VOICE_AUTO windows=%u empty=%u faults=%u confirmed=%u retry_ms=%u "
+                         "processing_ms=%u fusion=%u stale=%u skipped_frames=%u screened=%u",
+                         (unsigned)state.voice_windows, (unsigned)state.voice_empty,
+                         (unsigned)state.voice_faults, (unsigned)state.voice_confirmations,
+                         (unsigned)state.voice_retry_ms, (unsigned)state.voice_processing_ms,
+                         (unsigned)voice_fusion, (unsigned)state.voice_stale,
+                         (unsigned)state.voice_skipped_frames, (unsigned)state.voice_screened);
             if (state.mode == HB_ID_ENROLL)
                 ESP_LOGI("identity", "ENROLL_STATUS samples=%u verified=%d faces=%u official=%d",
                          state.samples, state.verified, state.faces, state.official_landmarks);
@@ -1428,7 +1706,8 @@ static void worker(void *)
                               tracker.hits, policy.confirmations);
         for (unsigned j = 0; j < wait_slices; ++j)
         {
-            if (stop_requested.load() || uxQueueMessagesWaiting(jobs))
+            if (stop_requested.load() || uxQueueMessagesWaiting(jobs) ||
+                (voice_auto_until && hb_voice_capture_result_pending()))
                 break;
             vTaskDelay(pdMS_TO_TICKS(100));
         }
@@ -1484,7 +1763,7 @@ esp_err_t hb_identity_start(void)
 }
 esp_err_t hb_identity_command(const hb_id_command *c)
 {
-    if (!c || (unsigned)c->type > HB_ID_CMD_ENABLE || !memchr(c->name, 0, HB_ID_NAME))
+    if (!c || (unsigned)c->type > HB_ID_CMD_VOICE_FUSION || !memchr(c->name, 0, HB_ID_NAME))
         return ESP_ERR_INVALID_ARG;
     esp_err_t start = hb_identity_start();
     if (start)
@@ -1527,6 +1806,20 @@ void hb_identity_get(hb_id_status *out)
     xSemaphoreTake(guard, portMAX_DELAY);
     *out = published;
     xSemaphoreGive(guard);
+    if (out->voice_session != epoch.load() || !out->voice_end_ms || out->voice_end_ms > now_ms() ||
+        now_ms() - out->voice_end_ms > 5000)
+    {
+        out->voice_confirmed = false;
+        out->voice_match = {HB_ID_UNAVAILABLE, 0, -1, -1};
+    }
+    if (out->voice_auto && (now_ms() >= out->voice_deadline_ms || stop_requested.load() ||
+                            out->session != epoch.load()))
+    {
+        out->voice_auto = out->fusion_trial = false;
+        out->fusion = {};
+    }
+    if (out->fusion_trial && out->session != epoch.load())
+        out->fusion = {};
     if (out->session != epoch.load() || !out->completed_ms || !out->frame_ms ||
         out->frame_ms > now_ms() || now_ms() - out->frame_ms > 5000 ||
         now_ms() - out->completed_ms > 5000)
@@ -1534,6 +1827,24 @@ void hb_identity_get(hb_id_status *out)
         out->confirmed = false;
         out->confirmed_id = 0;
         out->match = {HB_ID_UNAVAILABLE, 0, -1, -1};
+    }
+    if (out->fusion_trial)
+    {
+        hb_identity_fusion_input in{};
+        in.session = in.face_session = out->session;
+        in.voice_session = out->voice_session;
+        in.face = out->match;
+        in.voice = out->voice_match;
+        in.face_confirmed = out->confirmed && out->faces == 1;
+        in.voice_confirmed = out->voice_confirmed;
+        in.face_frame_ms = out->frame_ms;
+        in.voice_window_end_ms = out->voice_end_ms;
+        float q = out->quality.valid && out->faces == 1 ? 1.0f : 0.0f;
+        if (out->quality.flags)
+            q *= 0.35f;
+        out->fusion = hb_identity_trial_fuse(
+            &in, epoch.load(), now_ms(), {policy.threshold, policy.margin, q},
+            {voice_policy.threshold, voice_policy.margin, out->voice_quality});
     }
 }
 bool hb_identity_preview(uint16_t *pixels, size_t capacity, hb_id_status *out)

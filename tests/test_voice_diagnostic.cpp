@@ -6,6 +6,7 @@ int main()
     hb_voice_capture_result result{};
     hb_voice_readiness report{};
     assert(!hb_voice_diagnostic_report(&report));
+    assert(!hb_voice_diagnostic_standalone_report(&report));
     diag_fake::reset();
     assert(hb_voice_capture_start(2, 7) == ESP_ERR_INVALID_ARG);
     assert(hb_voice_capture_start(0, 0) == ESP_ERR_INVALID_ARG);
@@ -16,10 +17,12 @@ int main()
     assert(hb_voice_diagnostic_report(&report) && report.error == ESP_OK);
     assert(report.slot == 0 && report.sample_rate == 16000 && report.samples == HB_VOICE_SAMPLES);
     assert(report.dimensions == 512 && report.rms == 1700 && report.peak == 3000);
+    assert(report.active_samples == HB_VOICE_SAMPLES);
     assert(report.callback_detached && report.pcm_released);
     assert(hb_voice_capture_start(0, 7) ==
            ESP_ERR_INVALID_STATE); // Pending result cannot be overwritten.
     assert(hb_voice_capture_take(&result) && result.epoch == 7 && result.embedding.v[0] == 1);
+    assert(result.quality == 1.0f);
     assert(!hb_voice_capture_take(&result));
     for (unsigned i = 0; i < 10; ++i)
     {
@@ -28,6 +31,12 @@ int main()
         diag_fake::run();
         assert(!hb_voice_capture_take(&result));
     }
+    assert(hb_voice_diagnostic_standalone_report(&report) && report.standalone);
+    diag_fake::reset();
+    assert(hb_voice_capture_start(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(hb_voice_capture_take(&result));
+    assert(hb_voice_diagnostic_standalone_report(&report) && report.standalone);
     diag_fake::reset();
     assert(hb_voice_capture_start(0, 7) == ESP_OK);
     hb_voice_diagnostic_stop();
@@ -55,6 +64,49 @@ int main()
     assert(hb_voice_capture_start(0, 7) == ESP_OK);
     diag_fake::run();
     assert(hb_voice_capture_take(&result) && result.error != ESP_OK && !diag_fake::model_calls);
+    assert(result.no_window);
+    diag_fake::reset();
+    diag_fake::silence = diag_fake::auto_drain = true;
+    diag_fake::stop_after = 1;
+    assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(diag_fake::saw_empty && !diag_fake::model_calls);
+    assert(hb_voice_capture_take(&result) && !result.more && result.error != ESP_OK);
+    diag_fake::reset();
+    diag_fake::speech_like = diag_fake::auto_drain = diag_fake::stationary = true;
+    diag_fake::stop_after = 1;
+    assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(diag_fake::saw_screened && !diag_fake::model_calls);
+    assert(hb_voice_capture_take(&result) && !result.more);
+    diag_fake::reset();
+    diag_fake::speech_like = diag_fake::auto_drain = diag_fake::reject_vad = true;
+    diag_fake::stop_after = 1;
+    assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(diag_fake::saw_vad_rejected && !diag_fake::model_calls);
+    assert(hb_voice_capture_take(&result) && !result.more);
+    diag_fake::reset();
+    diag_fake::speech_like = diag_fake::auto_drain = true;
+    assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(diag_fake::drained >= 4 && diag_fake::driver_starts == 1);
+    assert(diag_fake::model_calls >= 4 && diag_fake::during_inference >= 4);
+    assert(hb_voice_capture_take(&result) && !result.more && result.error != ESP_OK);
+    assert(!hb_voice_capture_busy() && !hb_voice_capture_result_pending());
+    diag_fake::reset();
+    diag_fake::speech_like = diag_fake::auto_drain = true;
+    diag_fake::inference_frames = 400;
+    assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(diag_fake::saw_stale && diag_fake::saw_skipped);
+    assert(hb_voice_capture_take(&result) && !result.more);
+    diag_fake::reset();
+    diag_fake::speech_like = true;
+    diag_fake::cancel_inference = true;
+    assert(hb_voice_capture_start_auto(0, 7) == ESP_OK);
+    diag_fake::run();
+    assert(!hb_voice_capture_take(&result) && !hb_voice_capture_busy());
     diag_fake::reset();
     diag_fake::model_error = ESP_ERR_NO_MEM;
     assert(hb_voice_capture_start(0, 7) == ESP_OK);

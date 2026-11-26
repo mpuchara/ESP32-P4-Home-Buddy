@@ -96,8 +96,8 @@ void hb_voice_gate_reset(hb_voice_gate *g)
     if (g)
         memset(g, 0, sizeof(*g));
 }
-hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *g, const int16_t *pcm, size_t n,
-                                       uint32_t rate, uint64_t end)
+static hb_voice_gate_state gate_feed(hb_voice_gate *g, const int16_t *pcm, size_t n, uint32_t rate,
+                                     uint64_t end, uint32_t max_pause)
 {
     if (!g)
         return HB_VAD_REJECTED;
@@ -147,10 +147,151 @@ hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *g, const int16_t *pcm, siz
         g->pause_samples += (uint32_t)n;
     if (g->active_samples >= 4800)
         g->state = HB_VAD_ACTIVITY;
-    if (g->samples == HB_VOICE_SAMPLES || g->pause_samples >= 8000)
+    if (g->samples == HB_VOICE_SAMPLES || g->pause_samples >= max_pause)
         g->state = g->samples == HB_VOICE_SAMPLES && g->active_samples >= 32000 ? HB_VAD_READY
                                                                                 : HB_VAD_REJECTED;
     return g->state;
+}
+hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *g, const int16_t *pcm, size_t n,
+                                       uint32_t rate, uint64_t end)
+{
+    return gate_feed(g, pcm, n, rate, end, 8000);
+}
+hb_voice_gate_state hb_voice_gate_feed_auto(hb_voice_gate *g, const int16_t *pcm, size_t n,
+                                            uint32_t rate, uint64_t end)
+{
+    return gate_feed(g, pcm, n, rate, end, 12000);
+}
+bool hb_voice_onset_feed(hb_voice_onset *o, const int16_t *pcm, size_t n)
+{
+    if (!o || !pcm || n < 160 || n > 320)
+    {
+        if (o)
+            o->run = 0;
+        return false;
+    }
+    int64_t sum = 0, square = 0;
+    unsigned crossings = 0, clipped = 0, changes = 0;
+    for (size_t i = 0; i < n; ++i)
+    {
+        int32_t v = pcm[i];
+        sum += v;
+        square += (int64_t)v * v;
+        clipped += v >= 32760 || v <= -32760;
+        if (i)
+        {
+            crossings += (v >= 0) != (pcm[i - 1] >= 0);
+            changes += v != pcm[i - 1];
+        }
+    }
+    uint32_t power = (uint32_t)((square * (int64_t)n - sum * sum) / (int64_t)(n * n));
+    if (!o->noise_power)
+        o->noise_power = 10000;
+    bool clean =
+        clipped <= n / 20 && sum / (int64_t)n < 8000 && sum / (int64_t)n > -8000 && changes > n / 4;
+    // Reject very fast sign changes at onset; this is not a speech classifier.
+    bool candidate = clean && crossings >= 2 && crossings <= n / 4 && power >= 40000 &&
+                     power >= 4 * o->noise_power;
+    if (candidate)
+    {
+        if (o->run < 3)
+            ++o->run;
+    }
+    else
+    {
+        o->run = 0;
+        // Do not allow loud transients or DC faults to poison the idle baseline.
+        if (clipped <= n / 20 && power <= 4000000)
+        {
+            uint32_t sample = power < 10000 ? 10000 : power;
+            if (sample > 1000000)
+                sample = 1000000;
+            o->noise_power = (15 * o->noise_power + sample) / 16;
+        }
+    }
+    return candidate;
+}
+hb_voice_screen hb_voice_screen_window(const int16_t *pcm, size_t count, float *support)
+{
+    if (support)
+        *support = 0;
+    if (!pcm || count != HB_VOICE_SAMPLES || !support)
+        return HB_VOICE_SCREEN_INVALID;
+    uint64_t block_energy[10] = {0};
+    unsigned block_count[10] = {0};
+    unsigned active = 0, shaped = 0, broadband = 0;
+    unsigned min_crossings = 320, max_crossings = 0;
+    // 150 complete 20 ms frames, plus the model's 15 ms tail.
+    for (unsigned frame = 0; frame < 150; ++frame)
+    {
+        const int16_t *p = pcm + frame * 320;
+        int64_t sum = 0, square = 0, diff = 0;
+        unsigned clip = 0, crossings = 0;
+        for (unsigned i = 0; i < 320; ++i)
+        {
+            int32_t x = p[i];
+            sum += x;
+            square += (int64_t)x * x;
+            clip += x >= 32760 || x <= -32760;
+            if (i)
+            {
+                int32_t d = x - p[i - 1];
+                diff += (int64_t)d * d;
+            }
+        }
+        if (clip > 16 || sum / 320 > 8000 || sum / 320 < -8000)
+            return HB_VOICE_SCREEN_INVALID;
+        int32_t mean = (int32_t)(sum / 320);
+        uint64_t power = (uint64_t)(square * 320 - sum * sum) / (320 * 320);
+        block_energy[frame / 15] += power;
+        ++block_count[frame / 15];
+        if (power < 40000)
+            continue;
+        ++active;
+        for (unsigned i = 1; i < 320; ++i)
+            crossings += (p[i] >= mean) != (p[i - 1] >= mean);
+        if (crossings > 106 || (uint64_t)diff > power * 480)
+        {
+            ++broadband;
+            continue;
+        }
+        if (crossings < 2)
+            continue;
+        ++shaped;
+        if (crossings < min_crossings)
+            min_crossings = crossings;
+        if (crossings > max_crossings)
+            max_crossings = crossings;
+    }
+    if (active < 100)
+        return HB_VOICE_SCREEN_LOW_ACTIVITY;
+    if (broadband * 2 >= active)
+        return HB_VOICE_SCREEN_BROADBAND;
+    if (shaped < 80)
+        return HB_VOICE_SCREEN_LOW_ACTIVITY;
+    uint64_t lo = UINT64_MAX, hi = 0;
+    for (unsigned i = 0; i < 10; ++i)
+    {
+        uint64_t energy = block_energy[i] / block_count[i];
+        if (energy < lo)
+            lo = energy;
+        if (energy > hi)
+            hi = energy;
+    }
+    // Reject sustained near-constant tones/motor noise, even if they pass the energy gate.
+    // Preserve modulated or changing-frequency windows for the speaker model.
+    if (hi * 2 < lo * 3 && max_crossings - min_crossings < 8)
+        return HB_VOICE_SCREEN_STATIONARY;
+    *support = (float)shaped / 150;
+    return HB_VOICE_SCREEN_PASS;
+}
+uint32_t hb_voice_retry_delay_ms(unsigned faults)
+{
+    if (!faults)
+        return 100;
+    if (faults >= 6)
+        return 30000;
+    return 1000u << (faults - 1);
 }
 float hb_voice_similarity(const hb_voice_embedding *a, const hb_voice_embedding *b)
 {
@@ -236,18 +377,19 @@ void hb_voice_delete(hb_voice_database *db, uint64_t id)
             if (db->people[i].id == id)
                 memset(&db->people[i], 0, sizeof(db->people[i]));
 }
-hb_voice_match hb_voice_identify(const hb_voice_database *db, const hb_voice_embedding *e,
-                                 const hb_voice_policy *p)
+hb_voice_match hb_voice_identify_masked(const hb_voice_database *db, const hb_voice_embedding *e,
+                                        const hb_voice_policy *p, uint32_t mask)
 {
     hb_voice_match r = {HB_VOICE_UNAVAILABLE, 0, -1, -1};
-    if (!hb_voice_database_valid(db) || !valid(e) || !hb_voice_policy_valid(p))
+    if (!mask || !hb_voice_database_valid(db) || !valid(e) || !hb_voice_policy_valid(p))
         return r;
     uint64_t best_id = 0;
     bool winner_agrees = false;
     for (unsigned i = 0; i < HB_VOICE_PEOPLE; ++i)
     {
         const hb_voice_person *person = &db->people[i];
-        if (!person->id || person->count < 3 || person->count > HB_VOICE_TEMPLATES)
+        if (!(mask & (1u << i)) || !person->id || person->count < 3 ||
+            person->count > HB_VOICE_TEMPLATES)
             continue;
         float best = -1;
         unsigned agree = 0;
@@ -280,6 +422,11 @@ hb_voice_match hb_voice_identify(const hb_voice_database *db, const hb_voice_emb
             r.person_id = best_id;
     }
     return r;
+}
+hb_voice_match hb_voice_identify(const hb_voice_database *db, const hb_voice_embedding *e,
+                                 const hb_voice_policy *p)
+{
+    return hb_voice_identify_masked(db, e, p, UINT32_MAX);
 }
 bool hb_voice_confirm(hb_voice_tracker *t, hb_voice_match m, uint32_t epoch, uint64_t end,
                       uint64_t now, const hb_voice_policy *p)

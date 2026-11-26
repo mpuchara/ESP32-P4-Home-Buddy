@@ -37,6 +37,8 @@ extern "C"
     typedef void (*hb_audio_consumer)(const int16_t *pcm, size_t count, uint32_t rate,
                                       uint64_t end_us, bool discontinuity, void *context);
     esp_err_t hb_audio_start_capture(unsigned slot, hb_audio_consumer consumer, void *context);
+    // Explicit continuous owner; only Stop or a driver fault ends capture.
+    esp_err_t hb_audio_start_continuous(unsigned slot, hb_audio_consumer consumer, void *context);
     bool hb_audio_busy(void);
     // Retire the bounded synchronous callback before its owner releases context/buffers.
     void hb_audio_detach_consumer(hb_audio_consumer callback, void *context);

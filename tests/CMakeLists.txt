@@ -307,3 +307,32 @@ foreach(policy local protected)
  endif()
  add_test(NAME profile_flash_${policy}_policy COMMAND test_profile_flash_${policy})
 endforeach()
+
+# Test the actual pinned statistical VAD separately from worker fault injection.
+set(HB_FVAD_ROOT ../components/voice/vendor/libfvad)
+add_library(hb_fvad_host STATIC
+ ${HB_FVAD_ROOT}/src/fvad.c
+ ${HB_FVAD_ROOT}/src/signal_processing/division_operations.c
+ ${HB_FVAD_ROOT}/src/signal_processing/energy.c
+ ${HB_FVAD_ROOT}/src/signal_processing/get_scaling_square.c
+ ${HB_FVAD_ROOT}/src/signal_processing/resample_48khz.c
+ ${HB_FVAD_ROOT}/src/signal_processing/resample_by_2_internal.c
+ ${HB_FVAD_ROOT}/src/signal_processing/resample_fractional.c
+ ${HB_FVAD_ROOT}/src/signal_processing/spl_inl.c
+ ${HB_FVAD_ROOT}/src/vad/vad_core.c
+ ${HB_FVAD_ROOT}/src/vad/vad_filterbank.c
+ ${HB_FVAD_ROOT}/src/vad/vad_gmm.c
+ ${HB_FVAD_ROOT}/src/vad/vad_sp.c
+)
+target_include_directories(hb_fvad_host PUBLIC ${HB_FVAD_ROOT}/include)
+add_executable(test_voice_vad test_voice_vad.c ../components/voice/voice_vad.c
+ ../components/voice/voice_core.c)
+target_include_directories(test_voice_vad PRIVATE ha_platform ../components/voice/include)
+target_link_libraries(test_voice_vad PRIVATE hb_fvad_host)
+if(MSVC)
+ target_compile_options(test_voice_vad PRIVATE /UNDEBUG)
+else()
+ target_compile_options(test_voice_vad PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+ target_link_libraries(test_voice_vad PRIVATE m)
+endif()
+add_test(NAME voice_statistical_vad COMMAND test_voice_vad)

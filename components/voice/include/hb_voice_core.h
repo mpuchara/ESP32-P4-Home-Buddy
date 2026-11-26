@@ -74,7 +74,28 @@ extern "C"
     // Preliminary energy/variation gate, NOT a validated speech or overlap detector.
     hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *gate, const int16_t *pcm, size_t count,
                                            uint32_t rate, uint64_t end_ms);
+    // AUTO admits a natural pause up to 750 ms; same 2 s activity and PCM safety floor.
+    hb_voice_gate_state hb_voice_gate_feed_auto(hb_voice_gate *gate, const int16_t *pcm,
+                                                size_t count, uint32_t rate, uint64_t end_ms);
     void hb_voice_gate_reset(hb_voice_gate *gate);
+    // Bounded automatic onset filter. Noise estimate is in squared PCM units.
+    typedef struct
+    {
+        uint32_t noise_power, run;
+    } hb_voice_onset;
+    bool hb_voice_onset_feed(hb_voice_onset *, const int16_t *, size_t count);
+    typedef enum
+    {
+        HB_VOICE_SCREEN_PASS,
+        HB_VOICE_SCREEN_INVALID,
+        HB_VOICE_SCREEN_LOW_ACTIVITY,
+        HB_VOICE_SCREEN_BROADBAND,
+        HB_VOICE_SCREEN_STATIONARY,
+        HB_VOICE_SCREEN_VAD
+    } hb_voice_screen;
+    // Worker-side acoustic screening, not a trained speech or playback classifier.
+    hb_voice_screen hb_voice_screen_window(const int16_t *, size_t count, float *support);
+    uint32_t hb_voice_retry_delay_ms(unsigned consecutive_faults);
     bool hb_voice_normalize(hb_voice_embedding *embedding);
     // Inputs must be validated normalized embeddings (same model namespace).
     float hb_voice_similarity(const hb_voice_embedding *, const hb_voice_embedding *);
@@ -92,6 +113,8 @@ extern "C"
     void hb_voice_delete(hb_voice_database *db, uint64_t id);
     hb_voice_match hb_voice_identify(const hb_voice_database *db, const hb_voice_embedding *e,
                                      const hb_voice_policy *policy);
+    hb_voice_match hb_voice_identify_masked(const hb_voice_database *, const hb_voice_embedding *,
+                                            const hb_voice_policy *, uint32_t mask);
     bool hb_voice_confirm(hb_voice_tracker *tracker, hb_voice_match match, uint32_t epoch,
                           uint64_t end_ms, uint64_t now_ms, const hb_voice_policy *policy);
 #ifdef __cplusplus

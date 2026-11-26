@@ -4,6 +4,7 @@
 #include "hb_face_quality.h"
 #include "hb_identity_core.h"
 #include "hb_identity_events.h"
+#include "hb_identity_future.h"
 #ifdef __cplusplus
 extern "C"
 {
@@ -39,7 +40,11 @@ extern "C"
         HB_ID_CMD_VOICE_SAVE,
         HB_ID_CMD_NOTICE_ACK,
         HB_ID_CMD_RETRY_SAVE,
-        HB_ID_CMD_ENABLE
+        HB_ID_CMD_ENABLE,
+        HB_ID_CMD_VOICE_TEST,
+        HB_ID_CMD_VOICE_AUTO,
+        HB_ID_CMD_VOICE_OFF,
+        HB_ID_CMD_VOICE_FUSION
     } hb_id_command_type;
     typedef struct
     {
@@ -69,7 +74,16 @@ extern "C"
         uint64_t storage_generation, storage_last_save_ms;
         int storage_bank;
         unsigned usable_profiles;
-        bool voice_available;
+        bool voice_available, voice_auto, voice_pending, voice_confirmed;
+        uint64_t voice_deadline_ms, voice_end_ms;
+        uint32_t voice_session;
+        uint32_t voice_windows, voice_empty, voice_faults, voice_confirmations;
+        uint32_t voice_retry_ms, voice_processing_ms;
+        uint32_t voice_stale, voice_skipped_frames, voice_screened;
+        hb_id_match voice_match; // Independent experimental result; no event publication.
+        bool fusion_trial;
+        hb_fusion_trial fusion;
+        float voice_quality;
         unsigned voice_enrollment_state, voice_enrollment_samples;
         uint64_t deadline_ms;
         uint32_t model_loads, model_unloads, command_rejections, stack_min;

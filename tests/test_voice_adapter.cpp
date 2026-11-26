@@ -82,6 +82,31 @@ int main()
         assert(run() == ESP_OK);
         fake::reset();
     }
+    hb_voice_workspace *workspace = nullptr;
+    assert(hb_voice_embedding_run_cached(pcm, HB_VOICE_SAMPLES, 16000, nullptr, nullptr, &output,
+                                         &metrics, &workspace) == ESP_OK);
+    assert(workspace && fake::live == 6 && !fake::models && !fake::maps && !fake::leases);
+    int allocations = fake::allocations;
+    assert(hb_voice_embedding_run_cached(pcm, HB_VOICE_SAMPLES, 16000, nullptr, nullptr, &output,
+                                         &metrics, &workspace) == ESP_OK);
+    assert(fake::allocations == allocations && fake::live == 6);
+    assert(hb_voice_embedding_run_cached(pcm, HB_VOICE_SAMPLES, 16000, cancelled, nullptr, &output,
+                                         &metrics, &workspace) == ESP_ERR_INVALID_STATE);
+    assert(!workspace && !fake::live);
+    fake::reset();
+    for (int i = 0; i < 6; ++i)
+    {
+        fake::fail_at = i;
+        assert(hb_voice_embedding_run_cached(pcm, HB_VOICE_SAMPLES, 16000, nullptr, nullptr,
+                                             &output, &metrics, &workspace) == ESP_ERR_NO_MEM);
+        assert(!workspace);
+        fake::reset();
+    }
+    assert(hb_voice_embedding_run_cached(pcm, HB_VOICE_SAMPLES, 16000, nullptr, nullptr, &output,
+                                         &metrics, &workspace) == ESP_OK);
+    hb_voice_workspace_release(&workspace);
+    hb_voice_workspace_release(&workspace);
+    fake::reset();
     assert(hb_voice_embedding_run(pcm, 48000, 16000, nullptr, nullptr, &output, &metrics) ==
            ESP_ERR_INVALID_ARG);
     memset(pcm, 0, sizeof(pcm));

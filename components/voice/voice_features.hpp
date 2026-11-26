@@ -6,8 +6,17 @@ struct Features
     dl_fft_f32_t *fft = nullptr;
     float *window = nullptr, *cache = nullptr, *values = nullptr;
     dl::audio::mel_filter_t mel{};
+    void scrub()
+    {
+        // No feature values or time-domain frame survive a window.
+        if (cache)
+            memset(cache, 0, 512 * sizeof(float));
+        if (values)
+            memset(values, 0, 24000 * sizeof(float));
+    }
     ~Features()
     {
+        scrub();
         if (fft)
             dl_rfft_f32_deinit(fft);
         free(window);

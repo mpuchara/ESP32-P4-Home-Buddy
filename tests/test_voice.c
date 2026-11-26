@@ -100,6 +100,55 @@ int main(void)
     for (unsigned i = 0; i < 320; ++i)
         signal[i] = 32767;
     assert(hb_voice_gate_feed(&g, signal, 320, 16000, 20) == HB_VAD_REJECTED);
+    hb_voice_gate manual = {0}, automatic = {0};
+    for (unsigned i = 0; i < 320; ++i)
+        signal[i] = (int16_t)((int)(i % 80) * 100 - 4000);
+    int16_t quiet[320] = {0};
+    for (unsigned i = 0; i < 150; ++i)
+    {
+        const int16_t *input = i >= 50 && i < 80 ? quiet : signal;
+        hb_voice_gate_feed(&manual, input, 320, 16000, 20 * (i + 1));
+        hb_voice_gate_feed_auto(&automatic, input, 320, 16000, 20 * (i + 1));
+    }
+    assert(manual.state == HB_VAD_REJECTED);
+    assert(hb_voice_gate_feed_auto(&automatic, signal, 240, 16000, 3015) == HB_VAD_READY);
+    hb_voice_onset onset = {0};
+    memset(signal, 0, sizeof(signal));
+    for (unsigned i = 0; i < 50; ++i)
+        assert(!hb_voice_onset_feed(&onset, signal, 320));
+    assert(onset.run == 0 && onset.noise_power == 10000);
+    for (unsigned i = 0; i < 320; ++i)
+        signal[i] = (int16_t)((i * 971) % 6000 - 3000);
+    assert(!hb_voice_onset_feed(&onset, signal, 320));
+    for (unsigned i = 0; i < 320; ++i)
+        signal[i] = (int16_t)((int)(i % 80) * 100 - 4000);
+    for (unsigned i = 0; i < 3; ++i)
+        assert(hb_voice_onset_feed(&onset, signal, 320));
+    assert(onset.run == 3);
+    assert(!hb_voice_onset_feed(&onset, signal, 1) && onset.run == 0);
+    assert(hb_voice_retry_delay_ms(0) == 100 && hb_voice_retry_delay_ms(1) == 1000);
+    assert(hb_voice_retry_delay_ms(5) == 16000 && hb_voice_retry_delay_ms(100) == 30000);
+    float support = 0;
+    assert(hb_voice_screen_window(pcm, 1, &support) == HB_VOICE_SCREEN_INVALID);
+    memset(pcm, 0, HB_VOICE_SAMPLES * sizeof(*pcm));
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) == HB_VOICE_SCREEN_LOW_ACTIVITY);
+    for (unsigned i = 0; i < HB_VOICE_SAMPLES; ++i)
+        pcm[i] = (int16_t)(2000 * sin(6.283185307 * 440 * i / 16000));
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) == HB_VOICE_SCREEN_STATIONARY);
+    uint32_t rng = 1234;
+    for (unsigned i = 0; i < HB_VOICE_SAMPLES; ++i)
+    {
+        rng = rng * 1664525u + 1013904223u;
+        pcm[i] = (int16_t)((int32_t)(rng >> 16) / 8 - 4096);
+    }
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) == HB_VOICE_SCREEN_BROADBAND);
+    for (unsigned i = 0; i < HB_VOICE_SAMPLES; ++i)
+    {
+        int amplitude = (i / 4800) % 2 ? 2 : 1;
+        pcm[i] = (int16_t)(amplitude * ((int)(i % 80) * 50 - 2000));
+    }
+    assert(hb_voice_screen_window(pcm, HB_VOICE_SAMPLES, &support) == HB_VOICE_SCREEN_PASS);
+    assert(support > .9f && support <= 1);
     hb_voice_policy policy = {true, 0.85f, 0.1f, 0.7f, 0.9999f, 2};
     hb_voice_embedding e = vector(1, 0);
     enroll(1);
@@ -149,6 +198,26 @@ int main(void)
     assert(hb_identity_fuse(&in, 1, 9001, true).source == HB_ID_SOURCE_VOICE);
     assert(hb_identity_fuse(&in, 2, 9001, true).status == HB_FUSION_UNKNOWN);
     assert(hb_identity_fuse(&in, 1, 20000, true).status == HB_FUSION_UNKNOWN);
+    hb_fusion_evidence fe = {.7f, .1f, 1}, ve = {.65f, .1f, .5f};
+    in.face_frame_ms = in.voice_window_end_ms = 9000;
+    in.face.best = .9f;
+    in.face.second = .4f;
+    in.voice.best = .85f;
+    in.voice.second = .3f;
+    hb_fusion_trial ft = hb_identity_trial_fuse(&in, 1, 9001, fe, ve);
+    assert(ft.decision.source == HB_ID_SOURCE_BOTH && ft.score > 0 && ft.score <= 1);
+    assert(ft.face_weight > ft.voice_weight);
+    fe.quality = .2f;
+    ft = hb_identity_trial_fuse(&in, 1, 9001, fe, ve);
+    assert(ft.voice_weight > ft.face_weight);
+    in.voice.person_id = 2;
+    assert(hb_identity_trial_fuse(&in, 1, 9001, fe, ve).decision.status == HB_FUSION_CONFLICT);
+    in.face_frame_ms = 5000;
+    assert(hb_identity_trial_fuse(&in, 1, 9001, fe, ve).decision.source == HB_ID_SOURCE_VOICE);
+    in.face_frame_ms = 9000;
+    ve.quality = 0;
+    assert(hb_identity_trial_fuse(&in, 1, 9001, fe, ve).decision.source == HB_ID_SOURCE_FACE);
+    assert(hb_identity_trial_fuse(&in, 1, 20000, fe, ve).decision.status == HB_FUSION_UNKNOWN);
     puts("Voice numerical, frame-boundary, activity, enrollment, open-set, confirmation and fusion "
          "safety passed");
     return 0;

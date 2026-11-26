@@ -26,6 +26,7 @@ expected = {
     "HB_WIFI_DIAGNOSTICS": profile in ("wifi", "recognition"),
     "HB_IDENTITY_EXPERIMENTAL": profile == "recognition",
     "HB_IDENTITY_PERSISTENCE": profile == "recognition",
+    "HB_VOICE_MANUAL_TRIAL": profile == "recognition",
     "HB_IDENTITY_LOCAL_UNENCRYPTED": profile == "recognition",
     "SECURE_BOOT": False,
     "SECURE_FLASH_ENC_ENABLED": False,

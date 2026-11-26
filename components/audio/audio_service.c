@@ -22,6 +22,7 @@ static atomic_bool requested, busy;
 static atomic_uint dropped;
 static TaskHandle_t task;
 static unsigned selected_slot;
+static bool continuous;
 static hb_audio_consumer consumer;
 static void *consumer_context;
 static portMUX_TYPE lock = portMUX_INITIALIZER_UNLOCKED;
@@ -147,7 +148,9 @@ static void worker(void *unused)
         s.available = err == ESP_OK;
         s.active = s.available;
         snprintf(s.message, sizeof(s.message),
-                 s.active ? "Mikrofon: lokalny test 60 s; bez zapisu" : "Mikrofon niedostępny: %s",
+                 s.active ? (continuous ? "Mikrofon: lokalny AUTO; bez zapisu"
+                                        : "Mikrofon: lokalny test 60 s; bez zapisu")
+                          : "Mikrofon niedostępny: %s",
                  esp_err_to_name(err));
         if (err != ESP_OK)
             ++s.errors;
@@ -156,7 +159,8 @@ static void worker(void *unused)
         int16_t stereo[640] = {0}, mono[320] = {0};
         unsigned previous_dropped = 0;
         int64_t last_log = 0;
-        while (err == ESP_OK && atomic_load(&requested) && esp_timer_get_time() < end)
+        while (err == ESP_OK && atomic_load(&requested) &&
+               (continuous || esp_timer_get_time() < end))
         {
             size_t bytes = 0;
             err = i2s_channel_read(rx, stereo, sizeof(stereo), &bytes, 100);
@@ -242,7 +246,8 @@ esp_err_t hb_audio_start(void)
 {
     return hb_audio_start_capture(0, NULL, NULL);
 }
-esp_err_t hb_audio_start_capture(unsigned slot, hb_audio_consumer callback, void *context)
+static esp_err_t start_capture(unsigned slot, hb_audio_consumer callback, void *context,
+                               bool ongoing)
 {
     if (slot > 1)
         return ESP_ERR_INVALID_ARG;
@@ -254,6 +259,7 @@ esp_err_t hb_audio_start_capture(unsigned slot, hb_audio_consumer callback, void
     }
     atomic_store(&busy, true);
     selected_slot = slot;
+    continuous = ongoing;
     portENTER_CRITICAL(&consumer_lock);
     consumer = callback;
     consumer_context = context;
@@ -267,6 +273,16 @@ esp_err_t hb_audio_start_capture(unsigned slot, hb_audio_consumer callback, void
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
+}
+esp_err_t hb_audio_start_capture(unsigned slot, hb_audio_consumer callback, void *context)
+{
+    return start_capture(slot, callback, context, false);
+}
+esp_err_t hb_audio_start_continuous(unsigned slot, hb_audio_consumer callback, void *context)
+{
+    if (!callback)
+        return ESP_ERR_INVALID_ARG;
+    return start_capture(slot, callback, context, true);
 }
 void hb_audio_stop(void)
 {

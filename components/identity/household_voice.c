@@ -27,15 +27,14 @@ static hb_voice_enrollment_result session(hb_household_voice_enrollment *en, hb_
         return HB_VEN_TIMEOUT;
     return HB_VEN_OK;
 }
-hb_voice_enrollment_result hb_household_voice_begin(hb_household_voice_enrollment *en,
-                                                    hb_id_database *db, uint64_t id, uint32_t epoch,
-                                                    uint64_t now, const hb_voice_acceptance *a,
-                                                    const hb_voice_policy *p)
+static hb_voice_enrollment_result begin(hb_household_voice_enrollment *en, hb_id_database *db,
+                                        uint64_t id, uint32_t epoch, uint64_t now, bool allowed,
+                                        const hb_voice_policy *p)
 {
     if (!en)
         return HB_VEN_SESSION;
     hb_household_voice_cancel(en);
-    if (!hb_voice_accepted(a, p))
+    if (!allowed || !hb_voice_policy_valid(p))
         return HB_VEN_GATED;
     hb_id_person *person = hb_id_find(db, id);
     if (!person || !person->enabled)
@@ -48,6 +47,26 @@ hb_voice_enrollment_result hb_household_voice_begin(hb_household_voice_enrollmen
     en->policy = *p;
     en->state = HB_VEN_COLLECT;
     return HB_VEN_OK;
+}
+hb_voice_enrollment_result hb_household_voice_begin(hb_household_voice_enrollment *en,
+                                                    hb_id_database *db, uint64_t id, uint32_t epoch,
+                                                    uint64_t now, const hb_voice_acceptance *a,
+                                                    const hb_voice_policy *p)
+{
+    return begin(en, db, id, epoch, now, hb_voice_accepted(a, p), p);
+}
+hb_voice_enrollment_result hb_household_voice_trial_begin(hb_household_voice_enrollment *en,
+                                                          hb_id_database *db, uint64_t id,
+                                                          uint32_t epoch, uint64_t now, bool ready,
+                                                          bool consent, const hb_voice_policy *p)
+{
+    // The core requires its policy enable bit even for numerical experiments.
+    // Copy it locally; the caller's provisional policy and production gate stay uncalibrated.
+    hb_voice_policy local = {0};
+    if (p)
+        local = *p;
+    local.calibrated = true;
+    return begin(en, db, id, epoch, now, ready && consent && p && !p->calibrated, &local);
 }
 hb_voice_enrollment_result hb_household_voice_sample(hb_household_voice_enrollment *en,
                                                      hb_id_database *db,
@@ -87,7 +106,8 @@ hb_voice_enrollment_result hb_household_voice_sample(hb_household_voice_enrollme
         for (unsigned i = 0; i < HB_VOICE_PEOPLE; ++i)
         {
             const hb_voice_person *other = &voice->people[i];
-            if (!other->id || other->id == en->staging.id)
+            const hb_id_person *member = hb_id_find(db, other->id);
+            if (!member || !member->enabled || other->id == en->staging.id)
                 continue;
             for (unsigned j = 0; j < other->count; ++j)
                 if (own_min - hb_voice_similarity(e, &other->samples[j]) < en->policy.margin)
@@ -145,7 +165,7 @@ void hb_household_voice_reconcile(hb_id_database *db, hb_voice_database *voice)
     for (unsigned i = 0; i < HB_VOICE_PEOPLE; ++i)
     {
         hb_id_person *p = hb_id_find(db, voice->people[i].id);
-        if (!p || !p->enabled)
+        if (!p)
             memset(&voice->people[i], 0, sizeof(voice->people[i]));
     }
 }
@@ -180,6 +200,20 @@ const char *hb_household_voice_error(hb_voice_enrollment_result r)
     }
     return "Błąd rejestracji głosu";
 }
+uint32_t hb_household_voice_mask(hb_id_database *db, const hb_voice_database *voice)
+{
+    uint32_t mask = 0;
+    if (!hb_voice_database_valid(voice))
+        return 0;
+    for (unsigned i = 0; i < HB_VOICE_PEOPLE; ++i)
+    {
+        const hb_voice_person *sample = &voice->people[i];
+        const hb_id_person *person = hb_id_find(db, sample->id);
+        if (person && person->enabled && sample->count >= 3)
+            mask |= 1u << i;
+    }
+    return mask;
+}
 hb_voice_match hb_household_voice_identify(hb_id_database *db, const hb_voice_database *voice,
                                            const hb_voice_embedding *embedding,
                                            const hb_voice_acceptance *accepted,
@@ -193,19 +227,38 @@ hb_voice_match hb_household_voice_identify(hb_id_database *db, const hb_voice_da
     if (!confirmed || !tracker || !hb_voice_accepted(accepted, policy) ||
         !hb_voice_database_valid(voice) || !epoch || !end || end > now || now - end > 5000)
         goto unavailable;
-    for (unsigned i = 0; i < HB_VOICE_PEOPLE; ++i)
-    {
-        if (!voice->people[i].id)
-            continue;
-        hb_id_person *person = hb_id_find(db, voice->people[i].id);
-        if (!person || !person->enabled)
-            goto unavailable;
-    }
-    match = hb_voice_identify(voice, embedding, policy);
+    match = hb_voice_identify_masked(voice, embedding, policy, hb_household_voice_mask(db, voice));
     *confirmed = hb_voice_confirm(tracker, match, epoch, end, now, policy);
     return match;
 unavailable:
     if (tracker)
         memset(tracker, 0, sizeof(*tracker));
     return match;
+}
+hb_voice_match hb_household_voice_trial_match(hb_id_database *db, const hb_voice_database *voice,
+                                              const hb_voice_embedding *embedding, bool ready,
+                                              bool consent, const hb_voice_policy *p, uint64_t end,
+                                              uint64_t now)
+{
+    hb_voice_match unavailable = {HB_VOICE_UNAVAILABLE, 0, -1, -1};
+    if (!ready || !consent || !p || p->calibrated || !hb_voice_database_valid(voice) || !end ||
+        end > now || now - end > 5000)
+        return unavailable;
+    hb_voice_policy local = *p;
+    local.calibrated = true;
+    return hb_voice_identify_masked(voice, embedding, &local, hb_household_voice_mask(db, voice));
+}
+bool hb_household_voice_trial_confirm(hb_voice_tracker *tracker, hb_voice_match match,
+                                      const hb_voice_policy *p, uint32_t epoch, uint64_t end,
+                                      uint64_t now)
+{
+    if (!p || p->calibrated)
+    {
+        if (tracker)
+            memset(tracker, 0, sizeof(*tracker));
+        return false;
+    }
+    hb_voice_policy local = *p;
+    local.calibrated = true;
+    return hb_voice_confirm(tracker, match, epoch, end, now, &local);
 }
