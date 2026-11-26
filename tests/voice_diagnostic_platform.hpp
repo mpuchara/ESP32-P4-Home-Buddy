@@ -31,6 +31,7 @@ inline unsigned drained, during_inference, stop_after, driver_starts, inference_
 inline uint64_t previous_end;
 inline bool continuous_capture;
 inline bool saw_stale, saw_skipped, saw_empty, saw_screened, stationary;
+inline bool reject_vad, saw_vad_rejected;
 inline int model_error = 0, allocations = 0, detachments = 0, model_calls = 0;
 inline int64_t time_us = 1;
 inline void reset()
@@ -45,6 +46,7 @@ inline void reset()
     inference_frames = 151;
     previous_end = 0;
     continuous_capture = saw_stale = saw_skipped = saw_empty = saw_screened = stationary = false;
+    reject_vad = saw_vad_rejected = false;
     first = {};
     time_us = 1;
 }
@@ -101,6 +103,7 @@ inline void vTaskDelay(unsigned ms)
             diag_fake::previous_end = diag_fake::first.end_ms;
             diag_fake::saw_stale |= diag_fake::first.stale;
             diag_fake::saw_screened |= diag_fake::first.screening != HB_VOICE_SCREEN_PASS;
+            diag_fake::saw_vad_rejected |= diag_fake::first.screening == HB_VOICE_SCREEN_VAD;
             diag_fake::saw_skipped |= diag_fake::first.skipped_frames > 0;
         }
         if (++diag_fake::drained >= diag_fake::stop_after)
@@ -199,4 +202,12 @@ inline esp_err_t hb_voice_embedding_run_cached(const int16_t *pcm, size_t n, uin
 inline void hb_voice_workspace_release(hb_voice_workspace **workspace)
 {
     *workspace = nullptr;
+}
+
+inline esp_err_t hb_voice_vad_window(const int16_t *, size_t n, hb_voice_cancel_fn, void *,
+                                     float *fraction)
+{
+    assert(n == HB_VOICE_SAMPLES);
+    *fraction = diag_fake::reject_vad ? 0.2f : 0.9f;
+    return ESP_OK;
 }

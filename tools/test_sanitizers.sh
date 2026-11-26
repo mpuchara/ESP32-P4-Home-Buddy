@@ -59,3 +59,11 @@ for local in 0 1; do
   components/identity/profile_flash.c -o "$build_dir/profile_flash_$local"
  "$build_dir/profile_flash_$local"
 done
+
+# Vendor is compiled as C, with the same sanitizers, independently of the mocked worker.
+vad_root=components/voice/vendor/libfvad
+cc -std=c11 -g -fsanitize=address,undefined -fno-omit-frame-pointer \
+ -I"$vad_root/include" -Icomponents/voice/include -Itests/ha_platform \
+ tests/test_voice_vad.c components/voice/voice_vad.c components/voice/voice_core.c \
+ $(find "$vad_root/src" -name '*.c' | sort) -lm -o "$build_dir/voice_vad"
+"$build_dir/voice_vad"

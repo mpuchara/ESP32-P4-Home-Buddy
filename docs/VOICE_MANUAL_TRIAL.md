@@ -141,3 +141,17 @@ retaining the two-second activity and acoustic screening floor. Adapter and
 capture agree on the same policy. Host regressions cover pause tolerance,
 allocation reuse and release, including faults. No trained VAD, TV rejection
 or measured latency improvement is claimed.
+
+## 0.14.9 independent statistical VAD
+
+The pinned BSD-licensed libfvad/WebRTC GMM detector runs in the AUTO worker,
+not the I2S callback, after the existing acoustic window screen. Mode 3,
+16 kHz, 150 full 20 ms frames, provisional minimum 60% positive votes. A
+negative vote rejects the window without stopping ADC or running the speaker
+model. The vote fraction additionally caps fusion quality, not probability.
+Each window starts with fresh detector state. Cancellation and allocation errors
+are handled; no extra model partition or cloud. Manual enrollment and standalone
+diagnostics retain their previous policy. Prior standalone synthetic false
+positives motivate retaining the independent acoustic veto. Real speech,
+playback and multi-speaker validation are still required. Host tests use the
+actual vendored VAD and separate worker mocks for rejection flow.

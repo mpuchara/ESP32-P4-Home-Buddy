@@ -283,11 +283,20 @@ static void auto_worker(void *)
             result.screening = hb_voice_screen_window(b.pcm, HB_VOICE_SAMPLES, &support);
         if (!stale && result.screening == HB_VOICE_SCREEN_PASS)
         {
-            // The identity freshness budget includes queueing, hashing and inference.
+            // The freshness budget includes statistical VAD and model execution.
             inference_deadline = (int64_t)(result.end_ms + 5000) * 1000;
-            err = hb_voice_embedding_run_cached(b.pcm, HB_VOICE_SAMPLES, 16000, cancel, nullptr,
-                                                &result.embedding, &metrics, &workspace);
-            workspace_until = esp_timer_get_time() + 10000000;
+            float speech = 0;
+            err = hb_voice_vad_window(b.pcm, HB_VOICE_SAMPLES, cancel, nullptr, &speech);
+            if (err == ESP_OK && speech < 0.6f)
+                result.screening = HB_VOICE_SCREEN_VAD;
+            if (speech < support)
+                support = speech;
+            if (err == ESP_OK && result.screening == HB_VOICE_SCREEN_PASS)
+            {
+                err = hb_voice_embedding_run_cached(b.pcm, HB_VOICE_SAMPLES, 16000, cancel, nullptr,
+                                                    &result.embedding, &metrics, &workspace);
+                workspace_until = esp_timer_get_time() + 10000000;
+            }
             bool expired = esp_timer_get_time() >= inference_deadline;
             inference_deadline = 0;
             if (expired &&
@@ -296,7 +305,8 @@ static void auto_worker(void *)
                 stale = true;
                 err = ESP_OK;
             }
-            if (err == ESP_OK && !stale && !hb_voice_normalize(&result.embedding))
+            if (err == ESP_OK && !stale && result.screening == HB_VOICE_SCREEN_PASS &&
+                !hb_voice_normalize(&result.embedding))
                 err = ESP_ERR_INVALID_STATE;
             now = esp_timer_get_time() / 1000;
             stale |= now < result.end_ms || now - result.end_ms > 5000;

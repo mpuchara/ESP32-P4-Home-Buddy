@@ -75,8 +75,8 @@ extern "C"
     hb_voice_gate_state hb_voice_gate_feed(hb_voice_gate *gate, const int16_t *pcm, size_t count,
                                            uint32_t rate, uint64_t end_ms);
     // AUTO admits a natural pause up to 750 ms; same 2 s activity and PCM safety floor.
-    hb_voice_gate_state hb_voice_gate_feed_auto(hb_voice_gate *gate, const int16_t *pcm, size_t count,
-                                                uint32_t rate, uint64_t end_ms);
+    hb_voice_gate_state hb_voice_gate_feed_auto(hb_voice_gate *gate, const int16_t *pcm,
+                                                size_t count, uint32_t rate, uint64_t end_ms);
     void hb_voice_gate_reset(hb_voice_gate *gate);
     // Bounded automatic onset filter. Noise estimate is in squared PCM units.
     typedef struct
@@ -90,7 +90,8 @@ extern "C"
         HB_VOICE_SCREEN_INVALID,
         HB_VOICE_SCREEN_LOW_ACTIVITY,
         HB_VOICE_SCREEN_BROADBAND,
-        HB_VOICE_SCREEN_STATIONARY
+        HB_VOICE_SCREEN_STATIONARY,
+        HB_VOICE_SCREEN_VAD
     } hb_voice_screen;
     // Worker-side acoustic screening, not a trained speech or playback classifier.
     hb_voice_screen hb_voice_screen_window(const int16_t *, size_t count, float *support);
