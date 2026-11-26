@@ -956,7 +956,7 @@ static void identity_update(void)
         lv_label_set_text_fmt(identity_info,
                               "Twarz AUTO: %s | %s\nDomownicy: %u | Ostatnio: %s\n"
                               "Głos TEST: %s | %s\nKandydat: %s (%s)\n%s\n"
-                              "Próbki %u | bez okna %u | błędy %u | AI %u ms",
+                              "Próbki %u | filtr %u | stare %u | błędy %u | AI %u ms",
                               s->auto_enabled ? "Włączone" : "Wyłączone", mode, s->profile_count,
                               s->last_recognized_ms ? s->last_recognized : "Brak",
                               s->voice_auto ? "AUTO" : "Wyłączony",
@@ -965,8 +965,9 @@ static void identity_update(void)
                               s->fusion_trial ? fusion_text
                               : s->voice_auto ? ""
                                               : s->message,
-                              (unsigned)s->voice_windows, (unsigned)s->voice_empty,
-                              (unsigned)s->voice_faults, (unsigned)s->voice_processing_ms);
+                              (unsigned)s->voice_windows, (unsigned)s->voice_screened,
+                              (unsigned)s->voice_stale, (unsigned)s->voice_faults,
+                              (unsigned)s->voice_processing_ms);
         return;
     }
     if (!identity_screen)

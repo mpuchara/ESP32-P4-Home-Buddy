@@ -836,7 +836,17 @@ static void worker(void *)
             {
                 voice_pending = voice_result.more;
                 if (voice_auto_until)
+                {
                     state.voice_skipped_frames = voice_result.skipped_frames;
+                    ESP_LOGI("identity",
+                             "VOICE_WINDOW end=%llu err=%d screen=%u stale=%u empty=%u "
+                             "quality=%.3f ai_ms=%u skipped=%u more=%u",
+                             (unsigned long long)voice_result.end_ms, (int)voice_result.error,
+                             (unsigned)voice_result.screening, (unsigned)voice_result.stale,
+                             (unsigned)voice_result.no_window, (double)voice_result.quality,
+                             (unsigned)voice_result.processing_ms,
+                             (unsigned)voice_result.skipped_frames, (unsigned)voice_result.more);
+                }
                 if (voice_auto_until && voice_capture_session != epoch.load())
                 {
                     hb_voice_diagnostic_stop();
@@ -1619,7 +1629,7 @@ static void worker(void *)
         }
         enrollment_active.store(state.mode == HB_ID_ENROLL);
         if (voice_auto_until && !voice_pending && now_ms() >= voice_next_ms &&
-            !stop_requested.load() && !uxQueueMessagesWaiting(jobs))
+            !hb_voice_capture_busy() && !stop_requested.load() && !uxQueueMessagesWaiting(jobs))
         {
             auto err = hb_voice_capture_start_auto((unsigned)voice_slot, voice_epoch);
             voice_pending = err == ESP_OK;

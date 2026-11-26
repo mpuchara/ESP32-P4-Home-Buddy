@@ -26,7 +26,7 @@ extern "C"
     void hb_voice_workspace_release(hb_voice_workspace **workspace);
     // Independent statistical VAD, 150 complete 20 ms frames; not speaker/playback detection.
     esp_err_t hb_voice_vad_window(const int16_t *pcm, size_t count, hb_voice_cancel_fn cancel,
-                                   void *context, float *fraction);
+                                  void *context, float *fraction);
     // Explicit, one-shot diagnostic. No enrollment, identity, HA or continuous listening.
     esp_err_t hb_voice_diagnostic_start(unsigned slot);
     void hb_voice_diagnostic_stop(void);

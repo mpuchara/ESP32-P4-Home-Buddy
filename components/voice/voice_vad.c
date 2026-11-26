@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-#include "hb_voice.h"
 #include "fvad.h"
+#include "hb_voice.h"
 esp_err_t hb_voice_vad_window(const int16_t *pcm, size_t count, hb_voice_cancel_fn cancel,
-                               void *context, float *fraction)
+                              void *context, float *fraction)
 {
     if (fraction)
         *fraction = 0;
