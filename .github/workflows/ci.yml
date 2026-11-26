@@ -61,7 +61,11 @@ jobs:
           python tools/check_effective_config.py build/config/sdkconfig.json "$PROFILE"
           python -m unittest discover -s tests -p 'test_*.py'
           if [ "$PROFILE" = recognition ]; then python tools/identity_flash_budget.py build --enforce; fi
+          # IDF container runs as a different UID from checkout; trust only this workspace.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           python tools/package_firmware.py build "dist/$PROFILE"
+          python -c 'import json, os, sys; assert json.load(open(sys.argv[1]))["source_commit"] == os.environ["GITHUB_SHA"]' "dist/$PROFILE/usb-package.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: firmware-${{ matrix.profile }}
